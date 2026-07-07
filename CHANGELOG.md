@@ -1,6 +1,76 @@
 # CHANGELOG
 
 
+## v1.3.0 (2026-07-07)
+
+### Features
+
+- Implement History v2 design (day grouping, source filter, lightbox)
+  ([#619](https://github.com/jtn0123/InkyPi/pull/619),
+  [`56e12f3`](https://github.com/jtn0123/InkyPi/commit/56e12f3e0e26f2be3a1e320263610e2f9e7ca9fc))
+
+* feat: implement History v2 design (day grouping, source filter, lightbox)
+
+Implements the History v2 handoff from the polish-and-improve design bundle:
+
+- Group renders into per-day sections (Today / Yesterday / date) with a mono uppercase day label and
+  per-day render count - Add an All / Playlist / Manual source filter toolbar with a live "shown of
+  total" count, a no-match empty state, and filter state that survives HTMX pagination swaps -
+  Replace the generic image lightbox with a render-preview sheet showing filename, timestamp/size,
+  source, and Display / Download / Delete actions wired to the existing endpoints - Give the Refresh
+  header button a leading arrows-clockwise icon that spins while the page reloads - Render
+  thumbnails at the panel's exact aspect ratio (5:3 default, driven by the device resolution via
+  --history-thumb-ratio) on the design's paper tint so renders are never cropped - Lay the latency
+  metric strip out as a fixed 4-up band (2-up on narrow viewports)
+
+Backend adds date_key/day_label/category to history entries and a consecutive day-grouping helper;
+  templates/JS/CSS follow the handoff markup. New coverage in tests/integration/test_history_v2.py;
+  the UI handler audit now recognises data-history-filter as a delegated marker.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01Mma8m5wiFvcP941DZHM7C6
+
+* test: annotate History v2 tests to keep mypy tests ratchet at baseline
+
+The new test file added 33 no-untyped-def/no-untyped-call errors, pushing the mypy tests/ ratchet to
+  7483 against the 7450 baseline. Fully annotate helpers and test functions (Any-typed fixtures per
+  existing convention).
+
+* style: extract e-ink paper tint into --eink-paper-bg token
+
+Addresses CodeRabbit review: the thumb and lightbox backgrounds shared a hardcoded #dedbd2; promote
+  it to a theme-independent token so the two usages can't drift.
+
+* refactor: extract history page context helpers
+
+Addresses Sonar S3776 on this PR: history_page() exceeded the cognitive complexity budget after the
+  History v2 additions. Pull the latest-metrics, storage-usage, and panel thumb-ratio computations
+  into module helpers so the route reads as pagination + context assembly.
+
+* fix: bump CVE-flagged dependency pins (pip-audit clean)
+
+The required Security and SBOM job fails on main and on this PR because pip-audit flags newly
+  published advisories against pinned versions. Upgrade via `uv lock --upgrade-package` + `uv
+  export` (runtime) and pip-compile --upgrade-package (dev):
+
+- cryptography 46.0.7 -> 49.0.0 (GHSA-537c-gmf6-5ccf, fixed >= 48.0.1) - idna 3.11 -> 3.18
+  (PYSEC-2026-215, fixed >= 3.15) - urllib3 2.6.3 -> 2.7.0 (PYSEC-2026-141/142) - gitpython 3.1.47
+  -> 3.1.50 (GHSA-mv93-w799-cj2w, dev-only) - pip 26.1 -> 26.1.2 (PYSEC-2026-196, dev-only) -
+  msgpack 1.1.2 -> 1.2.1 (GHSA-6v7p-g79w-8964, dev-only)
+
+The dev-only advisories never surfaced in CI before because the runtime audit failed first and
+  aborted the step. Regenerating requirements-dev.txt also restores the missing watchdog==6.0.0
+  entry (declared in requirements-dev.in but absent from the stale committed lockfile).
+
+Both pip-audit runs now report no known vulnerabilities and scripts/check_requirements_drift.sh
+  passes.
+
+---------
+
+Co-authored-by: Claude <noreply@anthropic.com>
+
+
 ## v1.2.1 (2026-04-29)
 
 ### Bug Fixes

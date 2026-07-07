@@ -1,6 +1,6 @@
 [project]
 name = "inkypi"
-version = "1.2.1"
+version = "1.3.0"
 description = "InkyPi — e-ink dashboard for Raspberry Pi"
 requires-python = ">=3.11,<3.14"
 # Runtime dependencies mirror install/requirements.in during the uv-lock migration
@@ -41,10 +41,6 @@ required-environments = [
   "sys_platform == 'darwin' and platform_machine == 'arm64'",
   "sys_platform == 'darwin' and platform_machine == 'x86_64'",
 ]
-
-[build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 # We only use pyproject.toml for dependency metadata; no packages are published.
@@ -108,6 +104,7 @@ known-first-party = ["src"]
 # tests because those drift with host locale and can hide real bugs.
 "tests/**" = ["DTZ001", "DTZ002", "DTZ003", "DTZ007"]
 
+
 [tool.mutmut]
 paths_to_mutate = "src/app_setup/,src/blueprints/,src/utils/,src/refresh_task/"
 tests_dir = "tests/"
@@ -123,7 +120,7 @@ version_toml = [
   "pyproject.toml:project.version",
   "pyproject.toml:tool.semantic_release.version",
 ]
-version = "1.2.1"
+version = "1.3.0"
 branch = "main"
 tag_format = "v{version}"
 upload_to_pypi = false
@@ -138,3 +135,9 @@ assets = ["VERSION", "uv.lock"]
 # Without `uv lock`, the lockfile drifts from pyproject.toml and the "Lockfile
 # drift" CI check fails on every new PR (see JTN-655).
 build_command = "printf '%s\\n' \"$NEW_VERSION\" > VERSION && uv lock"
+
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
