@@ -93,6 +93,31 @@ def _format_size(num_bytes: int) -> str:
         return "-"
 
 
+def _now_in_device_tz() -> datetime:
+    """Return "now" in the device timezone, falling back to UTC.
+
+    Safe to call without an app context (falls back to UTC), which keeps
+    ``_list_history_images`` usable from unit tests that call it directly.
+    """
+    try:
+        device_config = current_app.config.get(_CONFIG_KEY)
+        if device_config:
+            return now_device_tz(device_config)
+        return datetime.now(tz=get_timezone("UTC"))
+    except Exception:
+        return datetime.now(tz=UTC)
+
+
+def _day_label(dt: datetime, now: datetime) -> str:
+    """Human day-group label: Today, Yesterday, or a formatted date."""
+    delta_days = (now.date() - dt.date()).days
+    if delta_days == 0:
+        return "Today"
+    if delta_days == 1:
+        return "Yesterday"
+    return dt.strftime("%b %d, %Y").replace(" 0", " ")
+
+
 def _list_history_images(
     history_dir: str, offset: int = 0, limit: int | None = None
 ) -> tuple[list[dict[str, Any]], int]:
@@ -130,6 +155,7 @@ def _list_history_images(
     page_files = files[offset : offset + limit] if limit is not None else files
 
     # Phase 2: expensive stat + sidecar load only for the page slice
+    now = _now_in_device_tz()
     result: list[dict[str, Any]] = []
     for f in page_files:
         full_path = os.path.join(history_dir, f)
@@ -152,12 +178,6 @@ def _list_history_images(
             meta = {}
         try:
             # Use device timezone for display
-            device_config = current_app.config.get(_CONFIG_KEY)
-            now = (
-                now_device_tz(device_config)
-                if device_config
-                else datetime.now(tz=get_timezone("UTC"))
-            )
             dt = datetime.fromtimestamp(mtime, tz=now.tzinfo)
         except Exception:
             dt = datetime.fromtimestamp(mtime, tz=UTC)
@@ -171,9 +191,35 @@ def _list_history_images(
                 "size": size,
                 "size_str": _format_size(size),
                 "meta": meta,
+                # Day-grouping + source-filter fields (History v2)
+                "date_key": dt.strftime("%Y-%m-%d"),
+                "day_label": _day_label(dt, now),
+                "category": (
+                    "playlist" if meta.get("refresh_type") == "Playlist" else "manual"
+                ),
             }
         )
     return result, total
+
+
+def _group_images_by_day(images: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group a newest-first image list into consecutive same-day buckets.
+
+    Images arrive sorted by mtime descending, so consecutive grouping keeps
+    that order while producing one section per calendar day.
+    """
+    groups: list[dict[str, Any]] = []
+    for img in images:
+        if not groups or groups[-1]["date_key"] != img["date_key"]:
+            groups.append(
+                {
+                    "date_key": img["date_key"],
+                    "label": img["day_label"],
+                    "entries": [],
+                }
+            )
+        groups[-1]["entries"].append(img)
+    return groups
 
 
 def _resolve_history_entry_path(history_dir: str, expected_name: str) -> str | None:
@@ -303,6 +349,75 @@ def _parse_filename_from_request() -> tuple[str | None, str | None]:
 _DEFAULT_PER_PAGE = 24
 
 
+def _latest_metrics(device_config: Any) -> dict[str, Any]:
+    """Per-stage latencies from the most recent refresh (None when absent)."""
+    try:
+        ri = device_config.get_refresh_info()
+        return {
+            "request_ms": getattr(ri, "request_ms", None),
+            "generate_ms": getattr(ri, "generate_ms", None),
+            "preprocess_ms": getattr(ri, "preprocess_ms", None),
+            "display_ms": getattr(ri, "display_ms", None),
+        }
+    except Exception:
+        return {
+            "request_ms": None,
+            "generate_ms": None,
+            "preprocess_ms": None,
+            "display_ms": None,
+        }
+
+
+def _storage_context(history_dir: str) -> dict[str, Any]:
+    """Storage usage for the filesystem containing *history_dir*."""
+    free_bytes = None
+    total_bytes = None
+    used_bytes = None
+    pct_free = None
+    try:
+        usage = shutil.disk_usage(history_dir)
+        total_bytes = int(usage.total)
+        free_bytes = int(usage.free)
+        used_bytes = int(usage.used)
+        pct_free = (
+            (free_bytes / total_bytes * 100.0)
+            if (total_bytes and total_bytes > 0)
+            else None
+        )
+    except Exception:
+        logger.exception("Failed to stat filesystem for history directory")
+
+    gb = 1024**3
+    return {
+        "free_bytes": free_bytes,
+        "total_bytes": total_bytes,
+        "used_bytes": used_bytes,
+        "pct_free": pct_free,
+        "free_gb": round(free_bytes / gb, 2) if free_bytes is not None else None,
+        "total_gb": round(total_bytes / gb, 2) if total_bytes is not None else None,
+        "used_gb": round(used_bytes / gb, 2) if used_bytes is not None else None,
+    }
+
+
+def _panel_thumb_ratio(device_config: Any) -> str | None:
+    """CSS aspect-ratio for exact-ratio thumbnails (History v2).
+
+    The design's 5:3 fallback matches 800x480 panels; other resolutions get
+    their own ratio via the --history-thumb-ratio custom property.
+    """
+    try:
+        resolution = device_config.get_config("resolution")
+        if (
+            isinstance(resolution, (list, tuple))
+            and len(resolution) == 2
+            and all(isinstance(v, int) and v > 0 for v in resolution)
+        ):
+            return f"{resolution[0]} / {resolution[1]}"
+    except Exception:
+        return None
+    return None
+
+
 @history_bp.route("/history", methods=["GET"])  # type: ignore
 def history_page() -> Response | str:
     device_config = current_app.config[_CONFIG_KEY]
@@ -335,55 +450,12 @@ def history_page() -> Response | str:
                 history_dir, offset=start, limit=per_page
             )
 
-    # Pull latest timing metrics if available
-    try:
-        ri = device_config.get_refresh_info()
-        metrics = {
-            "request_ms": getattr(ri, "request_ms", None),
-            "generate_ms": getattr(ri, "generate_ms", None),
-            "preprocess_ms": getattr(ri, "preprocess_ms", None),
-            "display_ms": getattr(ri, "display_ms", None),
-        }
-    except Exception:
-        metrics = {
-            "request_ms": None,
-            "generate_ms": None,
-            "preprocess_ms": None,
-            "display_ms": None,
-        }
-    # Compute storage usage for the history directory's filesystem
-    free_bytes = None
-    total_bytes = None
-    used_bytes = None
-    pct_free = None
-    try:
-        usage = shutil.disk_usage(history_dir)
-        total_bytes = int(usage.total)
-        free_bytes = int(usage.free)
-        used_bytes = int(usage.used)
-        pct_free = (
-            (free_bytes / total_bytes * 100.0)
-            if (total_bytes and total_bytes > 0)
-            else None
-        )
-    except Exception:
-        logger.exception("Failed to stat filesystem for history directory")
-
-    gb = 1024**3
-    storage_ctx = {
-        "free_bytes": free_bytes,
-        "total_bytes": total_bytes,
-        "used_bytes": used_bytes,
-        "pct_free": pct_free,
-        "free_gb": round(free_bytes / gb, 2) if free_bytes is not None else None,
-        "total_gb": round(total_bytes / gb, 2) if total_bytes is not None else None,
-        "used_gb": round(used_bytes / gb, 2) if used_bytes is not None else None,
-    }
-
     template_ctx = {
         "images": images,
-        "storage": storage_ctx,
-        "metrics": metrics,
+        "groups": _group_images_by_day(images),
+        "thumb_ratio": _panel_thumb_ratio(device_config),
+        "storage": _storage_context(history_dir),
+        "metrics": _latest_metrics(device_config),
         "page": page,
         "total_pages": total_pages,
         "total": total,
