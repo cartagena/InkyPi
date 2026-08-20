@@ -1,6 +1,64 @@
 # CHANGELOG
 
 
+## v1.0.1 (2026-08-20)
+
+### Bug Fixes
+
+- Checksum-verify pishrink.sh before running it
+  ([`c107fb5`](https://github.com/cartagena/InkyPi/commit/c107fb5a1e6ef62b9504a2f02d7778724f4701d5))
+
+Pinning to a tag leaves a gap a commit SHA did not: upstream can move v26.03.16 to different
+  content. pishrink.sh is fetched at build time and then run as root over the image, so verify it
+  against a pinned sha256 before it is made executable — mirroring the PI_OS_IMAGE_SHA256 check
+  already applied to the base image in this workflow.
+
+Verified end to end against the real URL: the matching case passes and chmods, and a tampered file
+  makes sha256sum -c fail so the step aborts under set -e before chmod +x is reached.
+
+The new test asserts the digest is pinned, that the check runs, and that it runs before chmod +x —
+  ordering is the part worth guarding, since a verification placed after chmod would look correct
+  while leaving a tampered script executable.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+- Pin pishrink.sh by release tag instead of commit SHA
+  ([`35a5590`](https://github.com/cartagena/InkyPi/commit/35a5590f0a1de849f31fdcf331daff1b0f52cbc1))
+
+Follow-up on the same branch: express the pin as the upstream release tag rather than the commit
+  behind it, and fetch via refs/tags/ so the ref can only ever resolve to a tag and never to a
+  same-named branch.
+
+Both URL forms serve identical bytes (sha256 71026f0c02ac099e…), so this is a readability and
+  maintenance change, not a functional one — bumping pishrink is now a version bump rather than a
+  SHA lookup.
+
+Renames PISHRINK_COMMIT to PISHRINK_TAG so the variable name matches what it holds, and retargets
+  the guard test accordingly: it now asserts the pin is a vX.Y.Z tag and that refs/tags/ is spelled
+  out, preserving the original intent that the ref cannot be a floating branch.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+- Repin pishrink.sh to a commit that exists upstream
+  ([`8bd1a4a`](https://github.com/cartagena/InkyPi/commit/8bd1a4aed11a0a7d74b9cd17ca887c78747f0229))
+
+The pinned SHA a46e1fc9 does not exist in Drewsif/PiShrink. The GitHub API returns 422 "No commit
+  found for SHA" for it, and the raw.github URL built from it 404s, failing the Fetch pishrink.sh
+  step with curl exit 22. This is not environment-specific — the commit is simply not reachable in
+  that repository.
+
+Repin to a5f9463c, the commit behind upstream tag v26.03.16. The old comment claimed upstream had no
+  tagged releases; that is no longer true (v0.1.4, v24.10.10, v24.10.23, v26.03.16), so the pin now
+  derives from a tag and records which one, while still pinning by immutable commit SHA.
+
+Verified a5f9463c serves over raw.githubusercontent, still accepts the -s flag this workflow passes,
+  and needs no apt packages beyond what the host-dependency step already installs (its
+  REQUIRED_TOOLS are parted, losetup, tune2fs, md5sum, e2fsck, resize2fs; no compression flag is
+  used so pigz/xz are not pulled in).
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+
 ## v1.0.0 (2026-08-20)
 
 ### Bug Fixes
