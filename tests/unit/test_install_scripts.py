@@ -1530,6 +1530,23 @@ class TestPiImageBuildWorkflow:
         # refs/tags/ must be spelled out so the ref cannot resolve to a branch.
         assert "refs/tags/${PISHRINK_TAG}" in self.content
 
+    def test_workflow_pishrink_download_is_checksum_verified(self):
+        # A tag can be moved upstream, so the tag pin alone is not enough:
+        # the downloaded script runs as root over the image and must be
+        # checksum-verified before it is made executable.
+        sha_match = re.search(r"PISHRINK_SHA256:\s*([0-9a-f]{64})", self.content)
+        assert (
+            sha_match is not None
+        ), "PISHRINK_SHA256 must be a 64-char lowercase hex sha256"
+        assert "sha256sum -c build/pishrink.sha256" in self.content
+        # Verification must precede chmod +x, or a tampered script could be
+        # made executable before anything checks it.
+        verify_pos = self.content.index("sha256sum -c build/pishrink.sha256")
+        chmod_pos = self.content.index("chmod +x build/pishrink.sh")
+        assert (
+            verify_pos < chmod_pos
+        ), "pishrink.sh checksum must be verified before chmod +x"
+
     def test_workflow_runs_pishrink(self):
         assert "pishrink.sh" in self.content
 

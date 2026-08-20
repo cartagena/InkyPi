@@ -55,8 +55,9 @@ concurrency:
   cancel-in-progress: false
 
 # =============================================================================
-# PIN POINT — bump these when rolling to a newer Pi OS base image.
-# The URL + SHA256 must stay in sync. Fetch a new sha256 from:
+# PIN POINT — bump these when rolling to a newer Pi OS base image, or to a
+# newer pishrink release. Every pin here is paired with a SHA256 that must be
+# updated in the same commit. Fetch a new Pi OS sha256 from:
 #   https://downloads.raspberrypi.org/raspios_lite_arm64/images/<dated-dir>/
 # and paste both fields below in the same commit.
 # =============================================================================
@@ -66,9 +67,13 @@ env:
   PI_OS_IMAGE_FILENAME: 2025-05-13-raspios-bookworm-arm64-lite.img.xz
   # pishrink.sh pinned to an upstream release tag. Must stay a tag — never a
   # branch like master — so the fetched script is a reviewed release rather
-  # than whatever upstream HEAD happens to be.
+  # than whatever upstream HEAD happens to be. A tag is still mutable upstream,
+  # so the download is checksum-verified before it runs; bump TAG and SHA256
+  # together in the same commit. Regenerate with:
+  #   curl -fsSL https://raw.githubusercontent.com/Drewsif/PiShrink/refs/tags/<tag>/pishrink.sh | sha256sum
   # https://github.com/Drewsif/PiShrink/releases
   PISHRINK_TAG: v26.03.16
+  PISHRINK_SHA256: 71026f0c02ac099e588a3eb8f70760c1b680aa8ea3acde61a0141fbaeb68c777
 
 jobs:
   build-image:
@@ -299,6 +304,10 @@ jobs:
           curl -fsSL \
             -o build/pishrink.sh \
             "https://raw.githubusercontent.com/Drewsif/PiShrink/refs/tags/${PISHRINK_TAG}/pishrink.sh"
+          # Verify before chmod +x — this script later runs as root over the
+          # image, so a mismatch must stop the build, not just warn.
+          echo "${PISHRINK_SHA256}  build/pishrink.sh" > build/pishrink.sha256
+          sha256sum -c build/pishrink.sha256
           chmod +x build/pishrink.sh
           # Print first 5 lines as a smoke test
           head -5 build/pishrink.sh
