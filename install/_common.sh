@@ -350,7 +350,7 @@ install_failure_service_unit() {
 # ---------------------------------------------------------------------------
 
 WHEELHOUSE_DIR=""
-WHEELHOUSE_REPO="${INKYPI_WHEELHOUSE_REPO:-jtn0123/InkyPi}"
+WHEELHOUSE_REPO="${INKYPI_WHEELHOUSE_REPO:-cartagena/InkyPi}"
 
 fetch_wheelhouse() {
   WHEELHOUSE_DIR=""

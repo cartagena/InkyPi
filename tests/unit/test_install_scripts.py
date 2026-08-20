@@ -1087,12 +1087,12 @@ class TestCommonWheelhouseFunctions:
         assert "armv7l" in body
         assert "aarch64" in body
 
-    def test_downloads_from_jtn0123_fork(self):
+    def test_downloads_from_release_fork(self):
         # The wheelhouse download URL must target the fork, not upstream,
         # since that's where our release workflow publishes artifacts.
         body = self._fetch_fn_body()
         # Default repo value lives just above the function definition.
-        assert "jtn0123/InkyPi" in self.content
+        assert "cartagena/InkyPi" in self.content
         # URL is assembled from the repo variable so it tracks overrides.
         assert "WHEELHOUSE_REPO" in body
         assert "releases/download" in body
@@ -3285,7 +3285,7 @@ class TestInstallPreflight:
         """Regression gate for CodeRabbit review on PR #546.
 
         Canonical production flow:
-            git clone https://github.com/fatihak/InkyPi.git ~/inkypi
+            git clone https://github.com/cartagena/InkyPi.git ~/inkypi
             sudo bash ~/inkypi/install/install.sh
 
         After CVE-2022-24765 (fixed in git 2.35.2+), git refuses to operate on

@@ -10,7 +10,7 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    if: github.repository == 'jtn0123/InkyPi'
+    if: github.repository == 'cartagena/InkyPi'
     outputs:
       released: ${{ steps.resolve_tag.outputs.released }}
       tag: ${{ steps.resolve_tag.outputs.tag }}

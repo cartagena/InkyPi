@@ -228,7 +228,7 @@ jobs:
               apt-get update
               apt-get install -y --no-install-recommends git ca-certificates
               rm -rf /opt/inkypi-src
-              git clone --branch '${TAG}' --depth 1 https://github.com/jtn0123/InkyPi.git /opt/inkypi-src
+              git clone --branch '${TAG}' --depth 1 https://github.com/cartagena/InkyPi.git /opt/inkypi-src
               cd /opt/inkypi-src/install
               bash ./install.sh
             "
