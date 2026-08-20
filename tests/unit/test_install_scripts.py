@@ -1515,13 +1515,37 @@ class TestPiImageBuildWorkflow:
             )
         )
 
-    def test_workflow_pishrink_pinned_by_commit(self):
-        # pishrink.sh has no tagged releases — must be pinned by full SHA.
-        assert "PISHRINK_COMMIT:" in self.content
-        sha_match = re.search(r"PISHRINK_COMMIT:\s*([0-9a-f]{40})", self.content)
+    def test_workflow_pishrink_pinned_by_tag(self):
+        # pishrink.sh is fetched from upstream and run as root, so the ref must
+        # be an immutable-by-convention release tag, never a branch whose head
+        # upstream can move under us.
+        assert "PISHRINK_TAG:" in self.content
+        tag_match = re.search(r"PISHRINK_TAG:\s*(\S+)", self.content)
+        assert (
+            tag_match is not None
+        ), "PISHRINK_TAG must be set to an upstream release tag"
+        assert re.fullmatch(
+            r"v\d+\.\d+\.\d+", tag_match.group(1)
+        ), f"PISHRINK_TAG must be a version tag, got {tag_match.group(1)!r}"
+        # refs/tags/ must be spelled out so the ref cannot resolve to a branch.
+        assert "refs/tags/${PISHRINK_TAG}" in self.content
+
+    def test_workflow_pishrink_download_is_checksum_verified(self):
+        # A tag can be moved upstream, so the tag pin alone is not enough:
+        # the downloaded script runs as root over the image and must be
+        # checksum-verified before it is made executable.
+        sha_match = re.search(r"PISHRINK_SHA256:\s*([0-9a-f]{64})", self.content)
         assert (
             sha_match is not None
-        ), "PISHRINK_COMMIT must be a 40-char lowercase hex commit SHA"
+        ), "PISHRINK_SHA256 must be a 64-char lowercase hex sha256"
+        assert "sha256sum -c build/pishrink.sha256" in self.content
+        # Verification must precede chmod +x, or a tampered script could be
+        # made executable before anything checks it.
+        verify_pos = self.content.index("sha256sum -c build/pishrink.sha256")
+        chmod_pos = self.content.index("chmod +x build/pishrink.sh")
+        assert (
+            verify_pos < chmod_pos
+        ), "pishrink.sh checksum must be verified before chmod +x"
 
     def test_workflow_runs_pishrink(self):
         assert "pishrink.sh" in self.content
