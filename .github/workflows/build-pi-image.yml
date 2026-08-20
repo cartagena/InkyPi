@@ -64,9 +64,12 @@ env:
   PI_OS_IMAGE_URL: https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2025-05-13/2025-05-13-raspios-bookworm-arm64-lite.img.xz
   PI_OS_IMAGE_SHA256: 62d025b9bc7ca0e1facfec74ae56ac13978b6745c58177f081d39fbb8041ed45
   PI_OS_IMAGE_FILENAME: 2025-05-13-raspios-bookworm-arm64-lite.img.xz
-  # pishrink.sh pinned by commit SHA — upstream has no tagged releases.
-  # https://github.com/Drewsif/PiShrink
-  PISHRINK_COMMIT: a46e1fc90ca697f3e9f2e1c2dd6e98d47d2e33e8
+  # pishrink.sh pinned to the commit behind upstream tag v26.03.16. Pin by
+  # commit SHA rather than tag name: tags are mutable, commits are not, and
+  # raw.githubusercontent serves per-commit content. When bumping, take the
+  # SHA from a tag so the pin stays traceable to a release.
+  # https://github.com/Drewsif/PiShrink/releases/tag/v26.03.16
+  PISHRINK_COMMIT: a5f9463c01607ab07402c7e75c9cfd4bb3a0e886
 
 jobs:
   build-image:
