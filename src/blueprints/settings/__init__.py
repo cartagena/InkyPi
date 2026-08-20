@@ -812,7 +812,7 @@ def _start_update_fallback_thread(
 
 
 # --- Version check via GitHub Releases API ---
-_GITHUB_REPO = os.getenv("INKYPI_GITHUB_REPO", "jtn0123/InkyPi")
+_GITHUB_REPO = os.getenv("INKYPI_GITHUB_REPO", "cartagena/InkyPi")
 
 
 class _VersionCache(TypedDict):
