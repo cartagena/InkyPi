@@ -160,6 +160,10 @@
         item.setAttribute("aria-pressed", selected ? "true" : "false");
       });
       hidden.value = option.dataset.faceName || "";
+      // Match setColor's pattern: dispatch so anything listening for
+      // input/change on this field (e.g. a settings-save handler) observes
+      // the new selection, not just the two color fields it also updates.
+      hidden.dispatchEvent(new Event("change", { bubbles: true }));
       setColor(primary, option.dataset.primaryColor);
       setColor(secondary, option.dataset.secondaryColor);
     };
@@ -399,11 +403,18 @@
     const addButton = widget.querySelector("[data-repeater-add]");
     if (!list || !addButton) return;
     bindRemoveButtons(list);
-    if (!list.children.length) {
-      const urls = config["calendarURLs[]"] || [""];
+    const configUrls = config["calendarURLs[]"];
+    // The template always server-renders at least one (possibly blank) row,
+    // so `!list.children.length` never fires for a caller (e.g. Layout)
+    // re-invoking this on a fragment seeded from a saved instance's config.
+    // `list.children.length <= 1` also covers that single-default-row case;
+    // when the page's own server-rendered rows already match config (the
+    // normal, non-Layout path), reseeding here is a no-op in effect.
+    if (Array.isArray(configUrls) && configUrls.length && list.children.length <= 1) {
       const colors = config["calendarColors[]"] || ["#007BFF"];
-      urls.forEach((url, index) => list.appendChild(createCalendarEntry(url, colors[index] || "#007BFF")));
-      if (!urls.length) list.appendChild(createCalendarEntry("", "#007BFF"));
+      list.innerHTML = "";
+      configUrls.forEach((url, index) => list.appendChild(createCalendarEntry(url, colors[index] || "#007BFF")));
+      bindRemoveButtons(list);
     }
     updateRepeaterEmptyState(list);
     syncRemoveButtonStates(list);
@@ -483,12 +494,19 @@
     const maxItems = Number(list?.dataset.maxItems || widget.dataset.maxItems || "3");
     if (!list || !addButton) return;
     bindRemoveButtons(list);
-    if (!list.children.length) {
-      const titles = config["list-title[]"] || [];
-      const items = config["list[]"] || [];
-      const seedCount = Math.min(Math.max(titles.length, items.length, 1), maxItems);
-      for (let index = 0; index < seedCount; index += 1) {
-        list.appendChild(createTodoEntry(titles[index] || "", items[index] || ""));
+    const configTitles = config["list-title[]"];
+    const configItems = config["list[]"];
+    // Same server-always-renders-one-row situation as initCalendarRepeater.
+    if ((Array.isArray(configTitles) && configTitles.length) || (Array.isArray(configItems) && configItems.length)) {
+      if (list.children.length <= 1) {
+        const titles = configTitles || [];
+        const items = configItems || [];
+        const seedCount = Math.min(Math.max(titles.length, items.length, 1), maxItems);
+        list.innerHTML = "";
+        for (let index = 0; index < seedCount; index += 1) {
+          list.appendChild(createTodoEntry(titles[index] || "", items[index] || ""));
+        }
+        bindRemoveButtons(list);
       }
     }
     syncRemoveButtonStates(list);
@@ -574,10 +592,21 @@
     latInput.value = config.latitude || latInput.value || "40.7128";
     lonInput.value = config.longitude || lonInput.value || "-74.0060";
 
-    const mapState = { map: null, marker: null };
+    const mapState = { map: null, marker: null, leafletWaitAttempts: 0 };
 
     const initLeafletMap = () => {
-      if (!globalThis.L || mapState.map) return;
+      if (mapState.map) return;
+      if (!globalThis.L) {
+        // Leaflet is normally already loaded by the time this page's own
+        // script tag has parsed, but a consumer that loads/embeds this
+        // widget's markup dynamically (fetching it separately from a
+        // freshly created <script>, since a cloned/parsed <script> tag
+        // never executes on its own) may still have it in flight when the
+        // modal opens. Retry briefly rather than silently no-op — bounded
+        // so a genuine load failure doesn't poll forever.
+        if (mapState.leafletWaitAttempts++ < 20) setTimeout(initLeafletMap, 150);
+        return;
+      }
       const lat = Number.parseFloat(latInput.value) || 40.7128;
       const lon = Number.parseFloat(lonInput.value) || -74.006;
       mapState.map = globalThis.L.map(mapRoot).setView([lat, lon], 4.5);
@@ -602,6 +631,12 @@
         const position = mapState.marker.getLatLng().wrap();
         latInput.value = position.lat;
         lonInput.value = position.lng;
+        // These are the two fields this whole widget exists to set — dispatch
+        // so anything listening for input/change (e.g. a settings-save
+        // handler) actually observes the picked location, matching the
+        // pattern the color-picker widget already uses for its own fields.
+        latInput.dispatchEvent(new Event("change", { bubbles: true }));
+        lonInput.dispatchEvent(new Event("change", { bubbles: true }));
       }
       modal.hidden = true;
       modal.style.display = "none";
@@ -624,9 +659,16 @@
     "weather-map": initWeatherMap,
   };
 
-  function initializeWidgets(root, config) {
+  // `allowedTypes`, when given, restricts initialization to just those
+  // widget types (e.g. a caller embedding a schema fragment scoped to a
+  // single root element, where only some widget types are known-safe to
+  // re-invoke outside the one-copy-per-page assumption most of these were
+  // written under). Omitted (undefined) means "all" — the normal page-load
+  // path below always passes undefined, so its behavior is unchanged.
+  function initializeWidgets(root, config, allowedTypes) {
     root.querySelectorAll("[data-hybrid-widget]").forEach((widget) => {
       const widgetType = widget.dataset.hybridWidget;
+      if (allowedTypes && !allowedTypes.includes(widgetType)) return;
       const widgetConfig = parseJson(widget.dataset.widgetConfig || "{}", {});
       const initializer = widgetInitializers[widgetType];
       if (initializer) initializer(widget, { ...config, ...widgetConfig });
@@ -644,6 +686,16 @@
     bindStandardEvents(root);
   }
 
-  globalThis.InkyPiPluginSchema = { init };
+  // Public, externally-callable entry point for initializing widgets inside
+  // an arbitrary root/config/allowlist — e.g. a fragment scraped and cloned
+  // by another page embedding one plugin's schema inside another's, where
+  // `init()`'s own hardcoded document-wide `[data-settings-schema]` lookup
+  // isn't usable. Thin wrapper so the internal `initializeWidgets` signature
+  // stays free to evolve without also being a public API surface.
+  function initWidgetsIn(root, config, allowedTypes) {
+    initializeWidgets(root, config || {}, allowedTypes);
+  }
+
+  globalThis.InkyPiPluginSchema = { init, initWidgetsIn };
   document.addEventListener("DOMContentLoaded", init);
 })();
