@@ -217,7 +217,9 @@ jobs:
           set -euo pipefail
           # Non-interactive + stubs on PATH. We clone into /opt/inkypi-src so
           # the repo path mirrors a user-cloned layout for install.sh's
-          # relative path assumptions.
+          # relative path assumptions. install.sh is tracked mode 644, so it
+          # is invoked via bash — the same way the docs and install-matrix.yml
+          # invoke it — rather than exec'd directly.
           sudo chroot /mnt/pi-root /usr/bin/env \
             PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
             DEBIAN_FRONTEND=noninteractive \
@@ -228,7 +230,7 @@ jobs:
               rm -rf /opt/inkypi-src
               git clone --branch '${TAG}' --depth 1 https://github.com/jtn0123/InkyPi.git /opt/inkypi-src
               cd /opt/inkypi-src/install
-              ./install.sh
+              bash ./install.sh
             "
 
       - name: Seed first-boot cloud-init overlay
