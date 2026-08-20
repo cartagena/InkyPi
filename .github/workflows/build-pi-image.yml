@@ -64,12 +64,11 @@ env:
   PI_OS_IMAGE_URL: https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2025-05-13/2025-05-13-raspios-bookworm-arm64-lite.img.xz
   PI_OS_IMAGE_SHA256: 62d025b9bc7ca0e1facfec74ae56ac13978b6745c58177f081d39fbb8041ed45
   PI_OS_IMAGE_FILENAME: 2025-05-13-raspios-bookworm-arm64-lite.img.xz
-  # pishrink.sh pinned to the commit behind upstream tag v26.03.16. Pin by
-  # commit SHA rather than tag name: tags are mutable, commits are not, and
-  # raw.githubusercontent serves per-commit content. When bumping, take the
-  # SHA from a tag so the pin stays traceable to a release.
-  # https://github.com/Drewsif/PiShrink/releases/tag/v26.03.16
-  PISHRINK_COMMIT: a5f9463c01607ab07402c7e75c9cfd4bb3a0e886
+  # pishrink.sh pinned to an upstream release tag. Must stay a tag — never a
+  # branch like master — so the fetched script is a reviewed release rather
+  # than whatever upstream HEAD happens to be.
+  # https://github.com/Drewsif/PiShrink/releases
+  PISHRINK_TAG: v26.03.16
 
 jobs:
   build-image:
@@ -289,15 +288,17 @@ jobs:
             sudo losetup -d "${LOOP}" || true
           fi
 
-      - name: Fetch pishrink.sh at pinned commit
+      - name: Fetch pishrink.sh at pinned tag
         # Vendored at build time, not committed to repo (avoids drift and
-        # avoids maintaining a MIT'd third-party script in-tree). Pinned by
-        # full commit SHA so a compromised upstream cannot swap it out.
+        # avoids maintaining a MIT'd third-party script in-tree). Pinned to a
+        # release tag rather than a branch so upstream HEAD cannot change what
+        # we run. refs/tags/ is spelled out so the ref can only resolve to a
+        # tag, never to a same-named branch.
         run: |
           set -euo pipefail
           curl -fsSL \
             -o build/pishrink.sh \
-            "https://raw.githubusercontent.com/Drewsif/PiShrink/${PISHRINK_COMMIT}/pishrink.sh"
+            "https://raw.githubusercontent.com/Drewsif/PiShrink/refs/tags/${PISHRINK_TAG}/pishrink.sh"
           chmod +x build/pishrink.sh
           # Print first 5 lines as a smoke test
           head -5 build/pishrink.sh
