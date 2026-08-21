@@ -313,9 +313,21 @@ button {
 }
 /* Direct children only — .card.mini lives inside .row3 and is laid out on the other axis. */
 #home > .card { flex: 1 1 100%; flex-shrink: 0; }
-/* the tile rows MAY shrink — six tiles sharing a line ellipsize their sub-lines rather
-   than push the last tile off the screen edge (measured overflowX=27 without this) */
-#home > .row3 { flex: 1 1 calc(50% - 2vw); min-width: 0; }
+/* The two tile rows share ONE wrapped line, and they held half of it each — which is how
+   three tiles came out 102 px wide and the four beside them 74 px, on a row the eye reads
+   straight across as one strip of seven. The four narrow ones ellipsised their own heads
+   ("MO…", "PA…", "PIC…") and the Moon tile's value ran out of its box and printed through
+   the Air tile's.
+   So each row is given the share of the line its TILE COUNT is worth — three sevenths and
+   four sevenths, less half the gap between them — and the seven come out one width
+   whichever row they are in. The count is in the class name (row-3 / row-4) because it is
+   in the markup: a row that gains a tile changes one word in two files rather than
+   inheriting a share that no longer matches what is in it.
+   Not `flex-basis: auto`: a flex row's auto basis is its items' MAX-CONTENT, which for
+   these is the widest sub-line each tile happens to hold — so the two rows wrapped onto
+   separate lines and cost the column 68 px it does not have. */
+#home > .row3 { flex: 0 1 calc(42.86% - 1vw); min-width: 0; }
+#home > .row3.row-4 { flex: 0 1 calc(57.14% - 1vw); }
 
 /* ---------- empty state (every widget hidden) ---------- */
 .empty {

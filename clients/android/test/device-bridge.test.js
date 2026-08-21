@@ -42,8 +42,10 @@ test("the tile reports real battery, storage, uptime and network", function () {
 });
 
 test("charging adds the bolt", function () {
+  /* Hard against the percentage, with no space: the home tile row carries seven tiles
+     across a 711 px screen now, and "74% ↯" measured two pixels wider than the box. */
   var app = h.createApp({ bridge: fake.make({ charging: true }) });
-  assert.equal(app.text("sys-big"), "74% ↯");
+  assert.equal(app.text("sys-big"), "74%↯");
 });
 
 test("the panel renders every section from one snapshot", function () {
@@ -291,7 +293,7 @@ test("a live battery change still reaches the closed tile by itself", function (
   bridge.snapshot.battery.level = 12;
   bridge.snapshot.battery.charging = true;
   app.advance(61000);                            // one idle period
-  assert.equal(app.text("sys-big"), "12% ↯", "the tile stopped updating on its own");
+  assert.equal(app.text("sys-big"), "12%↯", "the tile stopped updating on its own");
 });
 
 test("an unchanged snapshot writes nothing to the tile", function () {

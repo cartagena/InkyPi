@@ -201,7 +201,11 @@
   white-space: nowrap;
   transition: color var(--dur-ui) var(--ease);
 }
-.sensor-unit { font-size: var(--fs-caption); color: var(--dim); margin-left: 0.3vw; }
+/* The one small-unit idiom on the home screen: a unit is not a value, so it takes the
+   floor of the ramp and --dim (never --dimmer — see THE BAN in style.css). Named for the
+   job and not for the widget, because the Moon tile's "%" is the same object as a sensor's
+   "°F" and the two must not drift apart. */
+.unit { font-size: var(--fs-caption); color: var(--dim); margin-left: 0.3vw; }
 
 /* ---------- a Home Assistant reading that is no longer being refreshed ----------
    An expired token 401s every poll and the app kept painting the last-good numbers, so an
@@ -212,7 +216,7 @@
    the part you see first; it is the same badge the weather card has used all along. */
 .sensor.stale { border-color: rgba(242, 180, 109, 0.35); }
 .sensor.stale .sensor-value,
-.sensor.stale .sensor-unit { color: var(--dimmer); }
+.sensor.stale .unit { color: var(--dimmer); }
 .sensor-sw {
   position: absolute;
   bottom: 0.7vh; right: 0.8vw;
@@ -232,8 +236,8 @@
 .sensor.on .sensor-sw span { background: var(--fg); transform: translateX(calc(3vw - 1.6vh)); }
 
 /* ---------- 7/2/8. mini tiles ---------- */
-.row3 { flex: 0 0 auto; display: flex; gap: 1.4vw; min-width: 0; }
-.card.mini { flex: 1 1 0; min-width: 0; padding: var(--pad-tile) 1.4vw; align-items: flex-start; }
+.row3 { flex: 0 0 auto; display: flex; gap: 0.9vw; min-width: 0; }
+.card.mini { flex: 1 1 0; min-width: 0; padding: var(--pad-tile) 0.6vw; align-items: flex-start; }
 .mini-head { line-height: 1.2; }
 /* D8 — the six tiles are one object repeated, so their three lines are pinned rather than
    left to whatever each happens to contain. The LINE BOX is fixed here, so the sub-line
@@ -254,8 +258,26 @@
   font-variant-numeric: tabular-nums;
 }
 .mini-big.alert { color: var(--danger); animation: pulse var(--dur-pulse) infinite; }
-.mini-head { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mini-big { white-space: nowrap; }
+/* Seven tiles across a 711 px screen is about 90 px each, which is tighter than the five
+   Home Assistant tiles that already bought .sensor-label its exception to the label recipe
+   — so the tile head takes the same exception, for the same reason and with the same
+   compensation: one step down the ramp, one step UP the grey scale. An ellipsised head is
+   worse than a small one, and caption AND dimmer together is the combination THE BAN in
+   style.css forbids. Tracking and weight still come off the shared recipe. */
+.mini-head {
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: var(--fs-caption);
+  color: var(--dim);
+}
+/* The LINE BOX above stays on --fs-title-sm so the three lines keep one baseline across
+   all nine tiles; only the ink inside it comes down. A tile in the row of seven has ~78 px
+   of content width and the widest value in it is "00:00" — five tabular digits, which is
+   3.1 em and therefore simply does not fit at the title step. The Year and Next tiles sit
+   on the clock's line at twice the width and keep the larger number. */
+.row3 .mini-big { font-size: var(--fs-body-lg); }
+/* Belt and braces after the Moon tile's disc-plus-percentage printed through the Air tile
+   beside it: a value may be clipped by its own tile, never drawn outside it. */
+.mini-big { white-space: nowrap; min-width: 0; max-width: 100%; overflow: hidden; }
 .mini-sub {
   font-size: var(--fs-caption);
   color: var(--dim);

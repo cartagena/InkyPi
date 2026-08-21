@@ -94,10 +94,12 @@
         return;
       }
       /* "↯" (U+21AF), not "⚡" (U+26A1): the latter is an emoji-presentation codepoint and
-         Android drew it as a colour sprite in an otherwise monochrome tile row. */
+         Android drew it as a colour sprite in an otherwise monochrome tile row. It sits
+         hard against the percentage rather than after a space: the tile row is seven
+         across now and "83% ↯" measured two pixels wider than the box it sits in. */
       this.put(big, sub,
         (i.battery && i.battery.level != null ? i.battery.level : "--") + "%"
-          + (i.battery && i.battery.charging ? " ↯" : ""),
+          + (i.battery && i.battery.charging ? "↯" : ""),
         /* ONE fact, not three. Six tiles share one line of the home column, so a tile is
            102 CSS px wide and its sub-line has room for about eleven characters —
            "104 GB · 21h up · Wi-Fi" needed 152 px of an 80 px box and rendered as

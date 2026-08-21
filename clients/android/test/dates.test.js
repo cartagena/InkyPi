@@ -90,14 +90,19 @@ test("the clock panel renders the same day-of-year the formatter computes", func
   /* "Day", not "Day of year". A third of this panel is about nine characters wide at the
      re-scaled label tier; the eleven-character version wrapped to two lines and dropped its
      own value ~90 device px below the two beside it, so the TODAY row had three baselines.
-     "of year" was the half the value already says — "229 of 366". */
+     "of year" was the half the value already says — "229/366". */
   var i = keys.indexOf("Day");
   assert.ok(i >= 0, "clock panel has no day-of-year stat");
-  /* CHANGED with the copy sweep: the cell is "229 of 366" rather than a bare "229". A
-     day-of-year with no denominator is a number nobody can place, and the denominator is
+  /* CHANGED with the copy sweep: the cell carries a denominator rather than a bare "229".
+     A day-of-year with no denominator is a number nobody can place, and the denominator is
      itself worth pinning — 2024 is a leap year, so a daysInYear() that ignored the leap
-     rule would say 365 here. */
-  assert.equal(vals[i], "229 of 366");
+     rule would say 365 here.
+     CHANGED AGAIN, deliberately, and this is the design rule the expectation moved for:
+     "229 of 366" is ten glyphs with two spaces in it, and in a third of a 711 px panel it
+     WRAPPED — putting this cell's value on a different baseline from UTC's and WEEK's, the
+     exact fault the label above was shortened to fix. A solidus says "of" in one glyph and
+     has nothing in it that can wrap. */
+  assert.equal(vals[i], "229/366");
   /* A literal, like the day-of-year above it. Asserting against fmt.isoWeek(...) — the very
      function that produced the number on screen — only proved the panel called something;
      it agreed with itself no matter how wrong isoWeek got. 2024-08-16 is a Friday in ISO

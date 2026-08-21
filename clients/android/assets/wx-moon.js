@@ -99,8 +99,11 @@
       var big = $("moon-big"), sub = $("moon-sub");
       if (!big) return;
       var m = calc(Date.now());
+      /* The per-cent sign takes the shared small-unit treatment rather than the value's:
+         disc plus "62%" at full size measured 86 px inside a 79 px tile, and the sign is
+         the glyph in it carrying the least. */
       big.innerHTML = disc(m.p, "moon-mini")
-        + "<span>" + Math.round(m.frac * 100) + "%</span>";
+        + "<span>" + Math.round(m.frac * 100) + '<span class="unit">%</span></span>';
       sub.textContent = m.shortName;
     },
 

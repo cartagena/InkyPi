@@ -205,8 +205,12 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
 .fc-lo, .big-time .lo { color: var(--temp-cold); }
 
 /* ---- moon ---- */
-.mini-big.moon-row { display: flex; align-items: center; gap: 1.6vw; }
-.moon-mini { width: 1.05em; height: 1.05em; flex: 0 0 auto; }
+/* The Moon tile is the one tile whose value is a picture AND a number, so it is the one
+   that ran out of room first — its disc plus "62%" measured 111 px inside a 74 px tile and
+   printed straight through the Air tile beside it. The disc is narrower and the gap is a
+   hair now; the tile row's own width fix is in style.css. */
+.mini-big.moon-row { display: flex; align-items: center; gap: 0.5vw; min-width: 0; }
+.moon-mini { width: 0.85em; height: 0.85em; flex: 0 0 auto; }
 
 /* ---- screen-to-screen slide (the carousel) ----
    A mounted-but-not-open panel normally rests 2.4vh BELOW its place (the open is a rise);

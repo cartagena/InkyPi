@@ -419,7 +419,7 @@
           + '<div class="sensor-label"><span aria-hidden="true">' + sensors.glyph(e)
           + "</span> " + esc(name) + "</div>"
           + '<div class="sensor-value">' + esc(sensors.display(e))
-          + '<span class="sensor-unit">' + esc(sensors.outUnit(e)) + "</span></div>"
+          + '<span class="unit">' + esc(sensors.outUnit(e)) + "</span></div>"
           + (isSwitch ? '<div class="sensor-sw" aria-hidden="true"><span></span></div>' : "")
           + "</button>";
       }).join("");

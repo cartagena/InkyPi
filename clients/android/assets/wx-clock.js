@@ -185,7 +185,11 @@
              "-07:00" under UTC is an offset by construction. */
           + section("Today", statGrid([
               ["UTC", offTxt],
-              ["Day", String(doy) + " of " + fmt.daysInYear(now)],
+              /* "233 of 365" — ten glyphs with two spaces in them — wrapped to a second
+                 line in a third of a 711 px panel, which put its value on a different
+                 baseline from UTC's and WEEK's and stopped the row being a row. A solidus
+                 says "of" in one glyph and, having no space in it, cannot wrap at all. */
+              ["Day", doy + "/" + fmt.daysInYear(now)],
               ["Week", String(isoWeek)]
             ], 3))
           + section("World clocks", '<div class="wc-grid">' + zones.map(function (z) {

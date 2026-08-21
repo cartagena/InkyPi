@@ -180,7 +180,7 @@
     </section>
 
     <!-- ---- 7 / 2 / 8. device, timer, settings ---- -->
-    <div class="row3">
+    <div class="row3 row-3">
       <section class="card mini tappable" data-widget="system" data-open="system"
                role="button" tabindex="0" aria-label="Device status">
         <div class="mini-head">Device</div>
@@ -215,7 +215,7 @@
          a month grid with nothing on it. See the note in README about why the Calendar
          widget was cut rather than left empty for a fourth round. .card.mini is `flex: 1 1 0`,
          so the two survivors take the row between them; there is no hole. -->
-    <div class="row3">
+    <div class="row3 row-4">
       <section class="card mini tappable" data-widget="moon" data-open="moon"
                role="button" tabindex="0" aria-label="Moon phase">
         <div class="mini-head">Moon</div>
@@ -243,7 +243,10 @@
 
       <section class="card mini tappable" data-widget="gallery" data-open="gallery"
                role="button" tabindex="0" aria-label="Daily picture">
-        <div class="mini-head">Picture</div>
+        <!-- "Picture" was seven tracked capitals in a 90 px tile and ellipsised to
+             "PIC…". "Image" is the same promise in five, and covers a comic and a
+             photograph alike, which "Photo" would not. -->
+        <div class="mini-head">Image</div>
         <div id="gallery-big" class="mini-big">--</div>
         <div id="gallery-sub" class="mini-sub">&nbsp;</div>
       </section>
