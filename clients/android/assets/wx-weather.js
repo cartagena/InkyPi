@@ -30,6 +30,52 @@
 
      The grid comes back the moment rain is real (falling now, likely within the hour, or
      any measured total today), because then the three figures genuinely differ. */
+  /* THE DAY'S LIGHT, AS ONE PICTURE rather than three labelled cells.
+
+     SUN was SUNRISE / SUNSET / DAYLIGHT: three grey caps over three white figures, the
+     same shape as AIR above it and WIND above that, which is what kept this panel reading
+     as a spec sheet however much colour was put on it. The three facts are one fact — the
+     shape of the day — and a shape is a thing to draw. So: the sun's own path from the
+     horizon at sunrise to the horizon at sunset, the part of it already flown picked out
+     in warm light and the rest left as track, and the sun itself sitting where the hour
+     actually is. The two times stay, at the two ends they belong to; the length of the day
+     is the caption under the apex.
+
+     The curve is a quadratic and the lit part is the SAME curve split at t with de
+     Casteljau, not a dash pattern approximating it — so the marker and the end of the lit
+     arc are one point by construction and cannot drift apart at the ends of the day.
+
+     The marker is HTML, and the labels are HTML, for the reason the hourly chart's are:
+     the box is stretched to a declared height, so anything round drawn inside the viewBox
+     would come out an ellipse, and any text in it would need a size authored outside the
+     ramp. */
+  function sunArc(rise, set, dayLen) {
+    var P0 = [5, 30], P1 = [50, -18], P2 = [95, 30];   /* ends on the horizon, apex at 6 */
+    function mid(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; }
+    function quad(a, b, c) {
+      return "M " + a[0].toFixed(1) + " " + a[1].toFixed(1)
+        + " Q " + b[0].toFixed(1) + " " + b[1].toFixed(1)
+        + " " + c[0].toFixed(1) + " " + c[1].toFixed(1);
+    }
+    var t = (rise && set && set > rise) ? (Date.now() - rise) / (set - rise) : -1;
+    var up = t > 0 && t < 1;
+    var A = mid(P0, P1, t), B = mid(P1, P2, t), C = mid(A, B, t);
+    return '<div class="sunarc' + (up ? "" : " down") + '"><div class="sun-plot">'
+      + '<svg viewBox="0 0 100 34" preserveAspectRatio="none" aria-hidden="true">'
+      + '<line class="sun-hz" x1="0" y1="30" x2="100" y2="30"/>'
+      + '<path class="sun-track" d="' + quad(P0, P1, P2) + '"/>'
+      + (up ? '<path class="sun-flown" d="' + quad(P0, A, C) + '"/>' : "")
+      + "</svg>"
+      + (up ? '<span class="sun-dot" style="left:' + C[0].toFixed(1) + "%;top:"
+          + (C[1] / 34 * 100).toFixed(1) + '%"></span>' : "")
+      + "</div>"
+      + '<div class="sun-ends"><span class="sunlit">'
+      + (rise ? esc(fmt.clock(new Date(rise), false)) : "--") + "</span>"
+      + '<span class="sun-len">' + esc(dayLen) + " of daylight</span>"
+      + '<span class="sunlit">' + (set ? esc(fmt.clock(new Date(set), false)) : "--")
+      + "</span></div></div>";
+  }
+
   function rainSection(cur, h, day, i) {
     /* The heading follows the code, so a snowy hour is not filed under RAIN. */
     var W = fmt.precipWord(cur.weather_code);
@@ -434,13 +480,8 @@
               "from " + Math.round(cur.wind_direction_10m) + "°"]
           ], 3))
 
-        + section("Sun", statGrid([
-            ["Sunrise", '<span class="sunlit">'
-              + (sunrise ? esc(fmt.clock(sunrise, false)) : "--") + "</span>"],
-            ["Sunset", '<span class="sunlit">'
-              + (sunset ? esc(fmt.clock(sunset, false)) : "--") + "</span>"],
-            ["Daylight", esc(dayLen)]
-          ], 3))
+        + section("Sun", sunArc(sunrise ? sunrise.getTime() : 0,
+                               sunset ? sunset.getTime() : 0, dayLen))
 
         + rainSection(cur, h, day, i);
     }

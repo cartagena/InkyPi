@@ -413,3 +413,43 @@
   margin: 2.4vh 0 1vh;
 }
 .laps-hint .chip-row { justify-content: center; }
+
+/* ---- Conditions: the day's light ----
+   Three labelled cells (SUNRISE / SUNSET / DAYLIGHT) replaced by the one thing they were
+   between them describing — see the note over sunArc() in wx-weather.js. The geometry is
+   in the SVG; the marker and both labels are HTML, because the box is stretched to a
+   declared height and anything round inside a stretched viewBox comes out an ellipse. */
+.sun-plot { position: relative; }
+/* 10vh: the sun's path across a day IS shallow, but drawn 680 px wide and 90 px tall it
+   reads as a sagging wire rather than an arc. The panel had the height going spare. */
+.sunarc svg { width: 100%; height: 10vh; display: block; overflow: visible; }
+/* the line the day starts and ends on — a hairline, the same one a section rule uses */
+.sun-hz { stroke: var(--card-line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.sun-track {
+  fill: none; stroke: var(--card-line2); stroke-width: 2;
+  vector-effect: non-scaling-stroke; stroke-linecap: round;
+}
+/* the part of the day already flown, in the same warm the sunrise and sunset times wear */
+.sun-flown {
+  fill: none; stroke: var(--temp-warm); stroke-width: 2.5;
+  vector-effect: non-scaling-stroke; stroke-linecap: round;
+}
+/* The sun itself, at the hour it is. A disc with a glow rather than a plain dot: it is the
+   same object the icon pack draws, and it is the only mark on this panel that says "now". */
+.sun-dot {
+  position: absolute;
+  width: 1.6vh; height: 1.6vh;
+  border-radius: 50%;
+  background: var(--ic-sun-lit);
+  box-shadow: 0 0 1.4vh var(--ic-ray);
+  transform: translate(-50%, -50%);
+}
+/* Both times and the length of the day, on the annotation tier every other chart label in
+   the build takes. At night the arc is a track with nothing on it, so it steps back. */
+.sun-ends {
+  display: flex; justify-content: space-between;
+  font-size: var(--fs-body-lg); font-variant-numeric: tabular-nums;
+  margin-top: 0.4vh;
+}
+.sun-len { color: var(--dim); }
+.sunarc.down .sun-track { opacity: 0.6; }

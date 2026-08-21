@@ -187,8 +187,9 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
 .hr-p.wet, .hrow-p.wet, .stat-v .wet { color: var(--ic-rain); }
 /* Sun times are sun-coloured, because that is the rule the whole colour layer runs on:
    warm things are warm. SUNRISE and SUNSET were the two plainest white numbers on a panel
-   whose subject is the sky. */
-.stat-v .sunlit { color: var(--temp-warm); }
+   whose subject is the sky. Wherever they are printed — a stat cell, or the two ends of
+   the day's arc on Conditions. */
+.stat-v .sunlit, .sun-ends .sunlit { color: var(--temp-warm); }
 /* Daily lows read cool — hi stays primary text. One rule for every low in the app: the
    home strip (.fc-lo), the Daily panel's hero (.lo) and the hourly chart's valley callout
    (.hc-lo). The panel used to render its low as --dim, so the same number was blue on the
