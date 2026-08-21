@@ -17,6 +17,18 @@ from utils.time_utils import now_device_tz
 
 logger = logging.getLogger(__name__)
 
+# Control characters that would let a crafted value forge extra log lines, or
+# break out of the single-line reason the UI renders.
+_CONTROL_CHARS = str.maketrans("", "", "\r\n\t\x00")
+
+
+def _clean(value: object) -> str:
+    """Return *value* as a single-line string, or "" if it is not usable."""
+    if not isinstance(value, str):
+        return ""
+    return value.translate(_CONTROL_CHARS).strip()
+
+
 if TYPE_CHECKING:
     from config import Config
 
@@ -218,6 +230,76 @@ class PluginHealthTracker:
             instance=instance,
             webhook_sender=webhook_sender,
         )
+
+    def quarantine_after_crash(self, breadcrumb: Mapping[str, object]) -> bool:
+        """Pause the plugin that was in flight when the previous run died.
+
+        The circuit breaker only sees *handled* failures. A plugin that gets the
+        process OOM-killed or segfaults raises nothing catchable, so it never
+        trips the breaker — it simply crash-loops, and each loop is another SD
+        write. Once the process is gone the in-memory failure count is gone too,
+        so the streak never accumulates either.
+
+        This is the same move ``crashlog``'s SD sentinel makes in the
+        ESP32-Garage-Fan firmware: a resource that killed the last boot is
+        disabled on this one so it "can never boot-loop the controller".
+
+        Reuses the existing paused / ``disabled_reason`` plumbing so the UI,
+        the API and the manual re-enable path all work unchanged.
+
+        Args:
+            breadcrumb: The record left by the run that died — see
+                :func:`utils.crash_breadcrumb.examine_boot`.
+
+        Returns:
+            Whether a plugin instance was newly quarantined.
+        """
+        # The breadcrumb is read back from disk after a crash, so it is
+        # untrusted input: it may be truncated mid-write or hand-edited. Strip
+        # control characters at this boundary rather than at each use — these
+        # values reach the log *and* `disabled_reason`, which the web UI shows.
+        plugin_id = _clean(breadcrumb.get("plugin_id"))
+        instance = _clean(breadcrumb.get("instance"))
+        if not plugin_id:
+            return False
+        if not instance:
+            # Without an instance we cannot name a single playlist entry, and
+            # pausing every instance of the plugin would be too blunt.
+            logger.warning(
+                "crash quarantine: previous run died in plugin %s but named no "
+                "instance; not quarantining",
+                plugin_id,
+            )
+            return False
+
+        plugin_instance = self._find_plugin_instance(plugin_id, instance)
+        if plugin_instance is None or plugin_instance.paused:
+            return False
+
+        started = breadcrumb.get("started_at") or "an earlier run"
+        plugin_instance.paused = True
+        plugin_instance.disabled_reason = (
+            f"Paused automatically: the service died while this plugin was "
+            f"rendering (started {started}). Re-enable it once the cause is "
+            f"understood."
+        )
+        set_circuit_breaker_open(plugin_id, True)
+        logger.error(
+            "crash quarantine: paused | plugin_id=%s instance=%s — it was in "
+            "flight when the previous run died",
+            plugin_id,
+            instance,
+        )
+        try:
+            self.device_config.write_config()
+        except Exception:
+            logger.warning(
+                "crash quarantine: failed to persist paused state for %s/%s",
+                plugin_id,
+                instance,
+                exc_info=True,
+            )
+        return True
 
     def reset_circuit_breaker(self, plugin_id: str, instance: str) -> bool:
         """Clear the paused state and failure counter for a plugin instance."""
