@@ -31,7 +31,11 @@
 #   one of them yields a completely silent boot.
 set -euo pipefail
 
-TIMEOUT="${BOOT_VERIFY_TIMEOUT:-600}"
+# raspi3b gets no KVM acceleration on an x86_64 host, so every instruction is
+# emulated. Measured factor is roughly 40x: a run that reached kernel t=15s had
+# burned 598s of wall clock. Pi OS Lite reaches a login prompt around t=30s, so
+# the budget has to be ~1200s with margin on top.
+TIMEOUT="${BOOT_VERIFY_TIMEOUT:-1800}"
 WORKDIR="${BOOT_VERIFY_WORKDIR:-.boot-verify}"
 KEEP_RUNNING=0
 
@@ -158,9 +162,21 @@ CMDLINE=$(tr -d '\n' < cmdline.txt \
 # earlycon writes straight to the PL011 MMIO window before any device probing,
 # so a silent boot can be told apart from a console that never bound.
 CMDLINE="${CMDLINE} earlycon=pl011,0x3f201000"
-# systemd-getty-generator spawns a getty on every console the kernel registers,
-# so naming both puts a login prompt on whichever UART is live.
-CMDLINE="${CMDLINE} console=ttyAMA0,115200 console=ttyS0,115200"
+# Name every candidate console. The kernel silently ignores a console= naming
+# a device that does not exist, registers the ones that do, and gives
+# /dev/console to the last one it registered; systemd-getty-generator then
+# spawns a getty on each registered console. So listing all three is safe and
+# order only decides which gets /dev/console.
+#
+# ttyAMA1 goes last because it is the one that actually shows up: Pi OS's DTB
+# aliases serial1 = &uart0, so the PL011 at 0x3f201000 enumerates as ttyAMA1,
+# not ttyAMA0. And the mini UART never probes under qemu at all
+# ("bcm2835-aux-uart ...: unable to register 8250 port"), so ttyS0 does not
+# exist either. Naming only ttyAMA0/ttyS0 bound no console at all, which the
+# kernel reported as "unable to open an initial console" — no getty, no login
+# prompt, and a log that only ever contained earlycon output.
+CMDLINE="${CMDLINE} console=ttyS0,115200 console=ttyAMA0,115200"
+CMDLINE="${CMDLINE} console=ttyAMA1,115200"
 echo "Boot cmdline: ${CMDLINE}"
 
 # ── pad to a power of two ─────────────────────────────────────────────────────
@@ -241,8 +257,12 @@ for i in $(seq 1 "${TIMEOUT}"); do
     if ! kill -0 "${QPID}" 2>/dev/null; then
         fail "qemu exited after ${i}s without reaching a login prompt"
     fi
+    # Show the last console line, not just byte counts: a stalled byte count
+    # looks identical whether the guest is wedged or simply slow, whereas the
+    # kernel timestamp on the last line shows how far the boot actually got.
     if [ $((i % 30)) -eq 0 ]; then
-        echo "  ${i}s — pl011=$(wc -c < uart-pl011.log)b mini=$(wc -c < uart-mini.log)b"
+        last=$(tail -n 1 uart-pl011.log 2>/dev/null | tr -d '\r' | cut -c1-100)
+        echo "  ${i}s — pl011=$(wc -c < uart-pl011.log)b mini=$(wc -c < uart-mini.log)b | ${last}"
     fi
     sleep 1
 done

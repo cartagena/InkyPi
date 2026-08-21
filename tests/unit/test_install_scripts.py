@@ -3666,21 +3666,34 @@ class TestBootVerifyScript:
         # terminal where the log scrape cannot see it. Strip them all first,
         # then append our own.
         strip_pos = self.script.index("s/console=[^ ]*//g")
-        append_pos = self.script.index('CMDLINE="${CMDLINE} console=ttyAMA0')
+        append_pos = self.script.index('CMDLINE="${CMDLINE} console=ttyS0')
         assert (
             strip_pos < append_pos
         ), "serial consoles must be appended after existing console= args are stripped"
 
+    def test_console_ttyama1_is_last(self):
+        # Observed on a real run: Pi OS's DTB aliases serial1 = &uart0, so the
+        # PL011 enumerates as ttyAMA1, and the mini UART fails to probe under
+        # qemu so ttyS0 never exists. Naming only ttyAMA0/ttyS0 bound no
+        # console at all ("unable to open an initial console") — no getty, no
+        # login prompt. The kernel gives /dev/console to the last console= it
+        # successfully registered, so ttyAMA1 must come last.
+        for tty in ("ttyS0", "ttyAMA0", "ttyAMA1"):
+            assert f"console={tty},115200" in self.script
+        last = self.script.index("console=ttyAMA1,115200")
+        for tty in ("ttyS0", "ttyAMA0"):
+            assert self.script.index(f"console={tty},115200") < last, (
+                f"console={tty} must precede ttyAMA1 so /dev/console lands on "
+                "the UART that actually registers"
+            )
+
     def test_captures_both_uarts(self):
-        # qemu wires serial_hd(0) to the PL011 (ttyAMA0) and serial_hd(1) to
-        # the mini UART (ttyS0). On a Pi 3 the PL011 belongs to Bluetooth and
-        # the DTB points the console at the mini UART, so attaching only one
-        # UART yielded an empty log and an unexplained timeout. Drive both,
-        # put a console on both, and accept a login prompt on either.
+        # qemu wires serial_hd(0) to the PL011 and serial_hd(1) to the mini
+        # UART. Attaching only one of them yielded an empty log and an
+        # unexplained timeout, so drive both and accept a prompt on either.
         pl011 = self.script.index("-serial file:uart-pl011.log")
         mini = self.script.index("-serial file:uart-mini.log")
         assert pl011 < mini, "PL011 must be serial_hd(0), mini UART serial_hd(1)"
-        assert "console=ttyAMA0,115200 console=ttyS0,115200" in self.script
         assert 'grep -qh "login:" uart-pl011.log uart-mini.log' in self.script
 
     def test_pads_sd_to_power_of_two(self):

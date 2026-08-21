@@ -358,7 +358,11 @@ jobs:
     name: Boot-verify image in qemu
     needs: build-image
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # raspi3b has no KVM acceleration on an x86_64 runner, so the guest runs
+    # roughly 40x slower than real time and a full boot to getty takes ~20
+    # minutes of wall clock. The script's own budget is 1800s; this leaves room
+    # for the artifact download and decompression around it.
+    timeout-minutes: 50
     outputs:
       verified: ${{ steps.verify.outputs.verified }}
     steps:
