@@ -198,7 +198,7 @@ test("the night glyph is drawn at the live phase, not a fixed crescent", functio
   assert.ok(terminator(wxIcon(0, true)) < 0.5, "first quarter should be a straight terminator");
   wxIcon.usePhase(function () { return 0.5; });
   var full = terminator(wxIcon(0, true));
-  assert.ok(full > 15, "full moon should be a whole lit disc, got rx " + full);
+  assert.ok(full > wxIcon.moonR - 1, "full moon should be a whole lit disc, got rx " + full);
   assert.notEqual(wxIcon(0, true), quarter, "the glyph ignored the phase it was handed");
 });
 
@@ -209,7 +209,8 @@ test("a new moon still leaves a moon on screen", function () {
     wxIcon.usePhase(function () { return p; });
     var svg = wxIcon(0, true);
     var m = /A ([\d.]+) [\d.]+ 0 0 [01] [\d.]+ [\d.]+ Z/.exec(svg);
-    assert.ok(parseFloat(m[1]) < 16.6, "p=" + p + " drew a fuller moon than it should");
+    assert.ok(parseFloat(m[1]) < wxIcon.moonR * 0.99,
+      "p=" + p + " drew a fuller moon than it should");
     assert.match(svg, /class="wxi-moon"/, "p=" + p + " lost its moon entirely");
   });
   /* junk from a broken model degrades to a pleasant crescent, never to NaN in a path */
@@ -225,7 +226,7 @@ test("the night glyph and the Moon tile are the same moon", function () {
   var icon = /A ([\d.]+) [\d.]+ 0 0 [01] [\d.]+ [\d.]+ Z/.exec(wxIcon(0, true));
   var tile = /A ([\d.]+) [\d.]+ 0 0 [01] [\d.]+ [\d.]+ Z/.exec(wxIcon.moonDisc(0.62));
   /* both are |cos(2*pi*p)| of their own radius, so the ratio is the ratio of the radii */
-  assert.ok(Math.abs(parseFloat(icon[1]) / 16.75 - parseFloat(tile[1]) / 24) < 0.01,
+  assert.ok(Math.abs(parseFloat(icon[1]) / wxIcon.moonR - parseFloat(tile[1]) / 24) < 0.01,
     "the Now card and the Moon tile are drawing different phases");
   wxIcon.usePhase(app.registry.moon.calc ? function (ms) { return app.registry.moon.calc(ms).p; } : null);
 });
@@ -245,5 +246,5 @@ test("the clear-sky glyphs carry a subject, not a sprinkle", function () {
     return r;
   }
   assert.ok(biggestDisc(wxIcon(0, false)) >= 13.5, "the sun shrank back to a sprinkle");
-  assert.ok(biggestDisc(wxIcon(0, true)) >= 15.5, "the night moon shrank back to a sliver");
+  assert.ok(biggestDisc(wxIcon(0, true)) >= 18, "the night moon shrank back to a sliver");
 });

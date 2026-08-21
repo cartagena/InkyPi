@@ -101,7 +101,10 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
   --ic-moon:      #e9e5ff;
   --ic-moon-lit:  #fbfaff;
   --ic-moon-dim:  #b0aacf;   /* maria, and the limb turning away from the sun */
-  --ic-moon-dk:   #232a3a;   /* the unlit part of the moon disc */
+  /* The unlit part of the moon disc. Earthshine, not absence: on a true-black panel a
+     value this low is most of the difference between a sphere with a dark side and a
+     crescent floating in a hole. */
+  --ic-moon-dk:   #262f42;
   --ic-star:      #cfd4ff;
   --ic-cloud:     #aebfd4;
   --ic-cloud-lit: #e6eef8;   /* the rim the sky catches */

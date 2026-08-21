@@ -368,8 +368,10 @@
      bounding box — the eye weighs an icon by how much of it is filled, so a sun of thin
      spikes and a cloud of solid fill at the same width look like two different sizes.
      The cumulus silhouette is 0.39*w^2 units of fill, so the w=45 rain cloud is ~790; the
-     clear-day sun (disc + wedges) is ~800 at r=14.5, and the clear-night moon disc is
-     ~880 at r=16.75. Where a light source sits BEHIND a bank it is a supporting shape and
+     clear-day sun (disc + wedges) is ~800 at r=14.5, and the clear-night moon runs r=19 so
+     that its LIT part alone is of that order at a typical phase — the unlit half is
+     earthshine on a black panel and contributes almost nothing to what the eye weighs.
+     Where a light source sits BEHIND a bank it is a supporting shape and
      runs at roughly half that, which is why the partly-cloudy sun is smaller than the
      clear-sky one rather than the same sun moved sideways.
 
@@ -393,13 +395,19 @@
     return p < 0.06 ? 0.06 : p > 0.94 ? 0.94 : p;
   }
 
+  /* The night hero's radius is a number the test can see, because it is half of what
+     "the two moons agree" means and it moved once already: at 16.75 the disc matched the
+     cloud on TOTAL ink, but the unlit half is earthshine on a black panel and registers as
+     very little of it, so the glyph still measured optically narrow beside a cumulus. The
+     radius is set from the LIT area at a typical phase instead. */
+  var MOON_R = 19;
   var clearDay = once(function () { return sun(32, 31, 14.5); });
   function clearNight() {
-    return moon(28, 31.5, 16.75, livePhase()) + star(53, 16, 2.1) + star(50, 46, 1.5);
+    return moon(28, 32, MOON_R, livePhase()) + star(55, 15, 2) + star(52, 47, 1.4);
   }
   var partlyDay = once(function () { return sun(21, 20, 10.5) + cloud(36, 49, 43); });
   function partlyNight() {
-    return moon(20, 19, 11, livePhase()) + star(53, 14, 1.8) + cloud(36, 49, 43);
+    return moon(20, 19, 12, livePhase()) + star(54, 13, 1.7) + cloud(36, 49, 43);
   }
   var overcast = once(function () { return cloud(25, 36, 38, true) + cloud(35, 48, 45); });
   var foggy = once(function () { return cloud(32, 34, 42) + fog(42); });
@@ -414,7 +422,7 @@
     return sun(19, 17, 8.5) + cloud(36, 42, 40) + drops(3, 11, 42);
   });
   function showersNight() {
-    return moon(18, 17, 9.5, livePhase()) + cloud(36, 42, 40) + drops(3, 11, 42);
+    return moon(18, 17, 10.5, livePhase()) + cloud(36, 42, 40) + drops(3, 11, 42);
   }
   var storm = once(function () { return cloud(32, 38, 46, true) + bolt(32); });
   var stormRain = once(function () {
@@ -425,7 +433,7 @@
     return sun(19, 17, 8.5) + cloud(36, 42, 40) + flakes(2, 51);
   });
   function snowShowersNight() {
-    return moon(18, 17, 9.5, livePhase()) + cloud(36, 42, 40) + flakes(2, 51);
+    return moon(18, 17, 10.5, livePhase()) + cloud(36, 42, 40) + flakes(2, 51);
   }
 
   /* code -> [day icon, night icon]; text stays in app.js's WMO table. */
@@ -455,6 +463,7 @@
   WP.wxIcon.moonPath = moonPath;
   WP.wxIcon.moonDisc = moonDisc;
   WP.wxIcon.codes = Object.keys(ICONS).map(Number);
+  WP.wxIcon.moonR = MOON_R;
   /* The Moon widget hands its model over here at load, so the night glyph and the Moon
      tile are the same moon. Anything that can answer "phase at this instant" will do. */
   WP.wxIcon.usePhase = function (fn) { phaseSrc = fn; };

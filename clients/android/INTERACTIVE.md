@@ -125,8 +125,10 @@ how much of it is filled, so a sun of thin spikes and a cloud of solid fill at t
 look like two different sizes. The cumulus silhouette is `0.39·w²` units of fill, which makes
 the w=45 rain cloud ~790; the clear-day sun runs r=14.5 for ~800 with its rays a fixed
 fraction of its radius (so scaling the sun scales the whole silhouette rather than leaving
-the spikes behind), and the clear-night moon is a whole disc at r=16.75. A light source that
-sits BEHIND a bank is a supporting shape and runs at about half that.
+the spikes behind), and the clear-night moon is a whole disc at r=19 — sized from its LIT
+area rather than its total, because the unlit half is earthshine on a black panel and
+contributes almost nothing to what the eye weighs. A light source that sits BEHIND a bank is
+a supporting shape and runs at about half that.
 
 **The night moon is the real moon.** It used to be a fixed pleasant crescent at p=0.18, on
 the reasoning that nobody reads a gibbous from a quarter at 2.9vh. But the Moon tile sits
