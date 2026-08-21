@@ -192,6 +192,13 @@ CMDLINE="${CMDLINE} keep_bootcon ignore_loglevel"
 # the boot was almost certainly still progressing, and it means
 # "Reached target multi-user.target" could never appear.
 CMDLINE="${CMDLINE} systemd.log_target=kmsg systemd.show_status=true"
+# Forward the journal to kmsg as well, so output from services themselves
+# reaches us. Units ship StandardError=journal, so when one fails all we would
+# otherwise see is systemd's "Failed to start ..." with no reason attached —
+# which is exactly what happened to inkypi.service. printk.devkmsg=on lifts the
+# kmsg rate limit that would otherwise drop messages under that extra volume,
+# including possibly the boot-completion line this script waits for.
+CMDLINE="${CMDLINE} systemd.journald.forward_to_kmsg=1 printk.devkmsg=on"
 echo "Boot cmdline: ${CMDLINE}"
 
 # ── pad to a power of two ─────────────────────────────────────────────────────
@@ -271,6 +278,16 @@ for i in $(seq 1 "${TIMEOUT}"); do
         echo "PASS: boot completed at ${i}s"
         grep -hE "${BOOT_OK_PATTERNS}" uart-pl011.log uart-mini.log 2>/dev/null \
             | tail -3 | sed 's/^/  matched: /'
+        # Reaching multi-user.target says the system came up; it says nothing
+        # about whether the units on it actually started. inkypi.service failed
+        # on a run that this gate reported as verified, so call out anything
+        # that failed rather than letting a green result bury it.
+        if grep -qh "Failed to start" uart-pl011.log uart-mini.log 2>/dev/null; then
+            echo ""
+            echo "WARNING: units failed during a boot that otherwise succeeded:"
+            grep -hoE "Failed to start .*" uart-pl011.log uart-mini.log \
+                2>/dev/null | tr -d '\r' | sort -u | sed 's/^/  /'
+        fi
         dump_logs
         record true
         if [ "${KEEP_RUNNING}" -eq 1 ]; then
