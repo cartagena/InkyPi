@@ -180,3 +180,70 @@ test("the Device tile's charging and battery glyphs are monochrome", function ()
   charged.WP.panels.open("system");
   assert.deepEqual(offendingCodepoints(charged.panelBody("system").textContent), []);
 });
+
+/* ---------------- one sky, one moon ----------------
+   The clear-night glyph used to be a fixed crescent at p=0.18 while the Moon tile three
+   inches away on the same dashboard reported the real phase — a capture caught a thin
+   crescent in the Now card and a half-lit disc in the tile. The icon set now asks whoever
+   owns the model, which is wx-moon.js. */
+
+test("the night glyph is drawn at the live phase, not a fixed crescent", function () {
+  var terminator = function (svg) {
+    /* the second arc of moonPath is the terminator; its rx is the phase, in units of r */
+    var m = /A ([\d.]+) [\d.]+ 0 0 [01] [\d.]+ [\d.]+ Z/.exec(svg);
+    return m ? parseFloat(m[1]) : null;
+  };
+  var quarter = wxIcon(0, true);                       /* app.js has wired the real model */
+  wxIcon.usePhase(function () { return 0.25; });
+  assert.ok(terminator(wxIcon(0, true)) < 0.5, "first quarter should be a straight terminator");
+  wxIcon.usePhase(function () { return 0.5; });
+  var full = terminator(wxIcon(0, true));
+  assert.ok(full > 15, "full moon should be a whole lit disc, got rx " + full);
+  assert.notEqual(wxIcon(0, true), quarter, "the glyph ignored the phase it was handed");
+});
+
+test("a new moon still leaves a moon on screen", function () {
+  /* Four nights a month the lit limb is under a unit wide. The glyph clamps rather than
+     going to a black disc, because "clear night" has to look like something. */
+  [0, 0.005, 0.995, 1].forEach(function (p) {
+    wxIcon.usePhase(function () { return p; });
+    var svg = wxIcon(0, true);
+    var m = /A ([\d.]+) [\d.]+ 0 0 [01] [\d.]+ [\d.]+ Z/.exec(svg);
+    assert.ok(parseFloat(m[1]) < 16.6, "p=" + p + " drew a fuller moon than it should");
+    assert.match(svg, /class="wxi-moon"/, "p=" + p + " lost its moon entirely");
+  });
+  /* junk from a broken model degrades to a pleasant crescent, never to NaN in a path */
+  [NaN, undefined, "banana"].forEach(function (p) {
+    wxIcon.usePhase(function () { return p; });
+    assert.equal(/NaN|undefined/.test(wxIcon(0, true)), false, "phase " + p + " leaked into the path");
+  });
+});
+
+test("the night glyph and the Moon tile are the same moon", function () {
+  /* Not "the same number formatted twice" — literally the same path, so they cannot drift. */
+  wxIcon.usePhase(function () { return 0.62; });
+  var icon = /A ([\d.]+) [\d.]+ 0 0 [01] [\d.]+ [\d.]+ Z/.exec(wxIcon(0, true));
+  var tile = /A ([\d.]+) [\d.]+ 0 0 [01] [\d.]+ [\d.]+ Z/.exec(wxIcon.moonDisc(0.62));
+  /* both are |cos(2*pi*p)| of their own radius, so the ratio is the ratio of the radii */
+  assert.ok(Math.abs(parseFloat(icon[1]) / 16.75 - parseFloat(tile[1]) / 24) < 0.01,
+    "the Now card and the Moon tile are drawing different phases");
+  wxIcon.usePhase(app.registry.moon.calc ? function (ms) { return app.registry.moon.calc(ms).p; } : null);
+});
+
+test("the clear-sky glyphs carry a subject, not a sprinkle", function () {
+  /* The pack is judged on INK, not on bounding box: the first sun spanned 42 of 64 units
+     but most of that was empty air between eight thin spikes, and the first night moon was
+     a crescent of about 8 square units beside clouds of about 790. Both heroes are pinned
+     here as a solid disc big enough to hold its own beside a cumulus. */
+  function biggestDisc(svg) {
+    var r = 0, m, re = /<circle[^>]*\sr="([\d.]+)"[^>]*fill="(?!none)[^"]*"/g;
+    while ((m = re.exec(svg))) {
+      /* the halo and the bloom are gradients out to url(#…); the body is a solid or a
+         disc gradient, and either way it is the shape the eye weighs */
+      if (!/halo|starglow|boltglow/.test(m[0])) r = Math.max(r, parseFloat(m[1]));
+    }
+    return r;
+  }
+  assert.ok(biggestDisc(wxIcon(0, false)) >= 13.5, "the sun shrank back to a sprinkle");
+  assert.ok(biggestDisc(wxIcon(0, true)) >= 15.5, "the night moon shrank back to a sliver");
+});

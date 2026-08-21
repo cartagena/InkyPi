@@ -135,7 +135,8 @@ test("index.html loads exactly the scripts that exist, in the order they need", 
        wx-ui.js   hangs the shared builders off WP.ui, so it precedes every widget
        wx-weather resolves into WP.registry before wx-hourly / wx-daily read it,
        wx-sensors before wx-settings, which quotes its mode in the About line, and
-       wx-sky-light hangs WP.skyLight off WP before wx-sky.js reads it at parse time.
+       wx-sky-light hangs WP.skyLight off WP before wx-sky-paint.js reads rgba() out of
+       it, and both land before wx-sky.js mixes the painters into the layer.
      Getting this wrong is a blank wall panel, so it is pinned rather than assumed. */
   var html = h.readAsset("index.html");
   var srcs = h.scriptOrder(html);
@@ -146,7 +147,8 @@ test("index.html loads exactly the scripts that exist, in the order they need", 
     "wx-system.js",
     "wx-moon.js", "wx-air.js", "wx-year.js", "ics.js", "wx-calendar.js",
     "wx-paper.js", "wx-gallery.js", "wx-news.js",
-    "wx-settings.js", "wx-carousel.js", "wx-sky-light.js", "wx-sky.js"
+    "wx-settings.js", "wx-carousel.js",
+    "wx-sky-light.js", "wx-sky-paint.js", "wx-sky.js"
   ]);
   srcs.forEach(function (s) {
     assert.ok(fs.existsSync(path.join(h.ASSETS, s)), "index.html loads a missing file: " + s);

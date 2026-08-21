@@ -372,12 +372,26 @@
         });
       }
 
+      /* THE FOG BANKS. Seven layers, graded by depth exactly as the rain and snow fields
+         are, because the reason the first two fogs read as grey paint is that they had no
+         depth at all: five full-width rects at one alpha is one rect at five times the
+         alpha, whatever you space them at.
+
+         Near banks (z high) hang low, are tall and slow and stronger; far ones ride
+         higher, are thin and quick and faint. Each is wider than the frame so it can never
+         show an end, and each breathes on a slow rate of its own so no two are ever at the
+         same density. The painter stamps a lumpy sprite into that box, which is where the
+         variation ALONG a bank comes from. */
       f.bands = [];
-      for (i = 0; i < 5; i++) {
+      for (i = 0; i < 7; i++) {
+        z = rnd();
         f.bands.push({
           /* fog sits on the floor of the frame, because that is where fog sits */
-          y: h * (0.58 + 0.11 * i), hh: 38 + rnd() * 44,
-          x: rnd() * w, v: 3 + rnd() * 8, a: 0.045 + rnd() * 0.030
+          y: h * (0.46 + 0.50 * z + rnd() * 0.10),
+          rx: w * (0.55 + z * 0.55), hh: 26 + z * 92,
+          x: rnd() * w * 1.6 - w * 0.3, v: 10 - z * 7,
+          a: 0.042 + z * 0.070,
+          br: 0.035 + rnd() * 0.055, ph: rnd() * 6.28
         });
       }
 

@@ -58,6 +58,12 @@
      three can never look like three different moons. */
   var disc = WP.wxIcon.moonDisc;
 
+  /* …and the clear-night WEATHER glyph makes four. It used to draw a fixed crescent, so a
+     clear night showed a sliver in the Now card and whatever the sky was actually doing in
+     the Moon tile beside it. The model lives here; the icon set only needs to be told
+     where to ask. */
+  WP.wxIcon.usePhase(function (ms) { return calc(ms).p; });
+
   function shortDate(ms) {
     return new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }

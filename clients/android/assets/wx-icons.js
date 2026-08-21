@@ -98,9 +98,16 @@
     + " C 39.7 22.2 41.2 21.8 42.8 21.8 C 47.6 21.8 51.5 25.7 51.5 30.5"
     + " C 51.5 31.2 51.4 31.9 51.2 32.5 C 55.9 33.3 59.5 37.4 59.5 42.3"
     + " C 59.5 43.8 58.3 45 56.8 45 Z";
-  /* the top-left arc of that same outline, offset inward — the edge the sky lights */
-  var CL_RIM = "M 3.4 31.8 C 5.3 27.8 8.8 25.6 12.4 25.2"
-    + " C 13.8 19 19 14.6 25.3 14.6 C 30.1 14.6 34.4 17 37 21.2";
+  /* The top-left arc of that same outline, offset inward — the edge the sky lights. It is
+     drawn thin and bright rather than thick and pale: a wide soft rim is a haze that fills
+     the lobe and flattens it, where a narrow one describes the edge it sits on. */
+  var CL_RIM = "M 4.6 32.6 C 6.2 28.6 9.2 26.5 12.6 26"
+    + " C 14.1 19.8 19.2 15.5 25.3 15.5 C 29.9 15.5 34 17.8 36.5 21.8";
+  /* Where one lobe tucks behind the next. A single gradient over a single silhouette gives
+     the eye one surface; these two soft creases are what say "four lobes", and they are the
+     difference between a cloud and a grey bean at four metres. */
+  var CL_FOLD = "M 12.4 26.4 C 14.2 32.5 14 38.6 13 43.8"
+    + "M 38.2 24 C 40.5 29.5 41.4 36.6 41 43.8";
 
   /* Placed by where it should SIT, not by a magic translate: centre x, the line its base
      rests on, and how wide it is. Everything else is arithmetic, so moving a bank two
@@ -112,27 +119,36 @@
       + ty.toFixed(2) + ") scale(" + s.toFixed(3) + ')">'
       + '<path d="' + CL_D + '" fill="url(#wxg-' + (dark ? "cloudd" : "cloud") + ')"/>'
       + '<ellipse cx="31" cy="42" rx="22" ry="5.2" fill="url(#wxg-belly)"/>'
+      + '<path d="' + CL_FOLD + '" fill="none" stroke="var(--ic-cloud-dk)"'
+      + ' stroke-width="1.7" stroke-linecap="round" opacity="' + (dark ? 0.5 : 0.34) + '"/>'
       + '<path d="' + CL_RIM + '" fill="none" stroke="var(--ic-cloud-lit)"'
-      + ' stroke-width="2" stroke-linecap="round" opacity="' + (dark ? 0.28 : 0.5) + '"/>'
+      + ' stroke-width="1.25" stroke-linecap="round" opacity="' + (dark ? 0.45 : 0.85) + '"/>'
       + "</g>";
   }
 
   /* Disc, hot spot, halo, and eight tapered rays. The rays are their own group because
-     the stylesheet rocks that group a few degrees and leaves the disc still. */
+     the stylesheet rocks that group a few degrees and leaves the disc still.
+
+     The rays are SHORT and the disc is LARGE, which is the opposite of the first draft.
+     A pack is judged on ink, not on bounding box: the old sun spanned 42 of 64 units but
+     most of that span was empty air between eight thin spikes, so beside a cloud carrying
+     ~790 units of solid fill it read as a small object. Ray length is a fixed fraction of
+     the radius here, so scaling the sun scales its whole silhouette instead of leaving the
+     spikes behind. */
   function sun(cx, cy, r) {
     var rays = "";
+    var i1 = r + r * 0.20, o1 = r + r * 0.60, hw = r * 0.175;
     for (var i = 0; i < 8; i++) {
       var a = (Math.PI / 4) * i + Math.PI / 8;
       var c = Math.cos(a), s = Math.sin(a);
       /* a ray is a wedge, not a stick: wide at the disc, a point at the tip */
-      var i1 = r + 3.4, o1 = r + 9.6, hw = 1.9;
       rays += '<path d="M ' + (cx + c * i1 - s * hw).toFixed(1) + " "
         + (cy + s * i1 + c * hw).toFixed(1)
         + " L " + (cx + c * o1).toFixed(1) + " " + (cy + s * o1).toFixed(1)
         + " L " + (cx + c * i1 + s * hw).toFixed(1) + " "
         + (cy + s * i1 - c * hw).toFixed(1) + ' Z"/>';
     }
-    return '<circle class="wxi-halo" cx="' + cx + '" cy="' + cy + '" r="' + (r * 2.3).toFixed(1)
+    return '<circle class="wxi-halo" cx="' + cx + '" cy="' + cy + '" r="' + (r * 1.85).toFixed(1)
       + '" fill="url(#wxg-halo)"/>'
       + '<g class="wxi-rays" fill="var(--ic-ray)">' + rays + "</g>"
       + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="url(#wxg-sun)"/>'
@@ -155,6 +171,13 @@
       + " A " + rx + " " + r + " 0 0 " + inner + " " + cx + " " + (cy - r) + " Z";
   }
 
+  /* The whole limb as a path, so "the disc minus the lit part" can be one evenodd fill.
+     A function and not a constant because the icon draws the same moon at four radii. */
+  function ring(cx, cy, r) {
+    return "M " + (cx - r) + " " + cy + " A " + r + " " + r + " 0 1 0 " + (cx + r) + " " + cy
+      + " A " + r + " " + r + " 0 1 0 " + (cx - r) + " " + cy + " Z";
+  }
+
   /* Maria, in the 64-space of a full disc. Placed where the real ones are, roughly, so a
      full moon reads as a face rather than as a plate. */
   var CRATERS = '<circle cx="25" cy="21.5" r="4.4" opacity="0.3"/>'
@@ -164,18 +187,30 @@
     + '<circle cx="19.5" cy="33" r="2.3" opacity="0.24"/>'
     + '<circle cx="35" cy="46" r="2" opacity="0.2"/>';
 
-  /* The icon moon is a fixed pleasant crescent, not the live phase — at 2.9vh nobody can
-     read a gibbous from a quarter, and the Moon tile shows the real phase. Its two craters
-     are placed by hand inside the lit limb of THAT phase, in units of r, so no clip path
-     is needed: a crescent this size can carry two marks and no more anyway. */
-  function moon(cx, cy, r) {
-    function pit(dx, dy, pr, op) {
-      return '<circle cx="' + (cx + dx * r).toFixed(1) + '" cy="' + (cy + dy * r).toFixed(1)
-        + '" r="' + (pr * r).toFixed(1) + '" fill="var(--ic-moon-dim)" opacity="' + op + '"/>';
-    }
-    return '<path d="' + moonPath(cx, cy, r, 0.18) + '" fill="url(#wxg-moon)"/>'
-      + pit(0.42, -0.35, 0.14, 0.3) + pit(0.18, 0.32, 0.11, 0.26)
-      + pit(0.6, 0.26, 0.09, 0.24);
+  /* THE NIGHT ICON'S MOON, and it is the whole body — not the lit limb alone.
+
+     It used to be a fixed pleasant crescent at p=0.18, on the reasoning that nobody reads a
+     gibbous from a quarter at 2.9vh. Two things were wrong with that. The Moon tile sits
+     three inches away on the same dashboard reporting the real phase, so a clear night
+     showed a thin crescent in the Now card and a half-lit disc in the tile — one sky, two
+     moons. And a crescent is ~8 units of ink where the cloud beside it is ~790, which is
+     why the night glyph measured a third of the width of every other icon in the pack.
+
+     Both fall out of drawing the disc the way the Moon panel draws it: the whole body,
+     dark side present as earthshine, lit limb at the LIVE phase. The silhouette is then a
+     constant pi*r^2 whatever the sky is doing, and the two moons on the dashboard agree
+     because they are the same number through the same path. */
+  function moon(cx, cy, r, p) {
+    var s = r / 24;                            /* the maria are authored on a 24-unit disc */
+    return '<g class="wxi-moon">'
+      + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="var(--ic-moon-dk)"/>'
+      + '<path d="' + moonPath(cx, cy, r, p) + '" fill="url(#wxg-moon)"/>'
+      + '<g fill="var(--ic-moon-dim)" transform="translate(' + (cx - 32 * s).toFixed(2)
+      + " " + (cy - 32 * s).toFixed(2) + ") scale(" + s.toFixed(3) + ')">' + CRATERS + "</g>"
+      + '<path fill-rule="evenodd" fill="var(--ic-moon-dk)" d="'
+      + ring(cx, cy, r) + " " + moonPath(cx, cy, r, p) + '"/>'
+      + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none"'
+      + ' stroke="var(--ic-moon-dim)" stroke-width="0.6" opacity="0.35"/></g>';
   }
 
   /* The Moon widget's disc: the whole body, with the unlit part present as earthshine
@@ -188,44 +223,49 @@
      duplicate-reference trap the gradients were just taken out of, on an element the tile
      replaces every hour. A crater in shadow is a crater you cannot see, which is the one
      detail that makes a phase disc look lit rather than printed. */
-  var RING = "M 8 32 A 24 24 0 1 0 56 32 A 24 24 0 1 0 8 32 Z";
   function moonDisc(p, cls) {
     return '<svg class="' + (cls || "wxi") + '" viewBox="0 0 64 64" aria-hidden="true">'
-      + '<circle cx="32" cy="32" r="24" fill="var(--ic-moon-dk)"/>'
-      + '<path d="' + moonPath(32, 32, 24, p) + '" fill="url(#wxg-moon)"/>'
-      + '<g fill="var(--ic-moon-dim)">' + CRATERS + "</g>"
-      + '<path fill-rule="evenodd" fill="var(--ic-moon-dk)" d="' + RING + " "
-      + moonPath(32, 32, 24, p) + '"/>'
-      + '<circle cx="32" cy="32" r="24" fill="none" stroke="var(--ic-moon-dim)"'
-      + ' stroke-width="0.7" opacity="0.3"/>'
-      + "</svg>";
+      + moon(32, 32, 24, p) + "</svg>";
   }
 
+  /* A star is a garnish, not a subject. Four of them at sparkle size beside a thin crescent
+     made the night glyph read as an emoji; two small ones beside a real disc read as sky. */
   function star(cx, cy, s) {
-    return '<circle cx="' + cx + '" cy="' + cy + '" r="' + (s * 2.6).toFixed(1)
+    return '<g opacity="0.72"><circle cx="' + cx + '" cy="' + cy + '" r="' + (s * 2.1).toFixed(1)
       + '" fill="url(#wxg-starglow)"/>'
       + '<path class="wxi-star" d="M ' + cx + " " + (cy - s)
       + " Q " + cx + " " + cy + " " + (cx + s) + " " + cy
       + " Q " + cx + " " + cy + " " + cx + " " + (cy + s)
       + " Q " + cx + " " + cy + " " + (cx - s) + " " + cy
       + " Q " + cx + " " + cy + " " + cx + " " + (cy - s)
-      + ' Z" fill="var(--ic-star)"/>';
+      + ' Z" fill="var(--ic-star)"/></g>';
   }
 
-  /* Falling water. Length, weight and lateral offset all vary — three identical strokes
-     is a comb, and a comb is what the old drops looked like. The gradient fades each
-     streak out at its top, which is what gives it a direction without drawing an arrow. */
-  function drops(n, len, y) {
-    var xs = n === 2 ? [25, 39] : [21, 32, 43];
-    var k = [1, 0.78, 1.12];
-    return '<g class="wxi-rain" stroke="url(#wxg-rain)" stroke-linecap="round" fill="none">'
-      + xs.map(function (x, i) {
-        var l = len * k[i % 3];
-        return '<line class="wxi-drop" stroke-width="' + (2.6 + (i % 2) * 0.8).toFixed(1)
-          + '" x1="' + x + '" y1="' + (y + (i % 2) * 2).toFixed(1)
-          + '" x2="' + (x - l * 0.3).toFixed(1) + '" y2="' + (y + (i % 2) * 2 + l).toFixed(1)
-          + '"/>';
-      }).join("") + "</g>";
+  /* Falling water. ONE rake angle and ONE gap below the belly for every streak in the pack;
+     only the length varies, and only a little.
+
+     The first version varied length, weight and start height together, which is what a
+     photograph of rain does and what a drawing of rain must not: at icon size three streaks
+     starting at three heights read as three mistakes rather than as depth. The gradient
+     fades each streak out at its top, which is what gives it a direction without drawing
+     an arrow, and that is where the variety is allowed to live. */
+  var RAKE = 0.26;                            /* horizontal drift per unit of fall */
+  var RAIN_GAP = 3.2;                         /* every streak starts this far under the base */
+  function streak(x, y, l, w) {
+    return '<line class="wxi-drop" stroke-width="' + w
+      + '" x1="' + x.toFixed(1) + '" y1="' + y.toFixed(1)
+      + '" x2="' + (x - l * RAKE).toFixed(1) + '" y2="' + (y + l).toFixed(1) + '"/>';
+  }
+  function rainGroup(inner) {
+    return '<g class="wxi-rain" stroke="url(#wxg-rain)" stroke-linecap="round"'
+      + ' fill="none">' + inner + "</g>";
+  }
+  function drops(n, len, base) {
+    var xs = n === 2 ? [26, 39] : [20.5, 32, 43.5];
+    var k = n === 2 ? [1, 0.86] : [0.88, 1, 0.92];
+    return rainGroup(xs.map(function (x, i) {
+      return streak(x, base + RAIN_GAP, len * k[i], 2.8);
+    }).join(""));
   }
 
   /* A six-armed flake with branch ticks, not a plus sign with an X through it. Small
@@ -261,14 +301,22 @@
   }
 
   /* Glow first, then the bolt, then a hot core down its spine — a flat yellow zigzag is a
-     road sign, and the glow is what makes it light. */
-  function bolt(dx) {
-    var x = dx || 0;
-    return '<g class="wxi-bolt" transform="translate(' + x + ' 0)">'
-      + '<ellipse cx="34" cy="50" rx="15" ry="14" fill="url(#wxg-boltglow)"/>'
-      + '<path d="M 36 36 L 25 52 L 32 52 L 28 64 L 43 47 L 35.5 47 L 40 36 Z"'
-      + ' fill="url(#wxg-bolt)"/>'
-      + '<path d="M 36.5 39 L 30 50 L 34 50 L 32 58" fill="none"'
+     road sign, and the glow is what makes it light.
+
+     It hangs from the cloud's centre of mass with its head tucked inside the belly and its
+     tip clear of the frame's bottom edge. The first one hung off the left shoulder and ran
+     into the viewBox floor, so half the strike was outside the cloud it came from and the
+     other half was clipped — a bolt has to look like it left the cloud it is under. */
+  function bolt(cx) {
+    var pts = [[3.4, -4], [-6.2, 11], [-0.6, 11], [-4.6, 24], [7.6, 7.5], [1.4, 7.5], [5.6, -4]];
+    var d = pts.map(function (q, i) {
+      return (i ? "L " : "M ") + (cx + q[0]).toFixed(1) + " " + (38 + q[1]).toFixed(1);
+    }).join(" ") + " Z";
+    return '<g class="wxi-bolt">'
+      + '<ellipse cx="' + cx + '" cy="48" rx="13" ry="14" fill="url(#wxg-boltglow)"/>'
+      + '<path d="' + d + '" fill="url(#wxg-bolt)"/>'
+      + '<path d="M ' + (cx + 3.9) + ' 37 L ' + (cx - 2.4) + " 47 L " + (cx + 1.2)
+      + " 47 L " + (cx - 1) + ' 55" fill="none"'
       + ' stroke="var(--ic-bolt-hi)" stroke-width="1.2" stroke-linecap="round"'
       + ' opacity="0.75"/></g>';
   }
@@ -313,32 +361,72 @@
   /* ---------------- composites per WMO group ----------------
      One placement language across all 28: a bank's base sits where the precipitation
      starts, the light source (sun or moon) sits behind its top-left shoulder, and
-     anything falling occupies the bottom third. */
+     anything falling occupies the bottom third.
 
-  var clearDay = sun(32, 30, 11.5);
-  var clearNight = moon(30, 31, 13.5) + star(48, 16, 3.4) + star(53, 33, 2.4)
-    + star(41, 47, 2);
-  var partlyDay = sun(21, 19, 9.5) + cloud(36, 49, 43);
-  var partlyNight = moon(20, 18, 10) + star(52, 15, 2.6) + cloud(36, 49, 43);
-  var overcast = cloud(25, 36, 38, true) + cloud(35, 48, 45);
-  var foggy = cloud(32, 34, 42) + fog(42);
-  var drizzle = cloud(32, 40, 45) + drops(2, 7, 45);
-  var rain = cloud(32, 40, 45) + drops(3, 12, 44);
+     OPTICAL MASS is the second rule, and it is the one a pack is judged on. Every hero
+     subject carries roughly the same area of ink in the 64-unit space, not the same
+     bounding box — the eye weighs an icon by how much of it is filled, so a sun of thin
+     spikes and a cloud of solid fill at the same width look like two different sizes.
+     The cumulus silhouette is 0.39*w^2 units of fill, so the w=45 rain cloud is ~790; the
+     clear-day sun (disc + wedges) is ~800 at r=14.5, and the clear-night moon disc is
+     ~880 at r=16.75. Where a light source sits BEHIND a bank it is a supporting shape and
+     runs at roughly half that, which is why the partly-cloudy sun is smaller than the
+     clear-sky one rather than the same sun moved sideways.
+
+     The composites are BUILT ON DEMAND, not once at load: the night ones need the phase of
+     the moon, which changes. once() keeps the day set to a single build each, since a
+     drawing with no live input cannot have changed since the last strip was painted. */
+
+  function once(fn) { var v; return function () { return v || (v = fn()); }; }
+
+  /* The live phase, from whoever owns the model — the Moon widget calls usePhase() with
+     its own calc() so the icon and the Moon tile can never disagree. Until it does (the
+     tests' bare icon module, a page without the widget) a waxing crescent stands in.
+
+     Clamped off the ends: a moon two days either side of new has a lit limb a fraction of
+     a unit wide, and the icon would go to a dark disc for four nights a month. Six per cent
+     is the narrowest crescent that still reads as one at strip size. */
+  var phaseSrc = null;
+  function livePhase() {
+    var p = phaseSrc ? phaseSrc(Date.now()) : 0.18;
+    if (!(p >= 0 && p <= 1)) p = 0.18;
+    return p < 0.06 ? 0.06 : p > 0.94 ? 0.94 : p;
+  }
+
+  var clearDay = once(function () { return sun(32, 31, 14.5); });
+  function clearNight() {
+    return moon(28, 31.5, 16.75, livePhase()) + star(53, 16, 2.1) + star(50, 46, 1.5);
+  }
+  var partlyDay = once(function () { return sun(21, 20, 10.5) + cloud(36, 49, 43); });
+  function partlyNight() {
+    return moon(20, 19, 11, livePhase()) + star(53, 14, 1.8) + cloud(36, 49, 43);
+  }
+  var overcast = once(function () { return cloud(25, 36, 38, true) + cloud(35, 48, 45); });
+  var foggy = once(function () { return cloud(32, 34, 42) + fog(42); });
+  var drizzle = once(function () { return cloud(32, 40, 45) + drops(2, 7, 40); });
+  var rain = once(function () { return cloud(32, 40, 45) + drops(3, 12, 40); });
   /* one drop beside one flake: rain that freezes */
-  var freezing = cloud(32, 40, 45)
-    + '<g class="wxi-rain" stroke="url(#wxg-rain)" stroke-linecap="round" fill="none">'
-    + '<line class="wxi-drop" stroke-width="3" x1="24" y1="45" x2="20.5" y2="56"/></g>'
-    + flake(40, 51, 5.6);
-  var snow = cloud(32, 40, 45) + flakes(3, 51);
-  var showersDay = sun(19, 16, 7.5) + cloud(36, 42, 40) + drops(3, 11, 46);
-  var showersNight = moon(18, 16, 8) + cloud(36, 42, 40) + drops(3, 11, 46);
-  var storm = cloud(32, 38, 46, true) + bolt(0);
-  var stormRain = cloud(32, 38, 46, true) + bolt(0)
-    + '<g class="wxi-rain" stroke="url(#wxg-rain)" stroke-linecap="round" fill="none">'
-    + '<line class="wxi-drop" stroke-width="2.6" x1="19" y1="42" x2="15.5" y2="53"/>'
-    + '<line class="wxi-drop" stroke-width="2.6" x1="49" y1="42" x2="45.5" y2="53"/></g>';
-  var snowShowersDay = sun(19, 16, 7.5) + cloud(36, 42, 40) + flakes(2, 51);
-  var snowShowersNight = moon(18, 16, 8) + cloud(36, 42, 40) + flakes(2, 51);
+  var freezing = once(function () {
+    return cloud(32, 40, 45) + rainGroup(streak(24, 43.2, 11, 2.8)) + flake(40, 51, 5.6);
+  });
+  var snow = once(function () { return cloud(32, 40, 45) + flakes(3, 51); });
+  var showersDay = once(function () {
+    return sun(19, 17, 8.5) + cloud(36, 42, 40) + drops(3, 11, 42);
+  });
+  function showersNight() {
+    return moon(18, 17, 9.5, livePhase()) + cloud(36, 42, 40) + drops(3, 11, 42);
+  }
+  var storm = once(function () { return cloud(32, 38, 46, true) + bolt(32); });
+  var stormRain = once(function () {
+    return cloud(32, 38, 46, true) + bolt(32)
+      + rainGroup(streak(17.5, 41.2, 11, 2.6) + streak(47.5, 41.2, 11, 2.6));
+  });
+  var snowShowersDay = once(function () {
+    return sun(19, 17, 8.5) + cloud(36, 42, 40) + flakes(2, 51);
+  });
+  function snowShowersNight() {
+    return moon(18, 17, 9.5, livePhase()) + cloud(36, 42, 40) + flakes(2, 51);
+  }
 
   /* code -> [day icon, night icon]; text stays in app.js's WMO table. */
   var ICONS = {
@@ -361,11 +449,14 @@
 
   WP.wxIcon = function (code, night) {
     var e = ICONS[code];
-    return e ? wrap(night ? e[1] : e[0]) : UNKNOWN;
+    return e ? wrap(e[night ? 1 : 0]()) : UNKNOWN;
   };
   /* Exposed for the Moon widget and for the tests. */
   WP.wxIcon.moonPath = moonPath;
   WP.wxIcon.moonDisc = moonDisc;
   WP.wxIcon.codes = Object.keys(ICONS).map(Number);
+  /* The Moon widget hands its model over here at load, so the night glyph and the Moon
+     tile are the same moon. Anything that can answer "phase at this instant" will do. */
+  WP.wxIcon.usePhase = function (fn) { phaseSrc = fn; };
   mountDefs();
 })();

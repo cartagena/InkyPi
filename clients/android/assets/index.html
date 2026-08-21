@@ -451,9 +451,11 @@
                    Open-Meteo fetch and must come before wx-hourly.js and wx-daily.js, which
                    resolve WP.registry.weather when their IIFE runs. wx-sensors.js precedes
                    wx-settings.js for the same reason.
-       wx-sky-light.js
-                   the sky layer's pure half (the sun-phase light model, the WMO->scene
-                   map). wx-sky.js reads WP.skyLight at parse time, so it comes after.
+       wx-sky-light.js / wx-sky-paint.js
+                   the sky layer's other two thirds: the pure half (the sun-phase light
+                   model, the WMO->scene map, the populations) and the weather painters.
+                   Both are read at parse time by what follows, so both come before
+                   wx-sky.js, which is the lifecycle and mixes the painters in.
 
      assets/ is flat by necessity — aapt2 on Windows writes a subdirectory separator as a
      backslash and file:///android_asset/ cannot resolve it — so "one file per widget" means
@@ -485,6 +487,7 @@
 <script src="wx-settings.js"></script>
 <script src="wx-carousel.js"></script>
 <script src="wx-sky-light.js"></script>
+<script src="wx-sky-paint.js"></script>
 <script src="wx-sky.js"></script>
 </body>
 </html>

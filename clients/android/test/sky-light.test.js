@@ -377,3 +377,30 @@ test("a token hex survives the trip into a canvas gradient", function () {
   assert.equal(L.rgba("", 0.2), "rgba(154,168,184,0.2)");
   assert.equal(L.rgba("var(--nope)", 0.2), "rgba(154,168,184,0.2)");
 });
+
+/* ---------------- the populations that make a scene read as weather ----------------
+   Only one of these is pinned, and it is the one that has been wrong twice. Fog went out
+   as four evenly spaced full-width bands (venetian blinds), then as five full-width bands
+   at one alpha over a floor gradient — which is a flat wash however many you stack, and
+   graded as "a black rectangle captioned Fog". What makes fog read as fog is DEPTH: banks
+   at different heights, widths, speeds and densities, so the layer varies both across the
+   frame and along itself. */
+
+test("the fog banks are a depth field, not a stack of identical rectangles", function () {
+  var f = L.populate(711, 1138, 9, 150, 90);
+  assert.ok(f.bands.length >= 6, "only " + f.bands.length + " fog banks — too few to layer");
+  function spread(k) {
+    var v = f.bands.map(function (b) { return b[k]; });
+    return Math.max.apply(null, v) - Math.min.apply(null, v);
+  }
+  assert.ok(spread("hh") > 40, "every bank is the same height");
+  assert.ok(spread("y") > 200, "every bank sits at the same height in the frame");
+  assert.ok(spread("v") > 2, "every bank drifts at the same speed, so none slides past another");
+  assert.ok(spread("a") > 0.03, "every bank is the same density");
+  assert.ok(spread("ph") > 1, "every bank breathes in step, which is a pulse, not weather");
+  f.bands.forEach(function (b) {
+    assert.ok(b.rx * 2 > 711, "a bank narrower than the frame would show an end");
+    assert.ok(b.a <= 0.12, "bank alpha " + b.a + " is over the fog budget");
+    assert.ok(b.y > 1138 * 0.4, "fog lies on the ground; this bank is in the sky");
+  });
+});
