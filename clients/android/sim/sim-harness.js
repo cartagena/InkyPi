@@ -296,18 +296,27 @@
        slow load the query found nothing, the panel was left at opacity 0 with the
        dashboard hidden behind it, and the capture came out as an empty sky. Others came
        out as the dashboard, because the harness had not run at all yet. Both are the same
-       bug: one shot at a moving target. It now retries for four seconds and stops the
-       moment the panel it was asked for is really open. */
+       bug: one shot at a moving target.
+
+       FOUR SECONDS WAS STILL A DEADLINE, and a deadline on a clock that is not the app's.
+       Under a virtual clock forty retries at 100 ms can be spent in a few milliseconds of
+       real time — long before a widget that is waiting on a fetch has a panel to open —
+       and what the capture then got was the dashboard filed under the panel's name, or,
+       when open() had run but the class had not landed, an empty sky with the dashboard
+       already hidden behind a panel at opacity 0. Both were the give-up branch. It now
+       keeps trying for the whole life of the page, and the opacity is forced on every
+       pass rather than only on the winning one, so a panel caught mid-fade is landed even
+       if the class arrives on the very last tick. */
     var tries = 0;
     var settle = function () {
       var el = document.querySelector('.panel[data-panel="' + want[1] + '"]');
-      if (el && el.className.indexOf("is-open") !== -1) {
+      if (el) {
         el.style.transition = "none";
         el.style.opacity = "1";
         el.style.transform = "none";
-        return;
       }
-      if (++tries > 40) return;              /* not a screen, or the app never booted */
+      if (el && el.className.indexOf("is-open") !== -1) return;
+      if (++tries > 600) return;             /* not a screen, or the app never booted */
       try {
         if (window.WP && WP.panels) { WP.panels.closeAll(); WP.panels.open(want[1]); }
       } catch (e) { /* not a screen */ }

@@ -141,7 +141,9 @@ test("index.html loads exactly the scripts that exist, in the order they need", 
   var html = h.readAsset("index.html");
   var srcs = h.scriptOrder(html);
   assert.deepEqual(srcs, [
-    "config.js", "app.js", "app-view.js", "app-touch.js", "wx-ui.js", "wx-icons.js",
+    "config.js", "app.js", "app-view.js", "app-touch.js", "wx-ui.js",
+    /* the moon is a body and lands before the weather pack that draws night with it */
+    "wx-icons-moon.js", "wx-icons.js",
     "wx-clock.js", "wx-timer.js", "wx-weather.js", "wx-hourly.js",
     "wx-daily.js", "wx-sensors-demo.js", "wx-sensors.js", "wx-sensors-panel.js",
     "wx-system.js",

@@ -76,10 +76,16 @@ test("condition families share their glyph language", function () {
 /* ---------------- palette discipline ---------------- */
 
 test("the icons carry no colour of their own — every colour is a style.css token", function () {
-  var src = fs.readFileSync(path.join(h.ASSETS, "wx-icons.js"), "utf8")
+  /* EVERY file the pack is drawn in, not the one it started in: the moon body moved to
+     wx-icons-moon.js when wx-icons.js hit the line ceiling, and a rule that names one file
+     is a rule that stops covering the drawing the moment the drawing is split. */
+  var files = fs.readdirSync(h.ASSETS).filter(function (n) { return /^wx-icons/.test(n); });
+  assert.ok(files.length >= 2, "the icon pack is one file again — check this list");
+  var src = files.map(function (n) { return fs.readFileSync(path.join(h.ASSETS, n), "utf8"); })
+    .join("\n")
     .replace(/\/\*[\s\S]*?\*\//g, "");
   assert.equal(/#[0-9a-fA-F]{3,8}\b/.test(src), false,
-    "wx-icons.js hardcodes a hex colour — the palette's one home is style.css");
+    "an icon file hardcodes a hex colour — the palette's one home is style.css");
 
   var css = h.readAsset("style.css") + h.readAsset("style-theme.css");
   var used = {};
@@ -89,7 +95,7 @@ test("the icons carry no colour of their own — every colour is a style.css tok
   assert.ok(names.length >= 8, "only " + names.length + " palette tokens used — icons lost their colour");
   names.forEach(function (n) {
     assert.match(css, new RegExp("--ic-" + n + "\\s*:"),
-      "wx-icons.js uses --ic-" + n + " but style.css never defines it");
+      "the icon pack uses --ic-" + n + " but style.css never defines it");
   });
 });
 

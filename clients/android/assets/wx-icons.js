@@ -7,21 +7,17 @@
    style-theme.css (--ic-*), so the palette is decided in exactly one place and the icons
    follow the theme, not the font.
 
-   WHAT CHANGED, and why it was worth the bytes. The first set was flat: three circles and
-   a slab for a cloud, eight straight rays for a sun, four crossed lines for a flake. Flat
-   fill is what makes an icon read as a placeholder — the eye gets a silhouette and no
-   object. Every primitive here is built the way a paid pack builds one: a single silhouette
-   PATH rather than overlapping discs (overlaps are invisible under a flat fill and glaring
-   under a gradient), a vertical light-to-dark gradient across it, a rim light where the sky
-   would catch it, and a soft shadow where it would not. Nothing is drawn twice at two
-   scales — the 28 WMO codes are assembled from seven primitives, so they cannot drift apart.
+   HOW A SHAPE IS BUILT, and why it is worth the bytes. Flat fill is what makes an icon
+   read as a placeholder — the eye gets a silhouette and no object. So every primitive is
+   built the way a paid pack builds one: a single silhouette PATH rather than overlapping
+   discs (an overlap is invisible under a flat fill and glaring under a gradient), a
+   light-to-dark gradient across it, a rim light where the sky would catch it, and a soft
+   shadow where it would not. Nothing is drawn twice at two scales — the 28 WMO codes are
+   assembled from seven primitives, so they cannot drift apart.
 
    MOTION lives in style-icons.css, not here: the shapes carry class names (wxi-rays,
-   wxi-cloud, wxi-drop, …) and the stylesheet decides what moves and how fast, off the
-   --dur-wx-* motion tokens. It is deliberately applied only to the two icons drawn at hero
-   size (the Now card and a panel hero). A 24-hour strip of animated icons is 24 running
-   compositor animations for art that is 20 px tall — the motion would be invisible and the
-   cost would not.
+   wxi-cloud, wxi-drop, …) and the stylesheet decides what moves, how far and how fast off
+   the --dur-wx-* tokens. Its own header says why only the hero-sized icons move.
 
    GRADIENT IDS are shared and deterministic: two icons that need the same material emit
    the same <defs> with the same id, so whichever copy the document resolves first is by
@@ -59,6 +55,14 @@
     /* the soft dark under the belly of a bank, so the base is not a straight cut */
     "wxg-belly": '<radialGradient id="wxg-belly">'
       + stop(0, "cloud-dkr", 0.55) + stop(1, "cloud-dkr", 0) + "</radialGradient>",
+    /* THE RIM LIGHT'S TAPER, and it is a fade rather than a colour: a lit edge that stops
+       square is a detached bright hook, which is what the top-left lobe grew when it was
+       drawn as a plain stroke. Object-bounding-box units, so the same one def tapers any
+       arc along its own length — the long left rim and the short right one both come out
+       of nothing and go back into it. */
+    "wxg-rim": '<linearGradient id="wxg-rim">'
+      + stop(0, "cloud-lit", 0) + stop(0.3, "cloud-lit", 1)
+      + stop(0.72, "cloud-lit", 1) + stop(1, "cloud-lit", 0) + "</linearGradient>",
     /* the disc: hot centre up and left, cooling to the rim */
     "wxg-sun": '<radialGradient id="wxg-sun" cx="0.38" cy="0.33" r="0.75">'
       + stop(0, "sun-lit") + stop(0.5, "sun") + stop(1, "ray") + "</radialGradient>",
@@ -97,12 +101,25 @@
     + " C 12.2 18.6 18 13.8 24.9 13.8 C 31 13.8 36.3 17.6 38.4 23"
     + " C 39.7 22.2 41.2 21.8 42.8 21.8 C 47.6 21.8 51.5 25.7 51.5 30.5"
     + " C 51.5 31.2 51.4 31.9 51.2 32.5 C 55.9 33.3 59.5 37.4 59.5 42.3"
-    + " C 59.5 43.8 58.3 45 56.8 45 Z";
+    + " C 59.5 43.8 58.3 45 56.8 45"
+    /* THE BASE IS SCALLOPED, not ruled. It closed on a straight line from x 56.8 back to
+       x 2, and a cumulus with a flat bottom sits on an invisible shelf — the one edge in
+       the drawing that no light and no shadow could explain. Three shallow arcs, a unit
+       and a bit deep, are the undersides of the lobes above them; the belly gradient then
+       has something to shade rather than a rule to hide. */
+    + " C 50.5 46.3 45.5 46.3 40.5 45 C 34.5 46.4 28 46.4 22.5 45"
+    + " C 18.5 45.8 15 45.8 12 45 Z";
   /* The top-left arc of that same outline, offset inward — the edge the sky lights. It is
      drawn thin and bright rather than thick and pale: a wide soft rim is a haze that fills
      the lobe and flattens it, where a narrow one describes the edge it sits on. */
   var CL_RIM = "M 4.6 32.6 C 6.2 28.6 9.2 26.5 12.6 26"
     + " C 14.1 19.8 19.2 15.5 25.3 15.5 C 29.9 15.5 34 17.8 36.5 21.8";
+  /* AND THE RIGHT LOBE GETS ONE TOO, much fainter. With light on the left shoulder only,
+     the silhouette read as lit on one side and unfinished on the other — the third lobe
+     is a sphere in the same sky and catches the same light, just at a glancing angle.
+     A circular arc struck inside the lobe's own outline (centre 42.8 30.5, r 8.7 there,
+     7.2 here) rather than a hand-drawn curve, so it cannot stray outside the shape. */
+  var CL_RIM_R = "M 42.8 23.3 A 7.2 7.2 0 0 1 49.6 28";
   /* Where one lobe tucks behind the next. A single gradient over a single silhouette gives
      the eye one surface; these two soft creases are what say "four lobes", and they are the
      difference between a cloud and a grey bean at four metres. */
@@ -118,11 +135,18 @@
     return '<g class="wxi-cloud" transform="translate(' + tx.toFixed(2) + " "
       + ty.toFixed(2) + ") scale(" + s.toFixed(3) + ')">'
       + '<path d="' + CL_D + '" fill="url(#wxg-' + (dark ? "cloudd" : "cloud") + ')"/>'
+      /* TWO bellies. One ellipse softened the centre of the base and left the rest of it a
+         straight cut at y=45, which is what made the cumulus read as sitting on an
+         invisible shelf. The second is wider, fainter and offset a unit down and left, so
+         the shadow runs the whole width of the base and thins unevenly along it. */
+      + '<ellipse cx="29.5" cy="43.5" rx="27" ry="6" fill="url(#wxg-belly)" opacity="0.42"/>'
       + '<ellipse cx="31" cy="42" rx="22" ry="5.2" fill="url(#wxg-belly)"/>'
       + '<path d="' + CL_FOLD + '" fill="none" stroke="var(--ic-cloud-dk)"'
       + ' stroke-width="1.7" stroke-linecap="round" opacity="' + (dark ? 0.5 : 0.34) + '"/>'
-      + '<path d="' + CL_RIM + '" fill="none" stroke="var(--ic-cloud-lit)"'
+      + '<path d="' + CL_RIM + '" fill="none" stroke="url(#wxg-rim)"'
       + ' stroke-width="1.25" stroke-linecap="round" opacity="' + (dark ? 0.45 : 0.85) + '"/>'
+      + '<path d="' + CL_RIM_R + '" fill="none" stroke="url(#wxg-rim)"'
+      + ' stroke-width="1.1" stroke-linecap="round" opacity="' + (dark ? 0.16 : 0.3) + '"/>'
       + "</g>";
   }
 
@@ -157,76 +181,10 @@
       + '" fill="var(--ic-sun-lit)" opacity="0.5"/>';
   }
 
-  /* Crescent between an outer circular arc and an inner elliptical terminator.
-     p is the synodic phase 0..1 (0 = new). Shared with the Moon widget so the icon in the
-     tile and the big disc in the panel are literally the same shape. */
-  function moonPath(cx, cy, r, p) {
-    var c = Math.cos(2 * Math.PI * p);        // +1 new … 0 quarter … -1 full
-    var waxing = p < 0.5;
-    var rx = (Math.abs(c) * r).toFixed(2);
-    var outer = waxing ? 1 : 0;               // lit limb: right when waxing, left waning
-    var inner = waxing ? (c > 0 ? 0 : 1) : (c > 0 ? 1 : 0);
-    return "M " + cx + " " + (cy - r)
-      + " A " + r + " " + r + " 0 0 " + outer + " " + cx + " " + (cy + r)
-      + " A " + rx + " " + r + " 0 0 " + inner + " " + cx + " " + (cy - r) + " Z";
-  }
 
-  /* The whole limb as a path, so "the disc minus the lit part" can be one evenodd fill.
-     A function and not a constant because the icon draws the same moon at four radii. */
-  function ring(cx, cy, r) {
-    return "M " + (cx - r) + " " + cy + " A " + r + " " + r + " 0 1 0 " + (cx + r) + " " + cy
-      + " A " + r + " " + r + " 0 1 0 " + (cx - r) + " " + cy + " Z";
-  }
-
-  /* Maria, in the 64-space of a full disc. Placed where the real ones are, roughly, so a
-     full moon reads as a face rather than as a plate. */
-  var CRATERS = '<circle cx="25" cy="21.5" r="4.4" opacity="0.3"/>'
-    + '<circle cx="38.5" cy="26" r="2.6" opacity="0.26"/>'
-    + '<circle cx="30" cy="37" r="5.6" opacity="0.22"/>'
-    + '<circle cx="43" cy="40.5" r="3" opacity="0.26"/>'
-    + '<circle cx="19.5" cy="33" r="2.3" opacity="0.24"/>'
-    + '<circle cx="35" cy="46" r="2" opacity="0.2"/>';
-
-  /* THE NIGHT ICON'S MOON, and it is the whole body — not the lit limb alone.
-
-     It used to be a fixed pleasant crescent at p=0.18, on the reasoning that nobody reads a
-     gibbous from a quarter at 2.9vh. Two things were wrong with that. The Moon tile sits
-     three inches away on the same dashboard reporting the real phase, so a clear night
-     showed a thin crescent in the Now card and a half-lit disc in the tile — one sky, two
-     moons. And a crescent is ~8 units of ink where the cloud beside it is ~790, which is
-     why the night glyph measured a third of the width of every other icon in the pack.
-
-     Both fall out of drawing the disc the way the Moon panel draws it: the whole body,
-     dark side present as earthshine, lit limb at the LIVE phase. The silhouette is then a
-     constant pi*r^2 whatever the sky is doing, and the two moons on the dashboard agree
-     because they are the same number through the same path. */
-  function moon(cx, cy, r, p) {
-    var s = r / 24;                            /* the maria are authored on a 24-unit disc */
-    return '<g class="wxi-moon">'
-      + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="var(--ic-moon-dk)"/>'
-      + '<path d="' + moonPath(cx, cy, r, p) + '" fill="url(#wxg-moon)"/>'
-      + '<g fill="var(--ic-moon-dim)" transform="translate(' + (cx - 32 * s).toFixed(2)
-      + " " + (cy - 32 * s).toFixed(2) + ") scale(" + s.toFixed(3) + ')">' + CRATERS + "</g>"
-      + '<path fill-rule="evenodd" fill="var(--ic-moon-dk)" d="'
-      + ring(cx, cy, r) + " " + moonPath(cx, cy, r, p) + '"/>'
-      + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none"'
-      + ' stroke="var(--ic-moon-dim)" stroke-width="0.6" opacity="0.35"/></g>';
-  }
-
-  /* The Moon widget's disc: the whole body, with the unlit part present as earthshine
-     rather than absent, and the maria where the real ones are. Exported so the tile, the
-     week strip, the phase strip and the panel hero are one drawing at four sizes.
-
-     The craters are painted over the WHOLE disc and the dark side is then painted back
-     over the top, as a single evenodd path of (outer circle + lit limb). That is the same
-     picture a clipPath would give and it needs no id — and an id here would be the same
-     duplicate-reference trap the gradients were just taken out of, on an element the tile
-     replaces every hour. A crater in shadow is a crater you cannot see, which is the one
-     detail that makes a phase disc look lit rather than printed. */
-  function moonDisc(p, cls) {
-    return '<svg class="' + (cls || "wxi") + '" viewBox="0 0 64 64" aria-hidden="true">'
-      + moon(32, 32, 24, p) + "</svg>";
-  }
+  /* The moon body, drawn in wx-icons-moon.js and shared with the Moon widget — see that
+     file's header for why it is not in here. */
+  var moon = WP.moonArt.body;
 
   /* A star is a garnish, not a subject. Four of them at sparkle size beside a thin crescent
      made the night glyph read as an emoji; two small ones beside a real disc read as sky. */
@@ -460,8 +418,8 @@
     return e ? wrap(e[night ? 1 : 0]()) : UNKNOWN;
   };
   /* Exposed for the Moon widget and for the tests. */
-  WP.wxIcon.moonPath = moonPath;
-  WP.wxIcon.moonDisc = moonDisc;
+  WP.wxIcon.moonPath = WP.moonArt.path;
+  WP.wxIcon.moonDisc = WP.moonArt.disc;
   WP.wxIcon.codes = Object.keys(ICONS).map(Number);
   WP.wxIcon.moonR = MOON_R;
   /* The Moon widget hands its model over here at load, so the night glyph and the Moon
