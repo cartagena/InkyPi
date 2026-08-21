@@ -1418,6 +1418,7 @@ class TestPiImageBuildWorkflow:
     """JTN-533: release-time workflow that builds a pre-installed .img.xz."""
 
     WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "build-pi-image.yml"
+    BUILD_SCRIPT_PATH = SCRIPTS_DIR / "build_pi_image.sh"
 
     @pytest.fixture(autouse=True)
     def _load(self):
@@ -1425,6 +1426,12 @@ class TestPiImageBuildWorkflow:
             self.WORKFLOW_PATH.exists()
         ), f"Expected workflow file at {self.WORKFLOW_PATH}"
         self.content = self.WORKFLOW_PATH.read_text()
+        self.build_sh = self.BUILD_SCRIPT_PATH.read_text()
+        # The build steps now live in scripts/build_pi_image.sh so a local run
+        # exercises the same code as CI. Assertions about *what the pipeline
+        # does* search both; assertions about workflow structure parse
+        # `content` as YAML and must keep using it alone.
+        self.sources = self.content + "\n" + self.build_sh
 
     def test_workflow_is_valid_yaml(self):
         import yaml
@@ -1469,35 +1476,35 @@ class TestPiImageBuildWorkflow:
 
     def test_workflow_verifies_base_image_checksum(self):
         # The downloaded base image must be checksum-verified before use.
-        assert "sha256sum -c" in self.content
+        assert "sha256sum -c" in self.sources
 
     def test_workflow_uses_qemu_user_static_and_chroot(self):
         # Building arm64 binaries on an x86_64 runner requires
         # qemu-user-static for binfmt + chroot + copy of qemu-aarch64-static
         # into the mounted rootfs.
-        assert "qemu-user-static" in self.content
-        assert "qemu-aarch64-static" in self.content
-        assert "chroot" in self.content
+        assert "qemu-user-static" in self.sources
+        assert "qemu-aarch64-static" in self.sources
+        assert "chroot" in self.sources
 
     def test_workflow_bind_mounts_proc_sys_dev(self):
         # chroot needs /proc, /sys, /dev visible for install.sh to succeed.
-        assert "/proc" in self.content
-        assert "/sys" in self.content
-        assert "/dev" in self.content
-        assert "mount --bind" in self.content
+        assert "/proc" in self.sources
+        assert "/sys" in self.sources
+        assert "/dev" in self.sources
+        assert "mount --bind" in self.sources
 
     def test_workflow_clones_at_release_tag_not_main(self):
         # Must build from the release tag so install.sh/requirements match
         # the shipped version.
-        assert "--branch" in self.content
-        assert "tag_name" in self.content or "inputs.tag" in self.content
+        assert "--branch" in self.sources
+        assert "tag_name" in self.sources or "inputs.tag" in self.sources
         # Never pin to main/HEAD
-        assert "--branch main" not in self.content
-        assert "--branch master" not in self.content
+        assert "--branch main" not in self.sources
+        assert "--branch master" not in self.sources
 
     def test_workflow_runs_install_sh_in_chroot(self):
         # The whole point — chroot + install.sh is what produces the image.
-        assert "install/install.sh" in self.content or "install.sh" in self.content
+        assert "install/install.sh" in self.sources or "install.sh" in self.sources
 
     def test_workflow_does_not_modify_install_sh(self):
         # JTN-533 constraint: install.sh must stay self-contained for
@@ -1520,8 +1527,8 @@ class TestPiImageBuildWorkflow:
         # pishrink.sh is fetched from upstream and run as root, so the ref must
         # be an immutable-by-convention release tag, never a branch whose head
         # upstream can move under us.
-        assert "PISHRINK_TAG:" in self.content
-        tag_match = re.search(r"PISHRINK_TAG:\s*(\S+)", self.content)
+        assert "PISHRINK_TAG:" in self.sources
+        tag_match = re.search(r"PISHRINK_TAG:\s*(\S+)", self.sources)
         assert (
             tag_match is not None
         ), "PISHRINK_TAG must be set to an upstream release tag"
@@ -1529,21 +1536,22 @@ class TestPiImageBuildWorkflow:
             r"v\d+\.\d+\.\d+", tag_match.group(1)
         ), f"PISHRINK_TAG must be a version tag, got {tag_match.group(1)!r}"
         # refs/tags/ must be spelled out so the ref cannot resolve to a branch.
-        assert "refs/tags/${PISHRINK_TAG}" in self.content
+        assert "refs/tags/${PISHRINK_TAG}" in self.sources
 
     def test_workflow_pishrink_download_is_checksum_verified(self):
         # A tag can be moved upstream, so the tag pin alone is not enough:
         # the downloaded script runs as root over the image and must be
         # checksum-verified before it is made executable.
-        sha_match = re.search(r"PISHRINK_SHA256:\s*([0-9a-f]{64})", self.content)
+        sha_match = re.search(r"PISHRINK_SHA256:\s*([0-9a-f]{64})", self.sources)
         assert (
             sha_match is not None
         ), "PISHRINK_SHA256 must be a 64-char lowercase hex sha256"
-        assert "sha256sum -c build/pishrink.sha256" in self.content
+        assert "sha256sum -c pishrink.sha256" in self.sources
         # Verification must precede chmod +x, or a tampered script could be
         # made executable before anything checks it.
-        verify_pos = self.content.index("sha256sum -c build/pishrink.sha256")
-        chmod_pos = self.content.index("chmod +x build/pishrink.sh")
+        # The build script runs from inside build/, so these paths are relative.
+        verify_pos = self.sources.index("sha256sum -c pishrink.sha256")
+        chmod_pos = self.sources.index("chmod +x pishrink.sh")
         assert (
             verify_pos < chmod_pos
         ), "pishrink.sh checksum must be verified before chmod +x"
@@ -1553,14 +1561,14 @@ class TestPiImageBuildWorkflow:
 
     def test_workflow_zero_fills_free_space_before_compression(self):
         # Better xz ratio — zero-fill unused blocks so they compress away.
-        assert "dd if=/dev/zero" in self.content
+        assert "dd if=/dev/zero" in self.sources
 
     def test_workflow_recompresses_with_xz(self):
-        assert "xz -9" in self.content
+        assert "xz -9" in self.sources
 
     def test_workflow_produces_expected_image_name(self):
-        assert "inkypi-" in self.content
-        assert "pi-zero-2-w.img" in self.content
+        assert "inkypi-" in self.sources
+        assert "pi-zero-2-w.img" in self.sources
 
     def test_workflow_generates_sha256_sidecar(self):
         assert "sha256sum" in self.content
@@ -1568,12 +1576,17 @@ class TestPiImageBuildWorkflow:
 
     def test_workflow_has_boot_verification_job(self):
         # JTN-533: unverified images must not ship. A separate job boots the
-        # image in qemu and grep's for "login:" before attach-release runs.
-        assert "verify-boot" in self.content or "boot-verify" in self.content
-        assert (
-            "qemu-system-aarch64" in self.content or "qemu-system-arm" in self.content
-        )
-        assert "login:" in self.content
+        # image in qemu and waits for a login prompt or multi-user.target
+        # before attach-release runs.
+        #
+        # The "login:" check itself lives in scripts/boot_verify_image.sh now.
+        # This used to assert it against the workflow text, where it only
+        # matched a comment — passing for the wrong reason.
+        assert "verify-boot" in self.content
+        assert "scripts/boot_verify_image.sh" in self.content
+        boot_sh = (SCRIPTS_DIR / "boot_verify_image.sh").read_text()
+        assert "qemu-system-aarch64" in boot_sh
+        assert "login:" in boot_sh
 
     def test_workflow_delegates_boot_verify_to_script(self):
         # The boot arguments live in a script so they can be exercised by hand.
@@ -3747,69 +3760,92 @@ class TestPiImageShipsNoBuildScaffolding:
     """The chroot scaffolding must not reach users.
 
     v1.0.2 shipped with the build's systemctl/raspi-config stubs still on
-    PATH and the runner's resolv.conf in place, producing an image that could
-    neither join wifi nor resolve DNS.
+    PATH and the builder's resolv.conf in place, producing an image that could
+    neither join wifi nor resolve DNS. Nothing in the pipeline inspected the
+    contents of what it was about to publish.
     """
 
+    BUILD_SCRIPT = SCRIPTS_DIR / "build_pi_image.sh"
+    AUDIT_SCRIPT = SCRIPTS_DIR / "audit_pi_image.sh"
     WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "build-pi-image.yml"
 
     @pytest.fixture(autouse=True)
     def _load(self):
-        self.content = self.WORKFLOW_PATH.read_text()
-        self.wf = yaml.safe_load(self.content)
-        self.steps = self.wf["jobs"]["build-image"]["steps"]
-        self.names = [s.get("name", "") for s in self.steps]
+        self.build_sh = self.BUILD_SCRIPT.read_text()
+        self.audit_sh = self.AUDIT_SCRIPT.read_text()
+        self.workflow = self.WORKFLOW_PATH.read_text()
 
-    def _step_index(self, needle):
-        for i, n in enumerate(self.names):
-            if needle in n:
-                return i
-        raise AssertionError(f"no build-image step matching {needle!r}: {self.names}")
+    def test_scripts_are_executable(self):
+        for path in (self.BUILD_SCRIPT, self.AUDIT_SCRIPT):
+            assert os.access(path, os.X_OK), f"{path.name} must be executable"
+
+    def test_workflow_delegates_build_to_script(self):
+        # A local build has to run the same code CI runs, or reproducing a
+        # problem locally proves nothing about the pipeline.
+        assert "scripts/build_pi_image.sh" in self.workflow
+
+    def test_workflow_audits_image_before_upload(self):
+        # The gate that would have caught v1.0.2 before it was published.
+        wf = yaml.safe_load(self.workflow)
+        names = [s.get("name", "") for s in wf["jobs"]["build-image"]["steps"]]
+        audit = next(i for i, n in enumerate(names) if "Audit" in n)
+        upload = next(i for i, n in enumerate(names) if "Upload" in n)
+        assert audit < upload, "the image must be audited before it is uploaded"
+        assert "scripts/audit_pi_image.sh" in self.workflow
 
     def test_removes_systemctl_and_raspi_config_stubs(self):
-        # /usr/local/sbin precedes /usr/sbin in root's PATH, so a leftover stub
-        # shadows the real binary permanently. raspi-config is how Pi OS sets
-        # the wifi regulatory domain; stubbed out, the radio stays blocked.
-        assert "/mnt/pi-root/usr/local/sbin/raspi-config" in self.content
-        assert "/mnt/pi-root/usr/local/sbin/systemctl" in self.content
-        assert "test ! -e /mnt/pi-root/usr/local/sbin/systemctl" in self.content
-        assert "test ! -e /mnt/pi-root/usr/local/sbin/raspi-config" in self.content
+        # /usr/local/sbin precedes both /usr/sbin and /usr/bin in root's PATH,
+        # so a leftover stub shadows the real binary permanently. raspi-config
+        # is how Pi OS sets the wifi regulatory domain; stubbed out, the radio
+        # stays rfkill-blocked.
+        assert 'rm -f "${MNT}/usr/local/sbin/raspi-config"' in self.build_sh
+        assert '"${MNT}/usr/local/sbin/systemctl"' in self.build_sh
 
     def test_restores_images_own_resolv_conf(self):
         # The build overwrites resolv.conf for chroot network access. Shipping
-        # the runner's copy pointed users at 127.0.0.53 — systemd-resolved's
+        # the builder's copy pointed users at 127.0.0.53 — systemd-resolved's
         # stub, which Pi OS Lite does not run — so DNS failed everywhere.
-        assert "resolv.conf.build-orig" in self.content
-        assert "! grep -q 127.0.0.53 /mnt/pi-root/etc/resolv.conf" in self.content
+        assert "resolv.conf.build-orig" in self.build_sh
+        assert (
+            self.build_sh.count("resolv.conf.build-orig") >= 2
+        ), "resolv.conf must be both saved before the overwrite and restored"
 
     def test_blanks_machine_id(self):
         # dpkg populates machine-id during the chroot run. Shipping it means
-        # every flashed card shares one identity and collides over DHCP.
-        assert "truncate -s 0 /mnt/pi-root/etc/machine-id" in self.content
-        assert "test ! -s /mnt/pi-root/etc/machine-id" in self.content
+        # every flashed card shares one identity and they collide over DHCP.
+        assert 'truncate -s 0 "${MNT}/etc/machine-id"' in self.build_sh
 
-    def test_scaffolding_removed_before_repack(self):
-        # Removal has to happen while the image is still mounted and before
-        # pishrink, or it never lands in the artifact.
-        cleanup = self._step_index("Remove build scaffolding")
-        shrink = self._step_index("Shrink on-disk footprint")
-        unmount = self._step_index("Unmount image")
-        assert cleanup < shrink < unmount
+    def test_scaffolding_removed_before_packaging(self):
+        # Removal has to happen while the image is still mounted; after
+        # pishrink it would never reach the artifact.
+        cleanup = self.build_sh.index("remove_scaffolding\n")
+        shrink = self.build_sh.index("pishrink.sh -s")
+        assert cleanup < shrink
 
     def test_emulator_removed_after_last_chroot(self):
-        # qemu-aarch64-static is what makes the chroot able to run arm64
-        # binaries, so pulling it earlier breaks the build rather than the
-        # image. It must go after the final chroot but before packaging.
-        shrink_step = self.steps[self._step_index("Shrink on-disk footprint")]["run"]
-        chroot_pos = shrink_step.index("chroot /mnt/pi-root")
-        rm_pos = shrink_step.index("rm -f /mnt/pi-root/usr/bin/qemu-aarch64-static")
-        assert chroot_pos < rm_pos, "emulator must outlive the last chroot"
+        # qemu-aarch64-static is what lets the chroot run arm64 binaries, so
+        # pulling it earlier breaks the build rather than the image.
+        last_chroot = self.build_sh.rindex('chroot "${MNT}"')
+        rm_emu = self.build_sh.index('rm -f "${MNT}/usr/bin/qemu-aarch64-static"')
+        assert last_chroot < rm_emu, "emulator must outlive the last chroot"
 
     def test_readme_documents_custom_toml_not_cloud_init(self):
-        # Raspberry Pi OS does not use cloud-init; the note used to send users
+        # Raspberry Pi OS does not ship cloud-init; the note used to send users
         # to /boot/firmware/user-data, which nothing on the image reads.
-        readme = self.steps[self._step_index("first-boot instructions")]["run"]
-        assert "custom.toml" in readme
-        assert "user-data" not in readme
+        assert "custom.toml" in self.build_sh
+        assert "user-data" not in self.build_sh
         # The defaults-to-true trap that silently breaks logins and wifi.
-        assert "password_encrypted = false" in readme
+        assert "password_encrypted = false" in self.build_sh
+
+    def test_audit_checks_every_scaffolding_class(self):
+        for probe in (
+            "/usr/local/sbin/raspi-config",
+            "/usr/local/sbin/systemctl",
+            "qemu-aarch64-static",
+            "/opt/inkypi-src",
+            "machine-id",
+            "127",
+            "init=/usr/lib/raspberrypi-sys-mods/firstboot",
+            "python3",
+        ):
+            assert probe in self.audit_sh, f"audit must check {probe}"
