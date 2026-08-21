@@ -1,6 +1,54 @@
 # CHANGELOG
 
 
+## v1.0.2 (2026-08-21)
+
+### Bug Fixes
+
+- Boot-verify the image's own kernel on qemu raspi3b
+  ([`bfa8128`](https://github.com/cartagena/InkyPi/commit/bfa8128b8e9793af21fdd60b81b6a6aef5aacc95))
+
+The boot-verify job could never have passed. Three separate faults:
+
+1. qemu aborted before executing an instruction with 'failed to find romfile "efi-virtio.rom"'. -M
+  virt adds a default virtio-net-pci, whose option ROM ships in ipxe-qemu — a Recommends, which the
+  step's --no-install-recommends dropped.
+
+2. -kernel pointed at /usr/lib/linux-image-*-cloud-arm64/vmlinuz. Nothing installed an arm64 kernel,
+  so the glob never expanded and bash passed the literal '*'. The path is wrong regardless: that
+  package puts vmlinuz under /boot.
+
+3. Even with both fixed, direct-kernel boot could not work. Distro arm64 kernels build
+  CONFIG_VIRTIO_BLK=m, so with no -initrd the driver needed to mount the rootfs lives on the rootfs
+  it cannot mount.
+
+Switch to -M raspi3b booting the image's own kernel8.img and DTB, with the image itself as the SD
+  card. The Pi Zero 2 W is a BCM2710, the same core raspi3b models. This also removes a
+  contradiction in the old code: it claimed to prove cmdline.txt was intact while replacing it
+  wholesale with -append and ignoring the shipped kernel entirely.
+
+qemu runs no Pi firmware, so kernel, DTB and cmdline are extracted from the boot partition and
+  handed over directly. Only the console arguments are rewritten — root= is kept verbatim so a
+  broken root= or fstab still fails the test. All console= args are stripped rather than just
+  console=serial0: the kernel gives /dev/console to the last one, so Pi OS's trailing console=tty1
+  would otherwise put getty on the virtual terminal where the log scrape cannot see it. The
+  firstboot init= is dropped too, since it reboots mid-boot and reads as a hang.
+
+qemu's SD controller rejects cards that are not a power of two, and pishrink leaves the image at
+  minimum size, so a padded copy is used for the test. The uploaded artifact is untouched.
+
+Also fixes two faults that made the failure illegible: $! captured tee rather than qemu because the
+  output was piped, so the kill hit the wrong process; and the poll loop had no liveness check, so a
+  qemu that died in under a second still burned the full 240s and reported a misleading timeout. The
+  serial log is now uploaded as an artifact on failure.
+
+Boot behaviour itself is unverified locally — no qemu-system-aarch64 available here. The cmdline
+  rewriting and padding arithmetic were tested directly, and kernel8.img/bcm2710-rpi-3-b.dtb were
+  confirmed present in the Pi OS boot partition.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+
 ## v1.0.1 (2026-08-20)
 
 ### Bug Fixes
