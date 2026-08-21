@@ -1,0 +1,158 @@
+/* Wall panel dashboard — THE WEATHER ICON SET: sizing, and the small amount of life in it.
+
+   The shapes are built in wx-icons.js; everything about how big they are and what moves is
+   here, so a designer can retune the pack without touching a path.
+
+   WHERE MOTION IS ALLOWED, and it is a short list. Only the two icons drawn at hero size —
+   the Now card's glyph (.wx-icon) and a panel hero (.big-icon) — animate. The hourly strip
+   carries 24 icons and the daily row 7; animating those would be 31 compositor animations
+   running forever, on art 20 CSS px tall, for motion nobody standing in a kitchen could
+   resolve. A wall panel pays for that in battery every hour of every day. The hero icons
+   are ~60 px, they are what a person actually looks at, and two animations is a rounding
+   error.
+
+   WHAT MOTION IS ALLOWED. The brief from the owner was "you could do animated backgrounds
+   but not too much", and the same restraint governs here: everything below is transform or
+   opacity only (no layout, no paint), amplitudes are a pixel or two in a 64-unit space, and
+   every duration comes from a --dur-wx-* token in style.css. Nothing loops fast enough to
+   read as a spinner. The rain is the one thing that moves at a real-world rate, because
+   rain that drifts does not read as rain.
+
+   Delays are written as negative fractions of the same token — `calc(var(--dur-wx-fall) *
+   -0.33)` — so a stagger is a phase offset of the cycle it staggers rather than a second
+   number that can drift away from it. Negative, so every drop is mid-fall on the first
+   frame instead of the icon starting empty. */
+
+/* An icon is sized by the type ramp exactly like the glyph it replaced: 1em-ish, from
+   the container's font-size. Slightly over 1em because SVG art carries its own internal
+   padding where a font glyph's ink box does not. */
+.wxi { width: 1.18em; height: 1.18em; display: block; margin: 0 auto; }
+.big-icon .wxi, .wx-icon .wxi { width: 1.24em; height: 1.24em; }
+
+/* Every animated part rotates or scales about its own centre, and an SVG child's default
+   transform-origin is the viewport corner — which would swing a cloud across the frame
+   instead of nudging it. fill-box makes "centre" mean the shape's own centre. */
+.wx-icon .wxi [class^="wxi-"],
+.big-icon .wxi [class^="wxi-"] {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  will-change: transform, opacity;
+}
+
+/* ---- the sun ----
+   The rays rock rather than spin. Eight-fold symmetry means a full rotation repeats
+   visually every 45°, so a continuous spin at any watchable speed reads as a pinwheel; a
+   few degrees either way reads as heat shimmer, which is the thing being drawn. The halo
+   breathes on the same clock, a quarter cycle behind, so the two never peak together. */
+.wx-icon .wxi .wxi-rays,
+.big-icon .wxi .wxi-rays { animation: wxi-rock var(--dur-wx-slow) ease-in-out infinite; }
+.wx-icon .wxi .wxi-halo,
+.big-icon .wxi .wxi-halo {
+  animation: wxi-breathe var(--dur-wx-slow) ease-in-out infinite;
+  animation-delay: calc(var(--dur-wx-slow) * -0.25);
+}
+@keyframes wxi-rock {
+  0%, 100% { transform: rotate(-4deg); }
+  50%      { transform: rotate(4deg); }
+}
+@keyframes wxi-breathe {
+  0%, 100% { opacity: 0.75; transform: scale(0.97); }
+  50%      { opacity: 1;    transform: scale(1.05); }
+}
+
+/* ---- the cloud ----
+   A bank drifts and settles; it does not bounce. 1.2 units of travel in a 64-unit frame is
+   under a CSS pixel at strip size and about two at hero size — visible if you look at it,
+   invisible if you are reading the temperature beside it. A second bank in the same icon
+   (overcast, and every storm) runs a third of a cycle behind so the two are never in step,
+   which is what stops a two-cloud icon reading as one object wobbling. */
+.wx-icon .wxi .wxi-cloud,
+.big-icon .wxi .wxi-cloud { animation: wxi-bob var(--dur-wx-slow) ease-in-out infinite; }
+.wx-icon .wxi .wxi-cloud + .wxi-cloud,
+.big-icon .wxi .wxi-cloud + .wxi-cloud {
+  animation-delay: calc(var(--dur-wx-slow) * -0.33);
+}
+@keyframes wxi-bob {
+  0%, 100% { transform: translate(-0.6px, 0.3px); }
+  50%      { transform: translate(0.6px, -0.5px); }
+}
+
+/* ---- rain ----
+   The one thing here that moves at a real rate. Each streak falls its own length and a
+   little more, fading in at the top of its run and out at the bottom, so the loop has no
+   seam — the drop that vanishes and the drop that appears are never on screen together.
+   Three drops, three phases, so the group never falls as a block. */
+.wx-icon .wxi .wxi-drop,
+.big-icon .wxi .wxi-drop { animation: wxi-fall var(--dur-wx-fall) linear infinite; }
+.wx-icon .wxi .wxi-drop:nth-child(2),
+.big-icon .wxi .wxi-drop:nth-child(2) {
+  animation-delay: calc(var(--dur-wx-fall) * -0.33);
+}
+.wx-icon .wxi .wxi-drop:nth-child(3),
+.big-icon .wxi .wxi-drop:nth-child(3) {
+  animation-delay: calc(var(--dur-wx-fall) * -0.66);
+}
+@keyframes wxi-fall {
+  0%   { transform: translate(1.6px, -7px); opacity: 0; }
+  22%  { opacity: 1; }
+  78%  { opacity: 1; }
+  100% { transform: translate(-1.6px, 8px); opacity: 0; }
+}
+
+/* ---- snow ----
+   Snow does not fall, it drifts: the same downward travel as rain over three times the
+   period, with a sideways sway and a slow turn on the way. Each flake takes a different
+   phase for the same reason the drops do. */
+.wx-icon .wxi .wxi-flake,
+.big-icon .wxi .wxi-flake { animation: wxi-drift var(--dur-wx-snow) ease-in-out infinite; }
+.wx-icon .wxi .wxi-flake:nth-of-type(2),
+.big-icon .wxi .wxi-flake:nth-of-type(2) {
+  animation-delay: calc(var(--dur-wx-snow) * -0.4);
+}
+.wx-icon .wxi .wxi-flake:nth-of-type(3),
+.big-icon .wxi .wxi-flake:nth-of-type(3) {
+  animation-delay: calc(var(--dur-wx-snow) * -0.7);
+}
+@keyframes wxi-drift {
+  0%   { transform: translate(-1px, -2.5px) rotate(-14deg); opacity: 0.55; }
+  50%  { transform: translate(1.2px, 1px) rotate(6deg); opacity: 1; }
+  100% { transform: translate(-1px, 3.5px) rotate(20deg); opacity: 0.55; }
+}
+
+/* ---- the bolt ----
+   A storm icon is LIT most of the time and flickers rarely; the other way round is a
+   novelty item. Nine tenths of the cycle is a steady bolt, and the strike is three
+   keyframes inside the last tenth. */
+.wx-icon .wxi .wxi-bolt,
+.big-icon .wxi .wxi-bolt { animation: wxi-strike var(--dur-wx-bolt) linear infinite; }
+@keyframes wxi-strike {
+  0%, 86%   { opacity: 1; }
+  89%       { opacity: 0.35; }
+  92%       { opacity: 1; }
+  95%       { opacity: 0.5; }
+  100%      { opacity: 1; }
+}
+
+/* ---- fog and stars ----
+   Fog bands slide against each other — the same trick the sky canvas uses, at icon scale.
+   Stars twinkle on two different phases so a night sky never blinks as a sheet. */
+.wx-icon .wxi .wxi-fogband,
+.big-icon .wxi .wxi-fogband { animation: wxi-slide var(--dur-wx-slow) ease-in-out infinite; }
+.wx-icon .wxi .wxi-fogband:nth-child(even),
+.big-icon .wxi .wxi-fogband:nth-child(even) {
+  animation-delay: calc(var(--dur-wx-slow) * -0.5);
+}
+@keyframes wxi-slide {
+  0%, 100% { transform: translateX(-2.2px); opacity: 0.7; }
+  50%      { transform: translateX(2.2px); opacity: 1; }
+}
+.wx-icon .wxi .wxi-star,
+.big-icon .wxi .wxi-star { animation: wxi-twinkle var(--dur-wx-slow) ease-in-out infinite; }
+.wx-icon .wxi .wxi-star:nth-of-type(even),
+.big-icon .wxi .wxi-star:nth-of-type(even) {
+  animation-delay: calc(var(--dur-wx-slow) * -0.45);
+}
+@keyframes wxi-twinkle {
+  0%, 100% { opacity: 0.5; transform: scale(0.85); }
+  50%      { opacity: 1;   transform: scale(1.1); }
+}

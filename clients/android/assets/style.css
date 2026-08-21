@@ -161,6 +161,20 @@
      3.7s passed. It is a token now and the test reads `animation:` too. */
   --dur-pulse:  1s;      /* the alert breath — slow enough to read as breathing, not blinking */
 
+  /* ---- the weather icons' own clock (style-icons.css) ----
+     A separate group, because these are the only durations in the app that are meant to
+     be WATCHED rather than not-noticed, and they answer to a different rule: the owner
+     asked for animation "but not too much", so nothing here is fast enough to pull an eye
+     across a kitchen. Perceived cycle, not nominal: the sun's rays have eight-fold
+     symmetry, so a continuous spin would repeat visually every eighth of its period — the
+     rays ROCK a few degrees instead, and --dur-wx-slow is the whole cycle you actually
+     see. Only the two hero-sized icons animate at all; see style-icons.css for why. */
+  --dur-wx-slow: 7s;     /* cloud bob, ray rock, halo breath, fog drift — the ambient set */
+  --dur-wx-fall: 2.6s;   /* one raindrop, top of frame to bottom */
+  --dur-wx-snow: 8s;     /* a flake drifting: slower than rain by the same ratio as real */
+  --dur-wx-bolt: 5s;     /* strike to strike — the flicker inside it is a keyframe, not a
+                            duration, so a storm icon is still mostly just lit */
+
   /* The home column is a fixed budget: 100vh has to hold 8 widgets with nothing clipped.
      Sizes below were measured off real 1600x2560 screenshots — if you grow one card,
      take the height back out of another.

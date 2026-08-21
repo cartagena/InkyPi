@@ -53,13 +53,10 @@
     };
   }
 
-  /* The real phase, drawn: dark disc, lit region from the shared crescent path. */
-  function disc(p, cls) {
-    return '<svg class="' + cls + '" viewBox="0 0 64 64" aria-hidden="true">'
-      + '<circle cx="32" cy="32" r="24" fill="var(--ic-moon-dk)"/>'
-      + '<path d="' + WP.wxIcon.moonPath(32, 32, 24, p) + '" fill="var(--ic-moon)"/>'
-      + "</svg>";
-  }
+  /* The real phase, drawn — by the icon set, not here. The disc, its gradient and its
+     craters are one drawing shared by the tile, the week strip and the panel hero, so the
+     three can never look like three different moons. */
+  var disc = WP.wxIcon.moonDisc;
 
   function shortDate(ms) {
     return new Date(ms).toLocaleDateString(undefined, { month: "short", day: "numeric" });

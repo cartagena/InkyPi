@@ -230,6 +230,25 @@
     };
   }
 
+  /* Where the horizon is, and how hard it is glowing.
+
+     The layer had a bloom and a vertical wash and nothing in between, so a sunrise read as
+     a bright corner over a dark rectangle: there was light in the frame but no PLACE for it
+     to be coming from. A horizon is the line that makes a wash into a sky.
+
+     It is not a decoration bolted on at a fixed height — it is where the model already says
+     the light is (glowY), and it only exists while the light is low. `low` is 0 at noon and
+     1 once the bloom has sunk to the bottom of the frame, so the band grows in through dusk
+     and is simply absent at midday, which is what a horizon does when the sun is overhead.
+
+     The alpha is a third of the bloom's, which is the whole reason this is safe: the bloom
+     is the budgeted element (MAX_GLOW) and this rides at a fraction of it, in the same
+     colour, in the same part of the frame it was already lighting. */
+  function horizon(light) {
+    var low = clamp((light.glowY - 0.55) / 0.38, 0, 1);
+    return { y: light.glowY, a: light.glowA * low * 0.34, spread: 0.055 + low * 0.055 };
+  }
+
   /* How many cloud banks the real cover percentage is worth. Not a fixed six: a 15%-cover
      sky with six banks in it is not partly cloudy, it is overcast with gaps. Zero is a
      legal answer — a clear sky should draw nothing. */
@@ -317,7 +336,11 @@
         z = rnd();                                  /* depth: 0 far, 1 near */
         f.drops.push({
           x: rnd() * w * 1.4 - w * 0.2, y: rnd() * h, z: z,
-          v: 240 + z * 430, l: 5 + z * 20
+          v: 240 + z * 470,
+          /* Length varies WITHIN a depth band as well as across it. Three bands of three
+             identical streak lengths is a comb; real rain has long drops next to short
+             ones at the same distance because they are at different points of their fall. */
+          l: (5 + z * 22) * (0.7 + rnd() * 0.6)
         });
       }
 
@@ -326,7 +349,10 @@
         z = rnd();
         f.flakes.push({
           x: rnd() * w, y: rnd() * h, z: z,
-          r: 0.7 + z * 2.0, v: 13 + z * 38,
+          r: 0.7 + z * 2.6, v: 13 + z * 38,
+          /* the nearest tenth carry a soft bloom — a snowfall is not made of hard dots,
+             and a handful of out-of-focus flakes is what sells the depth */
+          soft: z > 0.9,
           sw: 0.22 + rnd() * 0.55, ph: rnd() * 6.28
         });
       }
@@ -338,17 +364,20 @@
           x: rnd() * w * 1.6 - w * 0.3,
           /* far banks ride higher, near ones hang low — the parallax the flat version had
              none of */
-          y: h * (0.04 + 0.52 * (1 - z) + rnd() * 0.22),
-          rx: 100 + z * 190, z: z, v: 2.5 + z * 8
+          y: h * (0.02 + 0.56 * (1 - z) + rnd() * 0.24),
+          /* Bigger, and no two the same shape. The old banks were half a screen wide and
+             all the same proportions, which reads as wallpaper; a real bank is wider than
+             the frame and the next one along is a different animal. */
+          rx: 150 + z * 260, sq: 0.26 + rnd() * 0.2, z: z, v: 2 + z * 7
         });
       }
 
       f.bands = [];
-      for (i = 0; i < 4; i++) {
+      for (i = 0; i < 5; i++) {
         f.bands.push({
           /* fog sits on the floor of the frame, because that is where fog sits */
-          y: h * (0.64 + 0.13 * i), hh: 34 + rnd() * 34,
-          x: rnd() * w, v: 4 + rnd() * 7, a: 0.030 + rnd() * 0.022
+          y: h * (0.58 + 0.11 * i), hh: 38 + rnd() * 44,
+          x: rnd() * w, v: 3 + rnd() * 8, a: 0.030 + rnd() * 0.024
         });
       }
 
@@ -366,6 +395,7 @@
     dim: dim,
     wind: wind,
     banks: banks,
+    horizon: horizon,
     sceneFor: sceneFor,
     coverFor: coverFor,
     rgba: rgba,

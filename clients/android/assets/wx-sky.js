@@ -6,26 +6,27 @@
    frame, and a dim flash in a storm. This is the "the panel is a window" layer — it is why
    the theme is allowed to stay dark: the background is not empty, it is the weather.
 
-   The LIGHT — which mood, which colour, where the bloom sits — is not decided here. It
-   comes out of wx-sky-light.js, a pure function of (now, sunrise, sunset) tested at every
-   phase boundary. This file only paints what that model says. The seam is deliberate: the
-   painters can only be judged by looking at them, so the half that CAN be pinned by a test
-   was moved somewhere a test can reach it.
+   The LIGHT — which mood, which colour, where the bloom sits, where the horizon is — is
+   not decided here. It comes out of wx-sky-light.js, a pure function of (now, sunrise,
+   sunset) tested at every phase boundary. This file only paints what that model says: the
+   painters can only be judged by looking at them, so the half that CAN be pinned by a
+   test lives where a test can reach it.
 
    AMOLED rules the layer lives by:
      * everything moves — a canvas whose pixels never sit still cannot burn in, which is
        why the bloom tracks the sun across the frame and even the stars twinkle;
-     * dim by construction — the alpha budget is stated and defended in wx-sky-light.js;
-       nothing composited here exceeds ~0.25, and most of the frame stays true black;
+     * dim by construction — the alpha budget is defended in wx-sky-light.js, and most of
+       the frame stays true black;
      * 30 fps, not 60 — half the GPU work, invisible for weather;
      * it stops completely when the app is hidden or the switch in Settings is off.
 
    WHY IT SHIPS ON AGAIN: it shipped off after a round of grading called the starfield
-   "dust on the glass or dead pixels", and that was a fair verdict on what was there — 110
-   one-pixel rectangles, all the same size and brightness, which is what sensor noise looks
-   like. A sky is not uniform: a few bright stars with a bloom and a great many faint ones
-   is what makes a field of dots read as a sky. That, plus light that follows the real sun,
-   is the difference between an effect and a window.
+   "dust on the glass or dead pixels" — a fair verdict on 110 identical one-pixel
+   rectangles, which is what sensor noise looks like. Nothing in a sky is uniform, and the
+   populations (wx-sky-light.js) are graded accordingly: star magnitudes on a power curve,
+   raindrops of differing length at the same depth, banks of differing proportion, a
+   handful of near flakes soft enough to be out of focus. That, plus light that follows
+   the real sun, is the difference between an effect and a window.
 
    One widget, one flat file (assets/ cannot hold subdirectories — aapt2 on Windows
    writes the separator as a backslash and file:///android_asset/ cannot resolve it). */
@@ -144,12 +145,9 @@
 
     /* The full pool is always seeded; how much of it draws is decided per frame from the
        real cover and the real rain rate. Re-seeding because a cloud percentage moved two
-       points would restart every raindrop on screen. */
-    /* The particle populations live with the light model in wx-sky-light.js: they are
-       the sky's DATA — how many stars at which magnitudes, how deep the rain field is —
-       and this file is only the painter. (Also the honest reason: the painter crossed the
-       500-line budget by eight lines, and the populations were the one block that was not
-       painting.) */
+       points would restart every raindrop on screen. The populations themselves live with
+       the light model in wx-sky-light.js: they are the sky's DATA — how many stars at
+       which magnitudes, how deep the rain field is — and this file is only the painter. */
     seed: function () {
       var f = WP.skyLight.populate(this.w, this.h, MAXCLOUD, MAXDROP, MAXFLAKE);
       this.stars = f.stars;
@@ -203,13 +201,17 @@
       c.width = s; c.height = s;
       var g = c.getContext("2d");
       if (!g) return null;
-      var lobes = [[0.50, 0.52, 0.30], [0.33, 0.57, 0.21], [0.67, 0.55, 0.23],
-                   [0.43, 0.43, 0.19], [0.61, 0.45, 0.17]];
+      /* Seven lobes, not five, and a gentler falloff: five circles is a shape the eye
+         names, and the old stop was abrupt enough to give a bank a rim. Clouds have no rim. */
+      var lobes = [[0.50, 0.52, 0.31], [0.31, 0.57, 0.22], [0.69, 0.55, 0.24],
+                   [0.42, 0.42, 0.20], [0.62, 0.44, 0.18],
+                   [0.22, 0.49, 0.15], [0.79, 0.48, 0.14]];
       for (var i = 0; i < lobes.length; i++) {
         var cx = lobes[i][0] * s, cy = lobes[i][1] * s, r = lobes[i][2] * s;
         var rg = g.createRadialGradient(cx, cy, 0, cx, cy, r);
-        rg.addColorStop(0, "rgba(" + rgb + ",0.5)");
-        rg.addColorStop(0.55, "rgba(" + rgb + ",0.17)");
+        rg.addColorStop(0, "rgba(" + rgb + ",0.42)");
+        rg.addColorStop(0.42, "rgba(" + rgb + ",0.19)");
+        rg.addColorStop(0.75, "rgba(" + rgb + ",0.05)");
         rg.addColorStop(1, "rgba(" + rgb + ",0)");
         g.fillStyle = rg;
         g.fillRect(cx - r, cy - r, r * 2, r * 2);
@@ -229,6 +231,7 @@
       var wind = L.wind(this.windKmh, this.windDir);
 
       this.paintWash(light, d, w, h);
+      this.paintHorizon(light, d, w, h);
       this.paintGlow(light, d, t, w, h);
       if (light.stars * d.stars > 0.02) this.paintStars(light, d, t, w, h);
       if (sc !== "clear" && sc !== "fog") this.paintClouds(light, wind, dt, t, w, h, cover);
@@ -259,6 +262,21 @@
       g.addColorStop(1, "rgba(" + c + "," + a.toFixed(4) + ")");
       this.ctx.fillStyle = g;
       this.ctx.fillRect(0, 0, w, h);
+    },
+
+    /* The line the light is coming from. Where and how bright is L.horizon's problem —
+       arithmetic, therefore testable; this only draws it. A band and not a line (a hard
+       edge across a wall panel reads as a rendering fault), and absent at midday. */
+    paintHorizon: function (light, d, w, h) {
+      var hz = L.horizon(light), a = hz.a * d.glow;
+      if (a < 0.004) return;
+      var y = h * hz.y, sp = h * hz.spread, c = light.glow.join(",");
+      var g = this.ctx.createLinearGradient(0, y - sp * 2.2, 0, y + sp);
+      [[0, 0], [0.62, 0.42], [0.88, 1], [1, 0]].forEach(function (k) {
+        g.addColorStop(k[0], "rgba(" + c + "," + (a * k[1]).toFixed(4) + ")");
+      });
+      this.ctx.fillStyle = g;
+      this.ctx.fillRect(0, y - sp * 2.2, w, sp * 3.2);
     },
 
     /* The sun or the moon: a bloom, never a disc. Its place in the frame comes from the
@@ -335,7 +353,7 @@
         c.x += c.v * drift * dt;
         if (c.x - c.rx > w) c.x = -c.rx;
         if (c.x + c.rx < 0) c.x = w + c.rx;
-        var ry = c.rx * (0.30 + c.z * 0.10);
+        var ry = c.rx * c.sq;
         /* The puff sprite already carries a soft alpha falloff of its own (0.5 at a lobe
            core), so this multiplies down: 0.11 here is about 0.09 on the glass. */
         x.globalAlpha = 0.06 + c.z * 0.13;
@@ -363,21 +381,28 @@
         else if (dr.x > w * 1.25) dr.x -= w * 1.5;
         band[dr.z < 0.34 ? 0 : (dr.z < 0.67 ? 1 : 2)].push(dr);
       }
+      /* Each streak is drawn TWICE: a dim full-length tail, then a bright head over its
+         lowest third. One flat stroke is a scratch ruled on the glass; what makes a drop
+         read as FALLING is a leading end brighter than the trail behind it. */
       x.strokeStyle = this.col.rain;
+      x.lineCap = "round";
       for (var b = 0; b < 3; b++) {
         if (!band[b].length) continue;
-        x.lineWidth = 0.8 + b * 0.7;
-        x.globalAlpha = (0.12 + b * 0.14) * ak;      /* ceiling 0.26 — rain you can see */
-        x.beginPath();
-        for (i = 0; i < band[b].length; i++) {
-          dr = band[b][i];
-          var l = dr.l * lk;
-          x.moveTo(dr.x, dr.y);
-          x.lineTo(dr.x - wind.slant * l, dr.y - l);
+        for (var pass = 0; pass < 2; pass++) {
+          x.lineWidth = (0.8 + b * 0.75) * (pass ? 1.25 : 1);
+          x.globalAlpha = (pass ? 0.09 + b * 0.09 : 0.08 + b * 0.09) * ak;
+          x.beginPath();
+          for (i = 0; i < band[b].length; i++) {
+            dr = band[b][i];
+            var l = dr.l * lk * (pass ? 0.36 : 1);
+            x.moveTo(dr.x, dr.y);
+            x.lineTo(dr.x - wind.slant * l, dr.y - l);
+          }
+          x.stroke();
         }
-        x.stroke();
       }
       x.globalAlpha = 1;
+      x.lineCap = "butt";
     },
 
     /* Snow does not fall, it drifts: a slow sink, a sway of its own, and a sideways push
@@ -397,6 +422,18 @@
         x.beginPath();
         x.arc(f.x, f.y, f.r, 0, 6.283);
         x.fill();
+        /* the nearest flakes are out of focus: a halo on a few is the difference
+           between depth and a field of identical dots */
+        if (f.soft) {
+          var br = f.r * 3.4;
+          var sg = x.createRadialGradient(f.x, f.y, 0, f.x, f.y, br);
+          sg.addColorStop(0, rgba(this.col.snow, 0.16));
+          sg.addColorStop(1, rgba(this.col.snow, 0));
+          x.fillStyle = sg;
+          x.globalAlpha = 1;
+          x.fillRect(f.x - br, f.y - br, br * 2, br * 2);
+          x.fillStyle = this.col.snow;
+        }
       }
       x.globalAlpha = 1;
     },

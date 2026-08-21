@@ -91,17 +91,28 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
    things are blue, snow is ice, AQI wears the EPA's own scale, and temperature always
    reads hot=warm-colour / cold=blue. Text stays monochrome; colour marks DATA. */
 :root {
-  --ic-sun:      #ffcf54;
-  --ic-ray:      #ffb347;
-  --ic-moon:     #e9e5ff;
-  --ic-moon-dk:  #232a3a;   /* the unlit part of the moon disc */
-  --ic-star:     #cfd4ff;
-  --ic-cloud:    #aebfd4;
-  --ic-cloud-dk: #71829a;
-  --ic-rain:     #5aa9ff;
-  --ic-snow:     #d6efff;
-  --ic-bolt:     #ffd75a;
-  --ic-fog:      #9aa8b8;
+  /* Each material is a PAIR OR A TRIO — a lit face, a body, a shadow — because that is
+     what a gradient needs and a flat fill did not. The icons never pick a colour; they
+     pick a material and let style-icons.css and the gradients decide where the light
+     falls. Adding a fourth cloud grey is how a palette sprawls, so: three per material. */
+  --ic-sun:       #ffcf54;
+  --ic-sun-lit:   #fff3c4;   /* the hot centre of the disc, and the halo's core */
+  --ic-ray:       #ffb347;
+  --ic-moon:      #e9e5ff;
+  --ic-moon-lit:  #fbfaff;
+  --ic-moon-dim:  #b0aacf;   /* maria, and the limb turning away from the sun */
+  --ic-moon-dk:   #232a3a;   /* the unlit part of the moon disc */
+  --ic-star:      #cfd4ff;
+  --ic-cloud:     #aebfd4;
+  --ic-cloud-lit: #e6eef8;   /* the rim the sky catches */
+  --ic-cloud-dk:  #71829a;
+  --ic-cloud-dkr: #47536b;   /* the belly of a storm anvil */
+  --ic-rain:      #5aa9ff;
+  --ic-rain-lit:  #a9d5ff;   /* the head of a falling drop */
+  --ic-snow:      #d6efff;
+  --ic-bolt:      #ffd75a;
+  --ic-bolt-hi:   #fff6c9;
+  --ic-fog:       #9aa8b8;
 
   --temp-hot:    #ff8a50;
   --temp-warm:   #ffc954;
@@ -136,11 +147,7 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
 #sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 #drift { position: relative; z-index: 1; }
 
-/* An icon is sized by the type ramp exactly like the glyph it replaced: 1em-ish, from
-   the container's font-size. Slightly over 1em because SVG art carries its own internal
-   padding where a font glyph's ink box does not. */
-.wxi { width: 1.18em; height: 1.18em; display: block; margin: 0 auto; }
-.big-icon .wxi, .wx-icon .wxi { width: 1.1em; height: 1.1em; }
+/* The weather icons' sizing, shading and motion live in style-icons.css. */
 
 /* ---- severity classes: a banded value takes its band's hue ---- */
 .band-1 { color: var(--band-1); }
