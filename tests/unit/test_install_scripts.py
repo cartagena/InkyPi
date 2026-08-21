@@ -1,6 +1,7 @@
 # pyright: reportMissingImports=false
 """Structural validation of install/setup scripts — no shell execution."""
 
+import os
 import re
 from pathlib import Path
 from urllib.parse import urlparse
@@ -1574,41 +1575,11 @@ class TestPiImageBuildWorkflow:
         )
         assert "login:" in self.content
 
-    def test_workflow_boot_verify_uses_image_own_kernel_on_raspi3b(self):
-        # The point of the gate is to boot what we ship. A generic "virt"
-        # machine would need a foreign distro kernel plus an initramfs (distro
-        # arm64 kernels build virtio_blk as a module, so the rootfs never
-        # mounts without one) and would prove nothing about kernel8.img.
-        assert "-M raspi3b" in self.content
-        assert "-kernel kernel8.img" in self.content
-        assert "bcm2710-rpi-3-b.dtb" in self.content
-
-    def test_workflow_boot_verify_puts_serial_console_last(self):
-        # The kernel hands /dev/console to the LAST console= argument. Pi OS
-        # ships "console=serial0,... console=tty1", so the trailing tty1 must
-        # be stripped and the serial console appended after it — otherwise
-        # getty lands on the virtual terminal and the log scrape sees nothing.
-        assert "s/console=[^ ]*//g" in self.content
-        cmdline_pos = self.content.index('CMDLINE="${CMDLINE} console=ttyAMA0')
-        strip_pos = self.content.index("s/console=[^ ]*//g")
-        assert (
-            strip_pos < cmdline_pos
-        ), "serial console must be appended after existing console= args are stripped"
-
-    def test_workflow_boot_verify_pads_sd_to_power_of_two(self):
-        # qemu's raspi machines reject an SD image whose size is not a power
-        # of two, and pishrink deliberately leaves the image at minimum size.
-        assert "SD_BYTES=$((SD_BYTES * 2))" in self.content
-        assert "truncate -s" in self.content
-
-    def test_workflow_boot_verify_detects_qemu_exit(self):
-        # A startup failure (bad romfile, bad machine type) kills qemu in under
-        # a second. Without a liveness check the loop burns the full 240s and
-        # reports a misleading timeout instead of the real error.
-        assert 'kill -0 "${QPID}"' in self.content
-        # $! must be qemu itself, so its output is redirected rather than piped
-        # into tee — in a pipeline $! is the last element, not qemu.
-        assert "> qemu-boot.log 2>&1 &" in self.content
+    def test_workflow_delegates_boot_verify_to_script(self):
+        # The boot arguments live in a script so they can be exercised by hand.
+        # Iterating on them through a full CI round trip is how several
+        # silent-boot bugs stayed hidden.
+        assert "scripts/boot_verify_image.sh" in self.content
 
     def test_workflow_attach_release_requires_boot_verification(self):
         # The attach job must `needs: verify-boot` AND gate on its verified
@@ -3661,3 +3632,112 @@ class TestMemoryCapTiering:
             text=True,
         )
         assert result.returncode == 0, f"bash -n failed:\n{result.stderr}"
+
+
+class TestBootVerifyScript:
+    """JTN-533: scripts/boot_verify_image.sh — shared by CI and local runs."""
+
+    SCRIPT_PATH = SCRIPTS_DIR / "boot_verify_image.sh"
+
+    @pytest.fixture(autouse=True)
+    def _load(self):
+        assert self.SCRIPT_PATH.exists(), f"Expected {self.SCRIPT_PATH}"
+        self.script = self.SCRIPT_PATH.read_text()
+
+    def test_script_is_executable(self):
+        assert os.access(self.SCRIPT_PATH, os.X_OK), (
+            "boot_verify_image.sh must be executable — the workflow invokes it "
+            "as ./scripts/boot_verify_image.sh"
+        )
+
+    def test_boots_image_own_kernel_on_raspi3b(self):
+        # The point of the gate is to boot what we ship. A generic "virt"
+        # machine would need a foreign distro kernel plus an initramfs (distro
+        # arm64 kernels build virtio_blk as a module, so the rootfs never
+        # mounts without one) and would prove nothing about kernel8.img.
+        assert "-M raspi3b" in self.script
+        assert "-kernel kernel8.img" in self.script
+        assert "bcm2710-rpi-3-b.dtb" in self.script
+
+    def test_replaces_pi_console_args(self):
+        # Pi OS ships "console=serial0,... console=tty1". serial0 is a firmware
+        # alias the kernel cannot resolve, and the kernel hands /dev/console to
+        # the LAST console=, so a leftover tty1 would put getty on the virtual
+        # terminal where the log scrape cannot see it. Strip them all first,
+        # then append our own.
+        strip_pos = self.script.index("s/console=[^ ]*//g")
+        append_pos = self.script.index('CMDLINE="${CMDLINE} console=ttyS0')
+        assert (
+            strip_pos < append_pos
+        ), "serial consoles must be appended after existing console= args are stripped"
+
+    def test_console_ttyama1_is_last(self):
+        # Observed on a real run: Pi OS's DTB aliases serial1 = &uart0, so the
+        # PL011 enumerates as ttyAMA1, and the mini UART fails to probe under
+        # qemu so ttyS0 never exists. Naming only ttyAMA0/ttyS0 bound no
+        # console at all ("unable to open an initial console") — no getty, no
+        # login prompt. The kernel gives /dev/console to the last console= it
+        # successfully registered, so ttyAMA1 must come last.
+        for tty in ("ttyS0", "ttyAMA0", "ttyAMA1"):
+            assert f"console={tty},115200" in self.script
+        last = self.script.index("console=ttyAMA1,115200")
+        for tty in ("ttyS0", "ttyAMA0"):
+            assert self.script.index(f"console={tty},115200") < last, (
+                f"console={tty} must precede ttyAMA1 so /dev/console lands on "
+                "the UART that actually registers"
+            )
+
+    def test_pins_systemd_logging_to_kmsg(self):
+        # systemd switches from kmsg to the journal as soon as journald starts.
+        # The journal is a file inside the guest that we never read, so its
+        # messages disappeared at "Started systemd-journald.service", leaving
+        # only kernel output — which stops entirely once the system goes quiet.
+        # That reads as a hang, and it means the multi-user.target marker this
+        # script waits for could never appear.
+        assert "systemd.log_target=kmsg" in self.script
+
+    def test_captures_both_uarts(self):
+        # qemu wires serial_hd(0) to the PL011 and serial_hd(1) to the mini
+        # UART. Attaching only one of them yielded an empty log and an
+        # unexplained timeout, so drive both and accept a prompt on either.
+        pl011 = self.script.index("-serial file:uart-pl011.log")
+        mini = self.script.index("-serial file:uart-mini.log")
+        assert pl011 < mini, "PL011 must be serial_hd(0), mini UART serial_hd(1)"
+        assert "uart-pl011.log uart-mini.log" in self.script
+
+    def test_keeps_console_output_alive_through_sysctl(self):
+        # Everything we can see arrives over printk: /dev/console never opens
+        # under qemu, so systemd falls back to /dev/kmsg. systemd-sysctl then
+        # applies Pi OS's kernel.printk and the log went silent mid-boot,
+        # which is indistinguishable from a hang. keep_bootcon holds earlycon
+        # open and ignore_loglevel overrides the loglevel sysctl just set.
+        assert "keep_bootcon" in self.script
+        assert "ignore_loglevel" in self.script
+
+    def test_accepts_boot_completion_without_a_login_prompt(self):
+        # "login:" needs a getty on a UART we can see, which the missing
+        # /dev/console makes unreliable. Reaching multi-user.target proves what
+        # the gate actually cares about — rootfs mounted, fstab sane, userspace
+        # up — and arrives over printk, so accept it too.
+        assert "Reached target multi-user.target" in self.script
+        assert "login:" in self.script
+
+    def test_pads_sd_to_power_of_two(self):
+        # qemu's raspi machines reject an SD image whose size is not a power
+        # of two, and pishrink deliberately leaves the image at minimum size.
+        assert "SD_BYTES=$((SD_BYTES * 2))" in self.script
+        assert "truncate -s" in self.script
+
+    def test_detects_qemu_exit(self):
+        # A startup failure (bad romfile, bad machine type) kills qemu in under
+        # a second. Without a liveness check the loop burns the whole budget
+        # and reports a misleading timeout instead of the real error.
+        assert 'kill -0 "${QPID}"' in self.script
+        # $! must be qemu itself, so its output is redirected rather than piped
+        # into tee — in a pipeline $! is the last element, not qemu.
+        assert "> qemu-stderr.log 2>&1 &" in self.script
+
+    def test_reports_verified_output_for_ci(self):
+        # The workflow gates attach-release on steps.verify.outputs.verified,
+        # so the script must still write it when running under Actions.
+        assert 'echo "verified=$1" >> "${GITHUB_OUTPUT}"' in self.script
