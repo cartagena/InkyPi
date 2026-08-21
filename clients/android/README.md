@@ -501,3 +501,20 @@ Untested against reality: a **real** Home Assistant instance (the live REST path
 by the suite against stubbed responses, but has never talked to an actual HA box), and the
 offline/stale badge on device (verifying it means toggling the tablet's Wi-Fi, which drops the
 adb transport — the suite covers the code path).
+
+## Relationship to InkyPi (why this lives here)
+
+Imported 2026-08-21 from [jtn0123/tab-s6-kiosk](https://github.com/jtn0123/tab-s6-kiosk) with
+history preserved. It is the **tablet/OLED variant of InkyPi**: same plugin-card + playlist idea,
+rendered on a colour AMOLED instead of e-paper. Today it is still standalone (no server required).
+
+Roadmap to make it a true InkyPi client rather than a parallel implementation:
+
+1. **Server mode** — poll `GET /api/current_image` (and `/preview`) from a running InkyPi and show
+   that as the primary screen; the local widgets become the offline fallback.
+2. **`panel` device profile on the server** — 2560x1600, full colour, no palette quantisation,
+   animation allowed — so InkyPi renders *for* this display instead of for e-ink.
+3. Replace widget-by-widget reimplementations (newspaper, comics, weather) with the server's plugin
+   output wherever the server is reachable.
+
+Device prep (flash, patches, known issues) stays in `jtn0123/tab-s6-kiosk`; this folder is only the app.
