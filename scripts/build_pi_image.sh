@@ -234,9 +234,12 @@ echo "i2c-dev registered in /etc/modules"
 
 # --- first-boot instructions --------------------------------------------------
 banner "Writing first-boot instructions"
-# Raspberry Pi OS does NOT use cloud-init. It customises itself from
-# custom.toml via /usr/lib/raspberrypi-sys-mods/init_config, which cmdline.txt
-# invokes through `init=/usr/lib/raspberrypi-sys-mods/firstboot`.
+# Pi OS Trixie dropped the old custom.toml/raspberrypi-sys-mods firstboot
+# mechanism entirely (no more init=.../firstboot in cmdline.txt, no more
+# init_config or python3-toml in the rootfs). First-boot customisation is now
+# cloud-init: the boot partition already ships stock user-data/network-config
+# templates, and Pi Imager's "Edit Settings" writes into those same files
+# rather than a custom.toml it used to create from scratch.
 cat > "${MNT}/boot/firmware/inkypi-readme.txt" <<'NOTE'
 InkyPi pre-installed image (JTN-533)
 ====================================
@@ -244,41 +247,20 @@ InkyPi pre-installed image (JTN-533)
 This image already has InkyPi installed and enabled. It has NO user
 password, NO wifi and NO SSH until you configure it.
 
-Create a file named `custom.toml` next to this one, on this same
-(boot) partition, before first boot:
+Set your Wi-Fi, hostname, username/password and SSH access in
+Raspberry Pi Imager's "Edit Settings" (gear icon) BEFORE flashing —
+Imager writes these into cloud-init's user-data and network-config
+files on this same (boot) partition, applied automatically on first
+boot.
 
-  config_version = 1
+If you'd rather not use Imager, this partition already ships stock
+cloud-init templates you can edit by hand before first boot:
+    user-data        — hostname, user account, SSH
+    network-config    — Wi-Fi
+Both are commented-out examples; see the comments in each file, or
+https://cloudinit.readthedocs.io/ for the format.
 
-  [system]
-  hostname = "inkypi"
-
-  [user]
-  name = "pi"
-  password = "your-password-here"
-  password_encrypted = false
-
-  [ssh]
-  enabled = true
-  password_authentication = true
-
-  [wlan]
-  ssid = "YourNetwork"
-  password = "your-wifi-password"
-  password_encrypted = false
-  country = "US"
-
-  [locale]
-  keymap = "us"
-  timezone = "America/Los_Angeles"
-
-`password_encrypted = false` is required for plaintext passwords in
-both sections — it defaults to true, and a plaintext value read as a
-hash gives you an account you cannot log into and wifi that never
-connects. `country` must be a real ISO country code or the wifi radio
-stays blocked.
-
-The file is consumed and deleted during first boot, which then
-reboots. After that, visit:
+Once the Pi joins your network, visit:
     http://<hostname>.local/
 in a browser on the same LAN — the InkyPi web UI will be up.
 NOTE
@@ -288,10 +270,12 @@ remove_scaffolding() {
     banner "Removing build scaffolding"
     # The stubs are the serious one. /usr/local/sbin comes BEFORE /usr/sbin in
     # root's PATH, so left behind they shadow the real binaries forever:
-    #   * raspi-config becomes a permanent no-op. Pi OS sets the wifi
-    #     regulatory domain via `raspi-config nonint do_wifi_country` (from
-    #     init_config's set_wlan_country); without it the radio stays
-    #     rfkill-blocked and the Pi never joins any network.
+    #   * raspi-config becomes a permanent no-op. On Bookworm this broke the
+    #     wifi regulatory domain specifically (raspi-config nonint
+    #     do_wifi_country, called from the old custom.toml firstboot flow).
+    #     Trixie's cloud-init sets the regulatory domain itself via
+    #     network-config instead, but raspi-config still needs to be the real
+    #     binary for whatever else on first boot expects it on PATH.
     #   * systemctl silently no-ops start/stop/restart/is-active, so anything
     #     asking systemd to act at runtime succeeds without acting.
     rm -f "${MNT}/usr/local/sbin/raspi-config" "${MNT}/usr/local/sbin/systemctl"

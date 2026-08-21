@@ -91,30 +91,38 @@ fi
 echo ""
 echo "First-boot customisation must still work:"
 
-# cmdline.txt lives in the FAT partition; grep the raw region rather than
-# implementing a FAT reader. Small files there are contiguous.
-# grep -c rather than -q: with -q grep exits on the first match, dd dies of
-# SIGPIPE, and pipefail turns that into a false "not found".
-CMDLINE_HITS=$(dd if="${IMG}" bs=1M skip=$((BOOT_OFF / 1048576)) count=512 status=none 2>/dev/null \
-     | grep -ac 'init=/usr/lib/raspberrypi-sys-mods/firstboot' || true)
-if [ "${CMDLINE_HITS:-0}" -gt 0 ]; then
-    ok "cmdline.txt still invokes firstboot (custom.toml will be read)"
+# Pi OS Trixie dropped the old custom.toml/raspberrypi-sys-mods firstboot
+# mechanism entirely — cmdline.txt no longer carries an init= hook for it, and
+# neither /usr/lib/raspberrypi-sys-mods/init_config nor python3-toml ship in
+# the image any more. First-boot customisation is now cloud-init: the boot
+# partition ships a stock user-data template (edited by hand, or rewritten by
+# Pi Imager's "advanced options"), applied by the cloud-init package via a
+# systemd generator rather than a static enable symlink.
+#
+# The boot partition still ships that user-data template; grep the raw FAT
+# region rather than implementing a FAT reader (small files there are
+# contiguous). grep -c rather than -q: with -q grep exits on the first match,
+# dd dies of SIGPIPE, and pipefail turns that into a false "not found".
+USERDATA_HITS=$(dd if="${IMG}" bs=1M skip=$((BOOT_OFF / 1048576)) count=512 status=none 2>/dev/null \
+     | grep -ac '#cloud-config' || true)
+if [ "${USERDATA_HITS:-0}" -gt 0 ]; then
+    ok "boot partition still ships the cloud-init user-data template"
 else
-    bad "cmdline.txt lost init=firstboot — custom.toml will be ignored entirely"
+    bad "cloud-init user-data template missing from the boot partition — Pi Imager's advanced options will have nothing to rewrite"
 fi
 
-if [ -n "$(d "ls /usr/lib/raspberrypi-sys-mods" | tr -s ' \n' '\n' | grep -x init_config || true)" ]; then
-    ok "init_config present"
+if absent /etc/cloud/cloud.cfg; then
+    bad "/etc/cloud/cloud.cfg missing — cloud-init cannot apply user-data"
 else
-    bad "init_config missing — custom.toml cannot be applied"
+    ok "cloud-init config present (user-data will be applied)"
 fi
 
-# firstboot bails out of applying custom.toml without this, and reports it via
-# a blocking whiptail msgbox that nobody sees on a headless Pi.
-if [ -n "$(d "ls /usr/lib/python3/dist-packages" | tr -s ' \n' '\n' | grep -x toml || true)" ]; then
-    ok "python3-toml present (firstboot needs it to parse custom.toml)"
+# cloud-init enables its own units via this generator at boot, not via a
+# static multi-user.target.wants symlink — so that's what to check for here.
+if absent /usr/lib/systemd/system-generators/cloud-init-generator; then
+    bad "cloud-init-generator missing — nothing enables cloud-init's units at boot"
 else
-    bad "python3-toml missing — firstboot silently refuses to apply custom.toml"
+    ok "cloud-init-generator present (enables cloud-init units at boot)"
 fi
 
 # Pi OS ships raspi-config in /usr/bin, not /usr/sbin. /usr/local/sbin still
