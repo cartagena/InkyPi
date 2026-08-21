@@ -104,7 +104,9 @@
       var i = this.info;
       if (!i) {
         big.className = "mini-big";
-        this.put(big, sub, "n/a", WP.bridge.present() ? "sensor error" : "no device link");
+        /* Ten characters — 78 px of content in an 89 px tile. "no device link" measured 99
+           and shipped as "no devic…", which is a state nobody can read told badly. */
+        this.put(big, sub, "n/a", WP.bridge.present() ? "no reading" : "no link");
         return;
       }
       /* THE CHARGING MARK MOVED DOWN A LINE. "83%↯" fitted the 78 px box and still read as

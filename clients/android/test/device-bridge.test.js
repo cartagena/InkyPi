@@ -190,7 +190,10 @@ test("storage and memory percentages come out of the snapshot's own numbers", fu
 test("no bridge at all degrades to an explicit message, not a blank card", function () {
   var app = h.createApp({});                       // window.Android absent
   assert.equal(app.text("sys-big"), "n/a");
-  assert.equal(app.text("sys-sub"), "no device link");
+  /* CHANGED: ten characters. Seven tiles share the row and the sub-line's box is 78 px,
+     in which "no device link" measured 99 and shipped as "no devic…" — a state nobody can
+     read is a state told badly. */
+  assert.equal(app.text("sys-sub"), "no link");
   assert.equal(app.WP.bridge.present(), false);
 
   app.WP.panels.open("system");
@@ -202,7 +205,7 @@ test("no bridge at all degrades to an explicit message, not a blank card", funct
 test("a bridge that returns junk is treated as absent, not as a crash", function () {
   var app = h.createApp({ bridge: fake.make({ broken: true }) });
   assert.equal(app.text("sys-big"), "n/a");
-  assert.equal(app.text("sys-sub"), "sensor error", "a present-but-broken bridge says so");
+  assert.equal(app.text("sys-sub"), "no reading", "a present-but-broken bridge says so");
   assert.deepEqual(app.logs.error, []);
 });
 
