@@ -146,6 +146,23 @@ else
     fi
 fi
 
+# The Inky driver calls inky.auto.auto(), which reads the HAT EEPROM over I2C
+# at 0x50. dtparam=i2c_arm=on alone does not create /dev/i2c-1 — that needs the
+# i2c-dev module, normally registered by `raspi-config nonint do_i2c 0`, which
+# is stubbed out during the image build. Without it the panel is never driven.
+if d "cat /etc/modules" | grep -qx "i2c-dev"; then
+    ok "i2c-dev registered in /etc/modules (Inky EEPROM will be readable)"
+else
+    bad "i2c-dev not in /etc/modules — /dev/i2c-1 will not exist and inky.auto() fails with 'No EEPROM detected'"
+fi
+
+CFG_DIR_LS="$(d "ls /opt/inkypi-src/src/config" | tr -s ' \n' '\n')"
+if printf '%s' "${CFG_DIR_LS}" | grep -qx "device.json"; then
+    ok "device.json provisioned"
+else
+    bad "device.json missing — install.sh generates it from install/config_base"
+fi
+
 if absent /usr/local/inkypi/venv_inkypi/bin/python; then
     bad "venv interpreter missing at /usr/local/inkypi/venv_inkypi/bin/python"
 else

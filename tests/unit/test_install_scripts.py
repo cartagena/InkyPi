@@ -3887,6 +3887,22 @@ class TestPiImageShipsNoBuildScaffolding:
             "installed source tree, not leftovers"
         )
 
+    def test_build_registers_i2c_dev_module(self):
+        # install.sh enables the buses twice: seds on config.txt, which work in
+        # a chroot, and `raspi-config nonint do_i2c 0`, which hits the stub and
+        # does nothing. Only I2C suffers — spidev appears from dtparam alone,
+        # but /dev/i2c-1 needs the i2c-dev module in /etc/modules, which is the
+        # part raspi-config would have added. Without it the Inky driver's
+        # inky.auto() cannot read the HAT EEPROM at 0x50 and raises
+        # "No EEPROM detected", so the panel is never driven.
+        assert "i2c-dev" in self.build_sh
+        assert "grep -qxF 'i2c-dev' \"${MNT}/etc/modules\"" in self.build_sh
+
+    def test_audit_checks_i2c_and_device_config(self):
+        assert "i2c-dev" in self.audit_sh
+        assert "No EEPROM detected" in self.audit_sh
+        assert "device.json" in self.audit_sh
+
     def test_audit_checks_the_app_can_start(self):
         # Reaching multi-user.target says nothing about whether the app works.
         # These are the invariants that were broken on a shipped image.

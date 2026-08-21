@@ -213,6 +213,25 @@ chroot "${MNT}" /usr/bin/env \
       bash ./install.sh
     " < /dev/null
 
+# --- redo what the stubbed raspi-config swallowed ---------------------------
+# install.sh enables the buses two ways: it seds config.txt (which works in a
+# chroot) and it calls `raspi-config nonint do_spi 0` / `do_i2c 0`. Both
+# raspi-config calls hit the stub above and did nothing.
+#
+# That only matters for I2C. dtparam=spi=on is enough for spidev to appear on
+# its own, but /dev/i2c-1 needs the i2c-dev module, and adding it to
+# /etc/modules is precisely the part raspi-config would have done. Without it
+# the bus never comes up, and the Inky driver — which reads the HAT's EEPROM
+# over I2C at 0x50 to identify the panel — fails with
+#     RuntimeError: No EEPROM detected! You must manually initialise your Inky board.
+# so the display is never driven at all.
+banner "Re-applying what the raspi-config stub swallowed"
+if ! grep -qxF 'i2c-dev' "${MNT}/etc/modules"; then
+    echo 'i2c-dev' >> "${MNT}/etc/modules"
+fi
+grep -qxF 'i2c-dev' "${MNT}/etc/modules"
+echo "i2c-dev registered in /etc/modules"
+
 # --- first-boot instructions --------------------------------------------------
 banner "Writing first-boot instructions"
 # Raspberry Pi OS does NOT use cloud-init. It customises itself from
