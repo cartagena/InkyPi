@@ -505,16 +505,20 @@ adb transport — the suite covers the code path).
 ## Relationship to InkyPi (why this lives here)
 
 Imported 2026-08-21 from [jtn0123/tab-s6-kiosk](https://github.com/jtn0123/tab-s6-kiosk) with
-history preserved. It is the **tablet/OLED variant of InkyPi**: same plugin-card + playlist idea,
-rendered on a colour AMOLED instead of e-paper. Today it is still standalone (no server required).
+history preserved. It is the **tablet/OLED edition of InkyPi**: the same plugin-card + playlist
+idea, rendered on a colour AMOLED instead of e-paper.
 
-Roadmap to make it a true InkyPi client rather than a parallel implementation:
+**It is standalone by design and stays that way.** Everything runs on the tablet; nothing is
+rendered on or streamed from a Raspberry Pi. "Staying true to InkyPi" means porting the
+*plugins*, not the pixels:
 
-1. **Server mode** — poll `GET /api/current_image` (and `/preview`) from a running InkyPi and show
-   that as the primary screen; the local widgets become the offline fallback.
-2. **`panel` device profile on the server** — 2560x1600, full colour, no palette quantisation,
-   animation allowed — so InkyPi renders *for* this display instead of for e-ink.
-3. Replace widget-by-widget reimplementations (newspaper, comics, weather) with the server's plugin
-   output wherever the server is reachable.
+1. **Plugin parity** — each InkyPi plugin (weather, newspaper, comic, APOD, calendar, AI text,
+   image folder, …) gets a JavaScript widget port. Weather, newspaper and the picture plugins
+   already exist; the server's `src/plugins/` is the reference implementation.
+2. **Same vocabulary** — plugin settings, playlist/cycle timing and refresh intervals mirror the
+   server's so the two feel like one product.
+3. **Same data sources** — Open-Meteo, Freedom Forum, XKCD, NASA, etc., so the tablet shows what
+   a Pi would show.
 
+No server mode, no `/api/current_image` polling, no `panel` display profile on the Pi side.
 Device prep (flash, patches, known issues) stays in `jtn0123/tab-s6-kiosk`; this folder is only the app.
