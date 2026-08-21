@@ -359,6 +359,12 @@
 /* Big enough to be the thing on the screen rather than an apology beside the text — it
    is standing in for a photograph, and a 40 px icon over 700 px of black would read as
    another kind of nothing. */
+/* The Calendar panel's body is an ordinary block, so an empty state with `flex: 1 1 auto`
+   had nothing to grow into and sat in the top two thirds with 350 px of black under it —
+   the same void, moved up the screen. A flex column costs nothing when the body holds a
+   real agenda (auto-height sections stack exactly as they do in a block) and gives the
+   empty state the room it was drawn for when it does not. */
+.panel[data-panel="calendar"] .panel-body { display: flex; flex-direction: column; }
 .pic-art { width: 42vw; height: auto; display: block; margin: 0 auto 1vh; }
 .pic-empty-t { font-size: var(--fs-title); color: var(--fg); }
 .pic-empty-s { font-size: var(--fs-note); color: var(--dim); }
