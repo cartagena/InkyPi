@@ -1,6 +1,34 @@
 # CHANGELOG
 
 
+## v1.1.2 (2026-08-21)
+
+### Bug Fixes
+
+- Skip the reboot prompt when install.sh has no terminal
+  ([`0039d08`](https://github.com/cartagena/InkyPi/commit/0039d088cac84af7e8c131f4b37a06b1f3f064b7))
+
+ask_for_reboot ends the install with an unconditional
+
+read -r -p "Would you like to restart your Raspberry Pi now? [Y/N] "
+
+install.sh sets no `set -e`, so a caller whose stdin is already at EOF falls through to the "Unknown
+  input" branch and exits 0 — which is the only reason the pre-installed image build has ever
+  worked, since GitHub Actions happens to give every step /dev/null on stdin. A caller whose stdin
+  is a terminal or an open pipe blocks there indefinitely instead. That covers `curl ... | sudo
+  bash`, Ansible, container builds and a local image build, none of which want to reboot the host
+  anyway.
+
+Guard the prompt on `[ -t 0 ]` and print the same advisory the "N" branch prints. Returns rather
+  than exits, so a non-zero status from anything after the call is not masked.
+
+Verified all three paths against the real function with stub helpers: stdin from /dev/null skips and
+  returns 0; stdin from a pipe held open with no data skips immediately (0s) where it previously
+  hung; and with a real TTY the prompt still appears and "N" behaves as before.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+
 ## v1.1.1 (2026-08-21)
 
 ### Bug Fixes
