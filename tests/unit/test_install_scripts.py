@@ -3829,6 +3829,38 @@ class TestPiImageShipsNoBuildScaffolding:
         rm_emu = self.build_sh.index('rm -f "${MNT}/usr/bin/qemu-aarch64-static"')
         assert last_chroot < rm_emu, "emulator must outlive the last chroot"
 
+    def test_install_chroot_reads_stdin_from_devnull(self):
+        # install.sh ends with `read -r -p "Would you like to restart ..."` and
+        # sets no `set -e`, so at EOF it takes its "Unknown input" branch and
+        # exits 0. GitHub Actions gives every step /dev/null on stdin, so CI has
+        # always sailed past that prompt by accident; the same build from a
+        # terminal blocks forever. Redirect explicitly so both behave the same
+        # way for the same reason.
+        install_call = self.build_sh.index("bash ./install.sh")
+        tail = self.build_sh[install_call : install_call + 200]
+        assert "< /dev/null" in tail, (
+            "the chroot running install.sh must take stdin from /dev/null, or a "
+            "local build hangs on the reboot prompt"
+        )
+
+    def test_ci_marker_env_var_is_not_load_bearing(self):
+        # INKYPI_CI_IMAGE_BUILD is set by the build but read by nothing in
+        # install/ or src/. It looks like it suppresses the reboot prompt and
+        # does not, so the script must say so rather than let the next reader
+        # assume it is the mechanism.
+        if "INKYPI_CI_IMAGE_BUILD" in self.build_sh:
+            consumers = [
+                p
+                for p in (REPO_ROOT / "install").rglob("*")
+                if p.is_file()
+                and "INKYPI_CI_IMAGE_BUILD" in p.read_text(errors="ignore")
+            ]
+            assert not consumers, (
+                "install/ now reads INKYPI_CI_IMAGE_BUILD — update the comment in "
+                f"build_pi_image.sh, which says nothing does: {consumers}"
+            )
+            assert "not* what makes this work" in self.build_sh
+
     def test_readme_documents_custom_toml_not_cloud_init(self):
         # Raspberry Pi OS does not ship cloud-init; the note used to send users
         # to /boot/firmware/user-data, which nothing on the image reads.

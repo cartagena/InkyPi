@@ -186,6 +186,20 @@ chmod +x "${STUB_DIR}/raspi-config" "${STUB_DIR}/systemctl"
 
 # --- install ------------------------------------------------------------------
 banner "Running install.sh inside the image (emulated — this is the slow part)"
+# stdin comes from /dev/null so the build cannot block on a prompt.
+#
+# install.sh ends with `read -r -p "Would you like to restart ... [Y/N]"`, and
+# it sets no `set -e`, so at EOF read simply returns non-zero with an empty
+# answer, install.sh takes its "Unknown input" branch and exits 0. GitHub
+# Actions happens to give every step /dev/null on stdin, so CI has always
+# sailed past this prompt by accident. Run the same build from a terminal and
+# it blocks forever. Redirect explicitly so both behave the same way for the
+# same reason.
+#
+# Note INKYPI_CI_IMAGE_BUILD is *not* what makes this work: nothing in
+# install/ or src/ reads that variable. It is inherited from the original
+# workflow and kept only as a marker for anything that may want it later — do
+# not rely on it to suppress prompts.
 chroot "${MNT}" /usr/bin/env \
     PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
     DEBIAN_FRONTEND=noninteractive \
@@ -197,7 +211,7 @@ chroot "${MNT}" /usr/bin/env \
       git clone --branch '${TAG}' --depth 1 '${SRC_REPO}' /opt/inkypi-src
       cd /opt/inkypi-src/install
       bash ./install.sh
-    "
+    " < /dev/null
 
 # --- first-boot instructions --------------------------------------------------
 banner "Writing first-boot instructions"
