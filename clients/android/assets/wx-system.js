@@ -27,9 +27,22 @@
      battery on a wall where blue is a low temperature everywhere else. Charging does not
      need a hue anyway; the bolt drawn through the fill already says it, in a shape nobody
      has to learn. */
+  /* The one place the battery's state is decided, so the tile, the panel hero and the
+     drawn glyph cannot disagree about it. Nearly flat outranks charging: a tablet at 8%
+     with the cable in is still the thing you want to notice from the doorway. */
+  /* How much room is left, on the app's one severity ramp turned the right way round. */
+  function freeTone(freePct) {
+    return freePct < 8 ? "danger" : freePct < 20 ? "warn" : "accent";
+  }
+  function battTone(b) {
+    if (b && b.level != null && b.level <= 15) return "batt-low";
+    return (b && b.charging) ? "batt-chg" : "";
+  }
   function batteryIcon(b) {
     var pct = Math.max(0, Math.min(100, b.level == null ? 0 : b.level));
-    var fill = pct < 20 ? "var(--danger)" : (b.charging ? "var(--fg)" : "var(--dim)");
+    var t = battTone(b);
+    var fill = t === "batt-low" ? "var(--danger)"
+      : t === "batt-chg" ? "var(--ok)" : "var(--dim)";
     var w = (pct / 100) * 40;
     return '<svg class="wxi" viewBox="0 0 64 64">'
       + '<rect x="8" y="20" width="44" height="24" rx="4" fill="none"'
@@ -109,8 +122,8 @@
          is punctuation, and shrinking it buys the room a charging state needs. */
       var lvl = i.battery && i.battery.level;
       var chg = !!(i.battery && i.battery.charging);
-      big.className = "mini-big"
-        + (chg ? " batt-chg" : (lvl != null && lvl <= 15 ? " batt-low" : ""));
+      var tone = battTone(i.battery);
+      big.className = "mini-big" + (tone ? " " + tone : "");
       this.put(big, sub,
         (lvl != null ? lvl : "--") + '<span class="unit">%</span>',
         (chg ? "↯ " : "") +
@@ -183,8 +196,15 @@
            text glyph "▭" — a hollow rectangle, no fill and no terminal, sitting beside
            "83%". At a glance the icon won and the tablet read as flat. An icon whose whole
            job is to show a level, showing no level, is worse than no icon. */
+        /* The value wears the state, like the tile. This panel was the last fully
+           monochrome screen in the build — a white hero over grey bars over three-column
+           label/value blocks — on a dashboard where Conditions, Hourly, Daily, Air, Clock,
+           Timer and Year all now say something in colour. Nothing new was invented for it:
+           the battery takes its own two states, the two bars take the accent every other
+           bar in the app already uses, and the internet cell takes the severity ramp. */
         hero(batteryIcon(b),
-             (b.level != null ? b.level : "--") + "%",
+             '<span class="' + battTone(b) + '">'
+               + (b.level != null ? b.level : "--") + "%</span>",
              esc(b.status || "") + (b.plugged ? " · " + esc(b.plugged) : ""))
         /* No battery BAR. The icon is drawn to the level, the number beside it says the
            level, and a bar underneath was the same fact a third time — 40 px of a panel
@@ -220,14 +240,17 @@
            The heading also names the bar's DIRECTION. A nearly-full bar beside "FREE 104 GB"
            reads as "nearly full" to every human alive, and this bar fills with what is left,
            so it says so: STORAGE FREE · 128 GB. */
+        /* The bars fill with what is LEFT, so the tone reads the same way round: accent
+           while there is room, amber when it is getting tight, red when it is not. A grey
+           bar cannot say which of its two ends is the good one. */
         + section("Storage free · " + fmt.bytes(st.total),
-            bar(100 - stPct, "", "storage free") + statGrid([
+            bar(100 - stPct, freeTone(100 - stPct), "storage free") + statGrid([
             ["Free", fmt.bytes(st.free)],
             ["Used", fmt.bytes(stUsed)]
           ], 2))
 
         + section("Memory free · " + fmt.bytes(mem.total),
-            bar(100 - memPct, "", "memory free") + statGrid([
+            bar(100 - memPct, freeTone(100 - memPct), "memory free") + statGrid([
             ["Free", fmt.bytes(mem.free)],
             ["Used", fmt.bytes(memUsed)]
           ], 2))
@@ -239,7 +262,9 @@
            screen did not have. */
         + section("Network", statGrid([
             ["Transport", esc(net.type || "none")],
-            ["Internet", net.validated ? "Working" : "No connection"],
+            ["Internet", net.validated
+              ? '<span class="band-1">Working</span>'
+              : '<span class="band-5">No connection</span>'],
             ["Speed", (net.downKbps ? Math.round(net.downKbps / 1000) : "--") + " / "
               + (net.upKbps ? Math.round(net.upKbps / 1000) : "--"), "Mbps down / up"]
           ], 3))

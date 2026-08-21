@@ -158,6 +158,16 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
 .band-6 { color: var(--band-6); }
 .band-na { color: var(--dimmer); }
 
+/* THE BATTERY'S TWO STATES, and they are states rather than severities — which is why they
+   are not on the band ramp above. It replaces the "↯" that used to sit welded to the
+   per-cent sign on the Device tile: whether the thing is charging is a property OF the
+   number, so it belongs in the number's colour rather than in a second symbol competing
+   with it for 78 px. The tile, the panel hero and the drawn battery glyph all take it, so
+   the three agree. No animation — a wall panel that pulsed because it was charging would
+   pulse all night, every night. */
+.batt-chg { color: var(--ok); }
+.batt-low { color: var(--danger); }
+
 /* ---- the accent language, as classes ----
    These are the same three temperature tokens the hourly curve and the daily chart are
    built from, promoted to colour classes the way the six band classes already are: a

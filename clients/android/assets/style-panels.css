@@ -180,10 +180,16 @@
   text-align: left;
   padding: 1vh 0 1.4vh;
 }
+/* THE HERO GLYPH IS THE HERO'S SIZE, not a step below it. It sat on --fs-hero beside a
+   number on --fs-display, i.e. at 68% of the numeral's step — and because SVG art carries
+   internal padding a font glyph does not, the cloud measured optically half the height of
+   the 79° next to it. A weather product's hero row has to read as one object; an icon and
+   a number that merely share a line is what it looked like. Same step now, and the optical
+   nudge shrinks with the gap it was compensating for. */
 .big-readout.hero .big-icon {
   flex: 0 0 auto;
-  font-size: var(--fs-hero);
-  transform: translateY(-0.75vh);   /* see .wx-icon — optical, not geometric, centring */
+  font-size: var(--fs-display);
+  transform: translateY(-0.4vh);    /* see .wx-icon — optical, not geometric, centring */
 }
 .big-readout.hero .big-time { font-size: var(--fs-display); }
 .hero-text { min-width: 0; }
@@ -279,6 +285,7 @@
    Half strength, not a different grey: two bars in two greys read as "one of these is
    data and one is chrome", which was not what they meant. */
 .bar-fill.accent.soft { background: var(--accent); opacity: 0.5; }
+.bar-fill.warn { background: var(--warn); }
 .bar-fill.danger { background: var(--danger); }
 
 .btn-row { display: flex; flex-wrap: wrap; gap: 1.4vw; margin-top: 1.6vh; }
@@ -386,7 +393,10 @@
    blocks under two separate headings, ~200 CSS px of a panel that was overflowing by
    1157. The switch keeps its own idiom — it is a switch beside two segmented controls,
    not a third segmented control. */
-.seg-pair { display: flex; align-items: stretch; gap: 2vw; }
+/* The gap BETWEEN the groups has to beat the gap inside them, or four chips in two pairs
+   read as one row of four and the Seconds switch reads as a fifth thing in the same set.
+   2vw against .seg's 1.2vw was not enough of a difference to see; 4vw is. */
+.seg-pair { display: flex; align-items: stretch; gap: 4vw; }
 .seg-pair .seg { flex: 1 1 0; min-width: 0; }
 /* The switch row needs more of the line than a pair of buttons does: it carries a word AND
    a pill, and at an even third the word came out as "Secon" with the knob over the rest. */

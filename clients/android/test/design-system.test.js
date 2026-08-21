@@ -1077,6 +1077,15 @@ test("colour marks DATA, so no button carries a hue of its own", function () {
     assert.equal(new RegExp("\\.btn\\." + v + "\\b").test(css.CSS), false,
       ".btn." + v + " is back; an affordance does not get a hue");
   });
-  assert.equal(/"(primary|danger)"/.test(stripComments(WIDGETS_JS)), false,
+  /* NARROWED. The sweep used to reject the strings "primary" and "danger" anywhere in a
+     widget, which was a proxy for "nobody is passing them to btn()" and stopped being one
+     the moment a BAR needed a tone: .bar-fill.danger is a reading in the red, which is
+     exactly the STATE the rule above reserves the hue for. So the sweep now looks at the
+     call it is about — the class argument of btn() — and leaves data alone. */
+  assert.equal(/\bbtn\(\s*[^;]{0,80}?"(primary|danger)"/.test(stripComments(WIDGETS_JS)), false,
     "a widget is still asking for a coloured button");
+  /* and the check still bites: this is what it is looking for */
+  assert.equal(/\bbtn\(\s*[^;]{0,80}?"(primary|danger)"/
+    .test('btn("go", "Start", "primary", null, "timer")'), true,
+    "the coloured-button sweep no longer detects a coloured button");
 });

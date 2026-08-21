@@ -13,7 +13,7 @@
 
   var $ = WP.$, esc = WP.esc, fmt = WP.fmt, S = WP.settings;
   var ui = WP.ui;
-  var statGrid = ui.statGrid, section = ui.section;
+  var statGrid = ui.statGrid, section = ui.section, bar = ui.bar;
 
   var clock = {
     name: "clock",
@@ -143,6 +143,9 @@
         if (liveKey() !== self.panelKey) { render(); return; }
         var big = $("clk-big");
         if (!big) { render(); return; }          // panel was rebuilt from under us
+        /* textContent, not innerHTML, and no class touched: the hour's tone is set by
+           render(), which runs on every minute boundary — sixty times more often than an
+           hour can change. */
         big.textContent = fmt.clock(now, true);
       }
 
@@ -157,9 +160,20 @@
          business fetching nine sunrise tables, and being an hour out in Sydney in June
          changes nothing about the answer this is giving. The two tokens are the app's
          existing ones: blue is cold and low light is warm, everywhere else on the wall. */
+      /* THE HERO TAKES IT TOO. It was the one clock on this panel printed in flat white,
+         under a subtitle naming its zone, above six cells that each said what kind of hour
+         it was where they are. The room's own hour is the one the person reading is
+         standing in; if the rule is worth applying to Tokyo it is worth applying here. */
       function lightThere(now, zone) {
-        var hh = parseInt(new Intl.DateTimeFormat("en-GB", {
-          timeZone: zone, hour: "2-digit", hour12: false }).format(now), 10);
+        var hh;
+        if (zone) {
+          try {
+            hh = parseInt(new Intl.DateTimeFormat("en-GB", {
+              timeZone: zone, hour: "2-digit", hour12: false }).format(now), 10);
+          } catch (e) { hh = NaN; }
+        } else {
+          hh = now.getHours();                   /* no zone name: the tablet's own clock */
+        }
         if (!isFinite(hh)) return "";
         if (hh < 5 || hh >= 21) return "t-cold";
         if (hh < 7 || hh >= 19) return "t-warm";
@@ -181,8 +195,18 @@
 
         /* Scroll-preserving: this rebuilds once a second, so a plain innerHTML swap would
            make the panel impossible to scroll at all. */
+        /* How much of today has gone, as the one picture on a panel of numbers. The gap
+           between TODAY and WORLD CLOCKS was ~90 device px of black on a screen with
+           nothing in it that moves except the seconds; this is a clock fact, it is the
+           same accent bar the Year panel measures the year with one zoom level out, and
+           it is the answer to the question the DAY cell beside it only half answers. */
+        var dayMs = now - new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        var dayPct = (dayMs / 86400000) * 100;
+        var leftMs = 86400000 - dayMs;
+
         WP.repaint(body,
-          '<div class="big-readout"><div class="big-time" id="clk-big">'
+          '<div class="big-readout"><div class="big-time '
+          + lightThere(now, localZone) + '" id="clk-big">'
           + esc(fmt.clock(now, true)) + "</div>"
           + '<div class="big-sub">' + esc(now.toLocaleDateString(undefined, {
               weekday: "long", year: "numeric", month: "long", day: "numeric" })) + "</div></div>"
@@ -211,7 +235,9 @@
                  says "of" in one glyph and, having no space in it, cannot wrap at all. */
               ["Day", doy + "/" + fmt.daysInYear(now)],
               ["Week", String(isoWeek)]
-            ], 3))
+            ], 3)
+            + bar(dayPct, "accent", "day elapsed")
+            + '<div class="stat-x">' + esc(fmt.duration(leftMs)) + " left today</div>")
           + section("World clocks", '<div class="wc-grid">' + zones.map(function (z) {
               var s = "--:--", day = "", tone = "";
               try {
