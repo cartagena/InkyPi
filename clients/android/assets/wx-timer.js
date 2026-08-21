@@ -414,7 +414,10 @@
              was reserved for laps and reserved is not the same as blank. */
           html += section("Laps", '<div class="laps-hint"><div class="muted">'
             + "Tap Lap while running to split.</div>"
-            + '<div class="quick-t">Or start a countdown</div>'
+            /* "Or SET a countdown", not "start": the chips switch mode and load the
+               duration, and deliberately do not start it — a label that promises to start
+               one would be describing a different button. */
+            + '<div class="quick-t">Or set a countdown</div>'
             + '<div class="chip-row cols4">'
             + [1, 3, 5, 10].map(function (m) {
                 return '<button class="chip tappable" data-ns="timer" data-act="quick"'

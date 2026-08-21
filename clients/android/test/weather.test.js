@@ -500,3 +500,17 @@ test("one wet hour brings the whole column back, so the figures can be compared"
       "the column came back for some hours but not all of them");
   });
 });
+
+test("the precipitation section is headed with what is actually falling", function () {
+  /* The Daily panel headed it "RAIN" in every scene, so the snow scene put a Snow hero
+     over a section captioned RAIN saying none of it was expected to fall — the panel
+     disagreeing with itself inside one screen. */
+  var f = h.createApp({}).WP.fmt;
+  [71, 73, 75, 77, 85, 86].forEach(function (c) {
+    assert.equal(f.precipWord(c), "Snow", "code " + c);
+  });
+  /* sleet is freezing RAIN, and a thunderstorm is rain with a bolt in it */
+  [0, 3, 51, 61, 65, 56, 57, 66, 67, 80, 95, 99, null, undefined].forEach(function (c) {
+    assert.equal(f.precipWord(c), "Rain", "code " + c);
+  });
+});

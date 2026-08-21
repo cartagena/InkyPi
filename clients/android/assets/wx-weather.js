@@ -31,6 +31,8 @@
      The grid comes back the moment rain is real (falling now, likely within the hour, or
      any measured total today), because then the three figures genuinely differ. */
   function rainSection(cur, h, day, i) {
+    /* The heading follows the code, so a snowy hour is not filed under RAIN. */
+    var W = fmt.precipWord(cur.weather_code);
     var nextHour = (h && h.precipitation_probability && i >= 0)
       ? Math.round(h.precipitation_probability[i]) : 0;
     var todaySum = (day && day.precipitation_sum) ? (day.precipitation_sum[0] || 0) : 0;
@@ -45,12 +47,14 @@
              renders in local time — one day EARLIER anywhere west of Greenwich. The rain
              day would have been named Thursday for a Friday, on a panel in California. */
           var when = new Date(day.time[k] + "T12:00:00");
-          return section("Rain", '<div class="muted">Next rain: '
+          /* THAT day's word, not today's: the section is about the day it names. */
+          var w2 = fmt.precipWord(day.weather_code && day.weather_code[k]);
+          return section(w2, '<div class="muted">Next ' + w2.toLowerCase() + ": "
             + esc(when.toLocaleDateString(undefined, { weekday: "long" }))
             + ", " + Math.round(pops[k]) + "% chance.</div>");
         }
       }
-      return section("Rain", '<div class="muted">None forecast in the next '
+      return section(W, '<div class="muted">None forecast in the next '
         + Math.max(1, pops.length) + " days.</div>");
     }
 
@@ -62,7 +66,7 @@
        strip's chance-of-rain figures already do (.hr-p.wet) — a section that only appears
        when it is going to rain should not be printed in the same white as the pressure. */
     function wet3(v, on) { return on ? '<span class="wet">' + v + "</span>" : v; }
-    return section("Rain", statGrid([
+    return section(W, statGrid([
       ["Right now", wet3((cur.precipitation || 0) + " " + fmt.precipUnit(),
         (cur.precipitation || 0) > 0)],
       ["Next hour", wet3(nextHour + "%", nextHour >= 30)],

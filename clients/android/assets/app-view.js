@@ -299,6 +299,14 @@
        precipitation just need a label. Pressure always arrives in hPa. */
     speedUnit: function () { return settings.isMetric() ? "km/h" : "mph"; },
     precipUnit: function () { return settings.isMetric() ? "mm" : "in"; },
+    /* What is falling, in a word, from the WMO code. The Daily panel headed its
+       precipitation section "RAIN" in every scene, so a Snow hero sat above a section
+       captioned RAIN telling you none of it was expected to fall. 71-77 is the snow family
+       and 85/86 the snow showers; sleet (56/57/66/67) is freezing RAIN and stays rain. */
+    precipWord: function (code) {
+      var c = Number(code);
+      return ((c >= 71 && c <= 77) || c === 85 || c === 86) ? "Snow" : "Rain";
+    },
     pressure: function (hPa) {
       if (hPa == null) return "--";
       return settings.isMetric()

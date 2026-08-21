@@ -44,6 +44,52 @@
   function midnight(ms) { var d = new Date(ms); return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime(); }
   function dayIndex(ms, now) { return Math.round((midnight(ms) - midnight(now)) / DAY); }
 
+  /* A VOID IS NOT AN EMPTY STATE, and this panel had the worst one in the product: three
+     lines of grey type over about 900 device px of pure black, which at three metres is
+     indistinguishable from a screen that failed to draw. The Picture panel had the same
+     void for the same reason and got a picture of the missing thing a round earlier; this
+     is that fix, arriving where it should have arrived at the same time.
+
+     A month page: the block that hangs the calendar, the head band, and three weeks of
+     day cells with one of them lit. Drawn against the icon pack's own gradients so it is
+     the same drawing language as the weather glyphs, not a second one. Deliberately not a
+     real month — a wrong date on a wall is worse than an obvious diagram. */
+  var CELL_W = 9.6, CELL_H = 7.4, CELL_GX = 4.2, CELL_GY = 4;
+  function pageArt() {
+    var cells = "";
+    for (var r = 0; r < 3; r++) {
+      for (var c = 0; c < 7; c++) {
+        var lit = (r === 1 && c === 3);
+        cells += '<rect x="' + (17 + c * (CELL_W + CELL_GX)).toFixed(1)
+          + '" y="' + (38 + r * (CELL_H + CELL_GY)).toFixed(1)
+          + '" width="' + CELL_W + '" height="' + CELL_H + '" rx="1.8" fill="'
+          + (lit ? "url(#wxg-sun)" : "var(--ic-fog)")
+          + '" opacity="' + (lit ? 0.85 : 0.3) + '"/>';
+      }
+    }
+    return '<svg class="pic-art" viewBox="0 0 120 84" aria-hidden="true">'
+      + '<rect x="8" y="12" width="104" height="70" rx="7"'
+      + ' fill="url(#wxg-cloudd)" opacity="0.28"/>'
+      /* the head band, lit along its top edge the way every cloud in the pack is */
+      + '<path d="M 8 19 A 7 7 0 0 1 15 12 L 105 12 A 7 7 0 0 1 112 19 L 112 30 L 8 30 Z"'
+      + ' fill="url(#wxg-cloud)" opacity="0.5"/>'
+      + '<path d="M 10 21 C 11.4 16.8 15 14.6 19.5 14.4 L 100 14.4"'
+      + ' fill="none" stroke="var(--ic-cloud-lit)" stroke-width="1.3"'
+      + ' stroke-linecap="round" opacity="0.6"/>'
+      + cells
+      + '<rect x="8.9" y="12.9" width="102.2" height="68.2" rx="6.2" fill="none"'
+      + ' stroke="var(--ic-fog)" stroke-width="1.8" opacity="0.55"/>'
+      /* the two rings it hangs from — the detail that stops the shape reading as a card */
+      + '<rect x="33" y="4" width="4.4" height="15" rx="2.2" fill="var(--ic-fog)"'
+      + ' opacity="0.7"/>'
+      + '<rect x="82.6" y="4" width="4.4" height="15" rx="2.2" fill="var(--ic-fog)"'
+      + ' opacity="0.7"/>'
+      + "</svg>";
+  }
+  function emptyPanel(title, sub) {
+    return WP.ui.emptyState(pageArt(), esc(title), esc(sub));
+  }
+
   /* "2:30 PM" / "14:30" from the clock setting — no Intl, so the minute tick stays free */
   function hm(ms) {
     var d = new Date(ms), h = d.getHours(), m = d.getMinutes();
@@ -162,14 +208,16 @@
       var subEl = WP.qs("[data-sub]", panel), body = WP.qs("[data-body]", panel);
       if (!configured()) {
         subEl.textContent = "Not set up";
-        body.innerHTML = '<div class="muted">No calendar feed yet. A feed address is set when the '
-          + "panel is built, the same way as the location — any published calendar works.</div>";
+        body.innerHTML = emptyPanel("No calendar yet",
+          "Any published calendar works — the address is set when the panel is built, "
+          + "the same way as the location.");
         return;
       }
       if (!WP.bridgeFetch.available() && !this.events.length) {
         subEl.textContent = "Needs the tablet";
-        body.innerHTML = '<div class="muted">The agenda appears once the panel runs on the tablet; '
-          + "a browser tab cannot read a calendar feed.</div>";
+        body.innerHTML = emptyPanel("The agenda needs the tablet",
+          "A browser tab cannot read a calendar feed. It fills in once the panel is "
+          + "running on the wall.");
         return;
       }
       var list = this.agenda(now);
@@ -177,7 +225,10 @@
         + (list.length ? list.length + (list.length === 1 ? " event" : " events") : "nothing scheduled")
         + (this.stale && this.fetchedAt ? " · as of " + hm(this.fetchedAt) : "");
       if (!list.length) {
-        body.innerHTML = '<div class="muted">Nothing on the calendar for the next ' + days() + " days.</div>";
+        /* An empty week is the answer, not a failure — but it has to LOOK like an answer,
+           and a one-line sentence in the middle of a black screen looks like neither. */
+        body.innerHTML = emptyPanel("Nothing scheduled",
+          "The next " + days() + " days are clear.");
         return;
       }
       /* grouped by day; the heading names the day once, the rows carry only times */

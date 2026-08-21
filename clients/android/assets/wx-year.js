@@ -130,10 +130,12 @@
 
   function countdownRows(list) {
     if (!list.length) {
-      /* An honest empty state, not an empty box. Countdowns are set when the app is
-         built, exactly like the location — so say that, in the room's words. */
-      return '<div class="muted">No countdowns yet. They are set up when the panel is '
-        + "built, the same way as the location.</div>";
+      /* An honest empty state, not an empty box, and one that says what the owner would
+         SEE rather than how the thing is plumbed. "They are set up when the panel is
+         built, the same way as the location" answered a question nobody standing in a
+         kitchen is asking; the example is the answer to the one they are. */
+      return '<div class="muted">No countdowns yet. A birthday or a trip added here shows '
+        + "up as its own line: the name, and how many days until it.</div>";
     }
     return statGrid(list.slice(0, 8).map(function (c) {
       return [c.title, String(Math.abs(c.days)) + '<span class="unit"> days</span>',

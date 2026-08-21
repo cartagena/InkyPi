@@ -81,19 +81,29 @@
      at 3 m is indistinguishable from a screen that failed to draw.
      Every no-picture case goes through here, not only the failed one — "Fetching…" on its
      own line was the same void with fewer words in it. */
-  function emptyState(titleHtml, subHtml) {
-    return '<div class="pic-empty">'
-      + '<svg class="pic-art" viewBox="0 0 120 84" aria-hidden="true">'
+  function frameArt() {
+    return '<svg class="pic-art" viewBox="0 0 120 84" aria-hidden="true">'
+      /* the sky inside the frame, then the sun, then two ridges at two depths — the same
+         vertical light-to-dark gradients the cloud and the sun are built from, so the
+         empty state and the weather glyph beside it are one drawing language. The first
+         version was three flat triangles and a flat disc, which read as a different
+         product from the pack it sits next to. */
+      + '<rect x="4.5" y="4.5" width="111" height="75" rx="4.5"'
+      + ' fill="url(#wxg-cloudd)" opacity="0.22"/>'
+      + '<circle cx="92" cy="24" r="9" fill="url(#wxg-sun)" opacity="0.72"/>'
+      + '<path d="M 4.5 79.5 L 40 34 L 64 63 L 80 47 L 115.5 79.5 Z"'
+      + ' fill="url(#wxg-cloudd)" opacity="0.8"/>'
+      + '<path d="M 40 34 L 57 55" stroke="var(--ic-cloud-lit)" stroke-width="1.5"'
+      + ' stroke-linecap="round" fill="none" opacity="0.5"/>'
+      + '<path d="M 4.5 79.5 L 34 50 L 60 79.5 Z" fill="url(#wxg-cloud)" opacity="0.62"/>'
+      + '<path d="M 34 50 L 48 66" stroke="var(--ic-cloud-lit)" stroke-width="1.5"'
+      + ' stroke-linecap="round" fill="none" opacity="0.55"/>'
       + '<rect x="2.5" y="2.5" width="115" height="79" rx="6" fill="none"'
       + ' stroke="var(--ic-fog)" stroke-width="2.4" opacity="0.6"/>'
-      + '<circle cx="92" cy="22" r="8.5" fill="var(--ic-sun)" opacity="0.62"/>'
-      + '<path d="M 6 79 L 40 36 L 64 63 L 80 47 L 114 79 Z"'
-      + ' fill="var(--ic-cloud-dk)" opacity="0.55"/>'
-      + '<path d="M 6 79 L 34 50 L 60 79 Z" fill="var(--ic-cloud)" opacity="0.4"/>'
-      + "</svg>"
-      + '<div class="pic-empty-t">' + titleHtml + "</div>"
-      + '<div class="pic-empty-s">' + subHtml + "</div>"
-      + "</div>";
+      + "</svg>";
+  }
+  function emptyPanel(titleHtml, subHtml) {
+    return WP.ui.emptyState(frameArt(), titleHtml, subHtml);
   }
 
   var gallery = {
@@ -274,16 +284,16 @@
           + "</div>"
           + (slot.note ? '<div class="pic-note">' + esc(slot.note) + "</div>" : "");
       } else if (!WP.bridgeFetch.available()) {
-        main = emptyState("Pictures arrive through the app shell",
+        main = emptyPanel("Pictures arrive through the app shell",
           "A browser tab does not have one. This screen works on the tablet.");
       } else if (this.cur === "ai" && !aiEnabled() && !slot) {
-        main = emptyState("Generated pictures need a key",
+        main = emptyPanel("Generated pictures need a key",
           "Add <b>openai: { apiKey: … }</b> and rebuild. Nothing else on this screen "
           + "needs one.");
       } else if (!slot) {
-        main = emptyState("Fetching today's picture", "It arrives on its own.");
+        main = emptyPanel("Fetching today's picture", "It arrives on its own.");
       } else {
-        main = emptyState(esc(humanError(slot.err, NAMES[this.cur])),
+        main = emptyPanel(esc(humanError(slot.err, NAMES[this.cur])),
           "It tries again on its own. "
           + (sources().length > 1 ? "The other sources are above." : ""));
       }

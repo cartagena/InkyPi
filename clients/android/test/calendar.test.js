@@ -149,7 +149,11 @@ test("unconfigured: hidden by default, and honest when switched on", function ()
   assert.equal(a.WP.settings.get("show").calendar, false);
   assert.equal(a.text("cal-sub"), "Not set up");
   a.WP.panels.open("calendar");
-  assert.match(a.panelBody("calendar").textContent, /No calendar feed yet/);
+  /* CHANGED with the illustrated empty state: the panel's three no-agenda cases were a
+     line of grey type over ~900 device px of black, and now each is a drawing of a month
+     page with the state named under it. The words moved; the promise did not. */
+  assert.match(a.panelBody("calendar").textContent, /No calendar yet/);
+  assert.match(a.panelBody("calendar").innerHTML, /pic-art/, "the empty state lost its picture");
   assert.doesNotMatch(a.panelBody("calendar").textContent, /config\.js|https?:/);
 });
 
@@ -224,7 +228,9 @@ test("the panel groups the agenda by day, drops what is over, and says when ther
   var b = h.createApp(configured({ bridge: fakeBridge.make({ net: true }) }));
   var bb = b.registry.calendar; bb.events = []; bb.fetchedAt = 1;
   b.WP.panels.open("calendar");
-  assert.match(b.panelBody("calendar").textContent, /Nothing on the calendar for the next 7 days/);
+  assert.match(b.panelBody("calendar").textContent, /Nothing scheduled/);
+  assert.match(b.panelBody("calendar").textContent, /next 7 days are clear/);
+  assert.match(b.panelBody("calendar").innerHTML, /pic-art/, "an empty week lost its picture");
   assert.equal(b.text("cal-sub"), "Nothing for 7 days");
 });
 

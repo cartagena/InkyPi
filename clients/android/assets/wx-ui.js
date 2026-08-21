@@ -172,6 +172,25 @@
      role=switch + aria-checked is what makes it announce as a switch and say which way it
      is set; the pill itself carries no information the state does not, so it is hidden from
      the accessibility tree rather than being read a second time. */
+  /* AN EMPTY PANEL IS STILL A PANEL. A sentence in --dim floating in the middle of 900
+     device px of black is, at three metres, indistinguishable from a screen that failed to
+     draw — which is what the Picture panel and the Calendar panel both were. The answer is
+     a picture of the thing that is missing, big enough to be the subject rather than an
+     apology beside the text, then the state in words, then what to do about it.
+
+     It lives here because the two panels that need it had the same void for the same
+     reason, and one of them was fixed a round before the other. The art is the caller's,
+     because a frame with a landscape in it and a calendar page are not the same drawing;
+     everything around the art is shared, because they are the same layout.
+
+     The art is drawn against the icon pack's own gradient sprite (url(#wxg-…)), so an
+     empty state and a weather glyph are one drawing language rather than two. */
+  function emptyState(artSvg, titleHtml, subHtml) {
+    return '<div class="pic-empty">' + artSvg
+      + '<div class="pic-empty-t">' + titleHtml + "</div>"
+      + '<div class="pic-empty-s">' + subHtml + "</div></div>";
+  }
+
   function switchRow(ns, act, label, on, arg, note) {
     return '<button class="srow tappable" role="switch" aria-checked="' + (on ? "true" : "false")
       + '" data-ns="' + ns + '" data-act="' + act + '"'
@@ -188,6 +207,7 @@
     tempTone: tempTone,
     hero: hero,
     plot: plot,
+    emptyState: emptyState,
     bar: bar,
     btn: btn,
     segmented: segmented,

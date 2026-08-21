@@ -232,7 +232,11 @@
                 + Math.round(day.wind_gusts_10m_max[i])],
             ["UV max", uvBand(day.uv_index_max[i]), fmt.uv(day.uv_index_max[i]).label]
           ], 3))
-        + section("Rain", '<div class="muted">' + rainLine(day, i) + "</div>")
+        /* The heading is what is actually falling that day, not always "Rain" — see
+           fmt.precipWord. A Snow hero over a section captioned RAIN was the panel
+           disagreeing with itself in the space of one screen. */
+        + section(fmt.precipWord(day.weather_code[i]),
+                  '<div class="muted">' + rainLine(day, i) + "</div>")
         + section("Hour by hour", barsHtml));
     }
   };

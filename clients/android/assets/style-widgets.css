@@ -342,9 +342,13 @@
 /* A picture screen with no picture. It used to be one grey line at the top of an
    otherwise black panel — the reason floating in a void, which reads as a crash rather
    than as a state. The block centres in the space the image would have filled. */
+/* Centred in whatever room it is given, and it gives itself room if the panel does not.
+   The Picture panel's body is a flex column, so `flex` fills it; the Calendar panel's is
+   an ordinary block, and without a floor the illustration sat under the title with 700 px
+   of black beneath it — which is the void it was drawn to replace, moved up the screen. */
 .pic-empty {
-  flex: 1 1 0;
-  min-height: 0;
+  flex: 1 1 auto;
+  min-height: 58vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
