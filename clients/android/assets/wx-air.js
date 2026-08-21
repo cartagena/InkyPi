@@ -231,14 +231,18 @@
                    ["Sensitive", "101–150"], ["Unhealthy", "151–200"],
                    ["Very unhealthy", "201–300"], ["Hazardous", "301+"]];
       var at = parseInt(b.cls.slice(5), 10) - 1;     // band-2 -> index 1; NaN when unknown
-      var scale = '<div class="aqi-scale" role="img" aria-label="'
+      /* The ramp and the line that says what the lit band COVERS are one object, so they
+         are one element: the panel body spaces its children evenly down the column, and as
+         two children the scale and its caption were pushed 65 px apart — a legend with a
+         hole in the middle of it, and the caption read as belonging to the chart below. */
+      var scale = '<div class="aqi-legend"><div class="aqi-scale" role="img" aria-label="'
         + esc(b.label + ", band " + (at + 1) + " of 6 on the US AQI scale") + '">'
         + BANDS.map(function (x, i) {
           return '<span class="aqi-seg band-' + (i + 1) + (i === at ? " on" : "") + '"></span>';
         }).join("")
         + "</div>"
         + '<div class="aqi-range">' + esc(isNaN(at) ? "US AQI 0–500"
-            : BANDS[at][0] + " is " + BANDS[at][1] + " of 500") + "</div>";
+            : BANDS[at][0] + " is " + BANDS[at][1] + " of 500") + "</div></div>";
 
       body.innerHTML =
         ui.hero("",

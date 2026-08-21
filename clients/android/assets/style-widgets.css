@@ -295,15 +295,22 @@
    reads as the scale everybody already knows (green through maroon) with today's band lit,
    and it is full-width: a mark at 711 CSS px is resolvable from the sofa where a 43 px one
    is not. */
-.aqi-scale { display: flex; gap: 0.9vw; margin: 0.4vh 0 0.8vh; }
+/* The ramp and its caption are ONE block — see the note in wx-air.js. */
+.aqi-scale { display: flex; align-items: flex-end; gap: 0.9vw; margin: 0.4vh 0 0.6vh; }
 .aqi-seg {
   flex: 1 1 0;
-  height: 1.6vh;
+  height: 1.3vh;
   border-radius: 0.8vh;
   background: currentColor;
-  opacity: 0.22;
+  /* 0.5, not 0.22. At a fifth strength on black the six EPA hues came out brown, dim
+     maroon and desaturated purple — six smudges rather than a scale anybody could read as
+     one, which defeats the whole reason this is a ramp and not a number. Half strength
+     keeps every step recognisably its own colour; today's band is then separated by being
+     FULL and by standing taller than the rest, which is a difference that survives being
+     looked at from the far side of a kitchen. */
+  opacity: 0.5;
 }
-.aqi-seg.on { opacity: 1; }
+.aqi-seg.on { opacity: 1; height: 2.1vh; }
 /* The range the lit band covers — the "61 of what" neither gauge ever answered. */
 .aqi-range { font-size: var(--fs-body-lg); color: var(--dim); }
 .aqi-spark .spark-line { stroke: currentColor; }

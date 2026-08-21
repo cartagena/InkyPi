@@ -388,8 +388,7 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
   }
   /* Full width: the thing the screen is about, and any control that selects WHICH thing. */
   .panel-body > .big-readout,
-  .panel-body > .aqi-scale,
-  .panel-body > .aqi-range,
+  .panel-body > .aqi-legend,
   .panel-body > .hchart-wrap,
   .panel-body > .chip-row,
   .panel-body > .bar,
