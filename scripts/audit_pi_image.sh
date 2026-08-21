@@ -70,7 +70,6 @@ for stub in /usr/local/sbin/raspi-config /usr/local/sbin/systemctl; do
 done
 
 if absent /usr/bin/qemu-aarch64-static; then ok "qemu-aarch64-static removed"; else bad "qemu-aarch64-static still present (~10 MB of dead weight)"; fi
-if absent /opt/inkypi-src; then ok "build clone removed"; else bad "/opt/inkypi-src still present"; fi
 
 echo ""
 echo "Host configuration must be the image's own:"
@@ -124,6 +123,45 @@ if absent /usr/bin/raspi-config; then
     bad "the real /usr/bin/raspi-config is missing"
 else
     ok "real raspi-config present"
+fi
+
+echo ""
+echo "The installed app must be able to start:"
+
+# install.sh symlinks /usr/local/inkypi/src at the source checkout rather than
+# copying it, so the checkout is PART OF THE INSTALL, not build residue. A
+# cleanup pass deleted it as if it were leftovers and the service then died on
+# every boot with:
+#   realpath: /usr/local/inkypi/src/inkypi.py: No such file or directory
+LINK_DEST="$(d "stat /usr/local/inkypi/src" | sed -n 's/.*Fast link dest: "\(.*\)".*/\1/p' | head -1)"
+if [ -z "${LINK_DEST}" ]; then
+    bad "/usr/local/inkypi/src is missing"
+else
+    # Lexical normalisation only — the path lives inside the image, not here.
+    RESOLVED="$(realpath -m "${LINK_DEST}")"
+    if absent "${RESOLVED}/inkypi.py"; then
+        bad "/usr/local/inkypi/src -> ${LINK_DEST} is DANGLING (no inkypi.py at ${RESOLVED})"
+    else
+        ok "/usr/local/inkypi/src resolves to a real checkout (${RESOLVED})"
+    fi
+fi
+
+if absent /usr/local/inkypi/venv_inkypi/bin/python; then
+    bad "venv interpreter missing at /usr/local/inkypi/venv_inkypi/bin/python"
+else
+    ok "venv interpreter present"
+fi
+
+if absent /usr/local/bin/inkypi; then
+    bad "/usr/local/bin/inkypi launcher missing (ExecStart of inkypi.service)"
+else
+    ok "inkypi launcher present"
+fi
+
+if [ -n "$(d "ls /etc/systemd/system/multi-user.target.wants" | tr -s ' \n' '\n' | grep -x inkypi.service || true)" ]; then
+    ok "inkypi.service enabled"
+else
+    bad "inkypi.service not enabled — it will not start on boot"
 fi
 
 echo ""

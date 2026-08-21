@@ -284,7 +284,14 @@ remove_scaffolding() {
         mv "${MNT}/etc/resolv.conf.build-orig" "${MNT}/etc/resolv.conf"
     fi
 
-    rm -rf "${MNT}/opt/inkypi-src"
+    # NOT removed: /opt/inkypi-src. It looks like build residue and is not.
+    # install.sh symlinks the app into the checkout rather than copying it —
+    #     ln -sf "$SRC_PATH" "$INSTALL_STAGING/src"      (install/install.sh)
+    # so /usr/local/inkypi/src points at /opt/inkypi-src/src. Deleting the
+    # clone leaves a dangling symlink and the service dies on every boot with
+    #     realpath: /usr/local/inkypi/src/inkypi.py: No such file or directory
+    # Its .git is load-bearing too: do_update.sh and rollback.sh run git
+    # against that checkout, so stripping the history breaks in-place updates.
 
     # Blank machine-id so each flashed card generates its own. dpkg populates
     # it during the chroot run, and a shared id means colliding DHCP leases

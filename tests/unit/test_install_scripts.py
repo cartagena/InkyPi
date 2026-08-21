@@ -3869,12 +3869,41 @@ class TestPiImageShipsNoBuildScaffolding:
         # The defaults-to-true trap that silently breaks logins and wifi.
         assert "password_encrypted = false" in self.build_sh
 
+    def test_build_keeps_the_source_checkout(self):
+        # /opt/inkypi-src looks like build residue and is not: install.sh does
+        #     ln -sf "$SRC_PATH" "$INSTALL_STAGING/src"
+        # so /usr/local/inkypi/src points into the clone. A cleanup pass
+        # deleted it and every boot then failed with
+        #   realpath: /usr/local/inkypi/src/inkypi.py: No such file or directory
+        # Its .git matters too — do_update.sh and rollback.sh run git there.
+        cleanup_start = self.build_sh.index("remove_scaffolding() {")
+        cleanup_end = self.build_sh.index("\n}\n", cleanup_start)
+        cleanup = self.build_sh[cleanup_start:cleanup_end]
+        assert (
+            "rm -rf" not in cleanup
+            or "inkypi-src" not in cleanup.split("rm -rf")[1][:60]
+        ), (
+            "remove_scaffolding must not delete /opt/inkypi-src — it is the "
+            "installed source tree, not leftovers"
+        )
+
+    def test_audit_checks_the_app_can_start(self):
+        # Reaching multi-user.target says nothing about whether the app works.
+        # These are the invariants that were broken on a shipped image.
+        for probe in (
+            "/usr/local/inkypi/src",
+            "inkypi.py",
+            "venv_inkypi/bin/python",
+            "/usr/local/bin/inkypi",
+            "inkypi.service",
+        ):
+            assert probe in self.audit_sh, f"audit must check {probe}"
+
     def test_audit_checks_every_scaffolding_class(self):
         for probe in (
             "/usr/local/sbin/raspi-config",
             "/usr/local/sbin/systemctl",
             "qemu-aarch64-static",
-            "/opt/inkypi-src",
             "machine-id",
             "127",
             "init=/usr/lib/raspberrypi-sys-mods/firstboot",
