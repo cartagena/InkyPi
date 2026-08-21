@@ -3741,3 +3741,75 @@ class TestBootVerifyScript:
         # The workflow gates attach-release on steps.verify.outputs.verified,
         # so the script must still write it when running under Actions.
         assert 'echo "verified=$1" >> "${GITHUB_OUTPUT}"' in self.script
+
+
+class TestPiImageShipsNoBuildScaffolding:
+    """The chroot scaffolding must not reach users.
+
+    v1.0.2 shipped with the build's systemctl/raspi-config stubs still on
+    PATH and the runner's resolv.conf in place, producing an image that could
+    neither join wifi nor resolve DNS.
+    """
+
+    WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "build-pi-image.yml"
+
+    @pytest.fixture(autouse=True)
+    def _load(self):
+        self.content = self.WORKFLOW_PATH.read_text()
+        self.wf = yaml.safe_load(self.content)
+        self.steps = self.wf["jobs"]["build-image"]["steps"]
+        self.names = [s.get("name", "") for s in self.steps]
+
+    def _step_index(self, needle):
+        for i, n in enumerate(self.names):
+            if needle in n:
+                return i
+        raise AssertionError(f"no build-image step matching {needle!r}: {self.names}")
+
+    def test_removes_systemctl_and_raspi_config_stubs(self):
+        # /usr/local/sbin precedes /usr/sbin in root's PATH, so a leftover stub
+        # shadows the real binary permanently. raspi-config is how Pi OS sets
+        # the wifi regulatory domain; stubbed out, the radio stays blocked.
+        assert "/mnt/pi-root/usr/local/sbin/raspi-config" in self.content
+        assert "/mnt/pi-root/usr/local/sbin/systemctl" in self.content
+        assert "test ! -e /mnt/pi-root/usr/local/sbin/systemctl" in self.content
+        assert "test ! -e /mnt/pi-root/usr/local/sbin/raspi-config" in self.content
+
+    def test_restores_images_own_resolv_conf(self):
+        # The build overwrites resolv.conf for chroot network access. Shipping
+        # the runner's copy pointed users at 127.0.0.53 — systemd-resolved's
+        # stub, which Pi OS Lite does not run — so DNS failed everywhere.
+        assert "resolv.conf.build-orig" in self.content
+        assert "! grep -q 127.0.0.53 /mnt/pi-root/etc/resolv.conf" in self.content
+
+    def test_blanks_machine_id(self):
+        # dpkg populates machine-id during the chroot run. Shipping it means
+        # every flashed card shares one identity and collides over DHCP.
+        assert "truncate -s 0 /mnt/pi-root/etc/machine-id" in self.content
+        assert "test ! -s /mnt/pi-root/etc/machine-id" in self.content
+
+    def test_scaffolding_removed_before_repack(self):
+        # Removal has to happen while the image is still mounted and before
+        # pishrink, or it never lands in the artifact.
+        cleanup = self._step_index("Remove build scaffolding")
+        shrink = self._step_index("Shrink on-disk footprint")
+        unmount = self._step_index("Unmount image")
+        assert cleanup < shrink < unmount
+
+    def test_emulator_removed_after_last_chroot(self):
+        # qemu-aarch64-static is what makes the chroot able to run arm64
+        # binaries, so pulling it earlier breaks the build rather than the
+        # image. It must go after the final chroot but before packaging.
+        shrink_step = self.steps[self._step_index("Shrink on-disk footprint")]["run"]
+        chroot_pos = shrink_step.index("chroot /mnt/pi-root")
+        rm_pos = shrink_step.index("rm -f /mnt/pi-root/usr/bin/qemu-aarch64-static")
+        assert chroot_pos < rm_pos, "emulator must outlive the last chroot"
+
+    def test_readme_documents_custom_toml_not_cloud_init(self):
+        # Raspberry Pi OS does not use cloud-init; the note used to send users
+        # to /boot/firmware/user-data, which nothing on the image reads.
+        readme = self.steps[self._step_index("first-boot instructions")]["run"]
+        assert "custom.toml" in readme
+        assert "user-data" not in readme
+        # The defaults-to-true trap that silently breaks logins and wifi.
+        assert "password_encrypted = false" in readme

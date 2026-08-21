@@ -176,6 +176,11 @@ jobs:
           sudo mount --bind /proc    /mnt/pi-root/proc
           sudo mount --bind /sys     /mnt/pi-root/sys
           # resolv.conf for network access inside the chroot (apt, pip, git).
+          # Preserve the image's own version first — on Pi OS this is a symlink
+          # into NetworkManager's runtime dir, and overwriting it with the
+          # runner's file shipped the runner's DNS (nameserver 127.0.0.53, an
+          # Azure search domain) to every user. Restored before packaging.
+          sudo cp -a /mnt/pi-root/etc/resolv.conf /mnt/pi-root/etc/resolv.conf.build-orig
           sudo cp --remove-destination /etc/resolv.conf /mnt/pi-root/etc/resolv.conf
 
       - name: Inject runtime-hook stubs so install.sh succeeds in chroot
@@ -240,28 +245,120 @@ jobs:
               bash ./install.sh
             "
 
-      - name: Seed first-boot cloud-init overlay
-        # Pi OS Lite already supports cloud-init via /boot/firmware/user-data
-        # when present on the boot partition. We drop in a minimal placeholder
-        # banner so the first-boot Pi Imager flow (which rewrites user-data
-        # with the user's Wi-Fi/hostname/password) still works. This avoids
-        # baking any credentials into the shipped image — the user picks them
-        # in Pi Imager's advanced options at flash time.
+      - name: Write first-boot instructions onto the boot partition
+        # Raspberry Pi OS does NOT use cloud-init — that is an Ubuntu thing, and
+        # this note used to tell users to expect /boot/firmware/user-data, which
+        # nothing on the image reads. Pi OS customises itself from custom.toml,
+        # handled by /usr/lib/raspberrypi-sys-mods/init_config, which cmdline.txt
+        # invokes through `init=/usr/lib/raspberrypi-sys-mods/firstboot`.
+        #
+        # Pi Imager only writes custom.toml for OS entries it knows about, so
+        # for a custom .img.xz like this one the user usually has to drop the
+        # file in by hand — hence a worked example here rather than a pointer to
+        # Imager's advanced options. password_encrypted = false matters: it
+        # defaults to TRUE, so a plaintext password without it is taken as an
+        # already-hashed value and silently produces an unusable login and a
+        # wifi PSK that never associates.
         run: |
           set -euo pipefail
           sudo bash -c 'cat > /mnt/pi-root/boot/firmware/inkypi-readme.txt' <<'NOTE'
           InkyPi pre-installed image (JTN-533)
           ====================================
 
-          This image already has InkyPi installed and enabled. On first boot:
-            * Set your Wi-Fi / hostname / SSH credentials in Pi Imager's
-              "advanced options" BEFORE flashing. Pi Imager writes these into
-              /boot/firmware/user-data so cloud-init applies them on first boot.
-            * Once the Pi joins your network, visit:
-                http://<hostname>.local/
-              in a browser on the same LAN — the InkyPi web UI will be up.
+          This image already has InkyPi installed and enabled. It has NO user
+          password, NO wifi and NO SSH until you configure it.
+
+          Create a file named `custom.toml` next to this one, on this same
+          (boot) partition, before first boot:
+
+            config_version = 1
+
+            [system]
+            hostname = "inkypi"
+
+            [user]
+            name = "pi"
+            password = "your-password-here"
+            password_encrypted = false
+
+            [ssh]
+            enabled = true
+            password_authentication = true
+
+            [wlan]
+            ssid = "YourNetwork"
+            password = "your-wifi-password"
+            password_encrypted = false
+            country = "US"
+
+            [locale]
+            keymap = "us"
+            timezone = "America/Los_Angeles"
+
+          `password_encrypted = false` is required for plaintext passwords in
+          both sections — it defaults to true, and a plaintext value read as a
+          hash gives you an account you cannot log into and wifi that never
+          connects. `country` must be a real ISO country code or the wifi radio
+          stays blocked.
+
+          The file is consumed and deleted during first boot, which then
+          reboots. After that, visit:
+              http://<hostname>.local/
+          in a browser on the same LAN — the InkyPi web UI will be up.
           NOTE
           sudo sed -i 's/^          //' /mnt/pi-root/boot/firmware/inkypi-readme.txt
+
+      - name: Remove build scaffolding from the shipped image
+        # Everything staged to make the chroot work must come back out, or it
+        # ships to users. v1.0.2 went out with all of the below and the result
+        # was an image that could not join wifi or resolve DNS.
+        run: |
+          set -euxo pipefail
+
+          # The systemctl/raspi-config stubs are the serious one. /usr/local/sbin
+          # comes BEFORE /usr/sbin in root's PATH, so left in place they shadow
+          # the real binaries forever, not just during the build:
+          #   * raspi-config becomes a permanent no-op. Pi OS sets the wifi
+          #     regulatory domain via `raspi-config nonint do_wifi_country`
+          #     (from init_config's set_wlan_country), and without it the radio
+          #     stays rfkill-blocked — the Pi never joins any network.
+          #   * systemctl silently no-ops start/stop/restart/is-active, so
+          #     anything asking systemd to do something at runtime succeeds
+          #     without doing it.
+          sudo rm -f /mnt/pi-root/usr/local/sbin/raspi-config \
+                     /mnt/pi-root/usr/local/sbin/systemctl
+
+          # Restore the image's own resolv.conf (a symlink into NetworkManager's
+          # runtime dir). The build replaced it with the runner's, which points
+          # at 127.0.0.53 — systemd-resolved's stub listener, which Pi OS Lite
+          # does not run — so DNS failed on every flashed device.
+          if [ -e /mnt/pi-root/etc/resolv.conf.build-orig ]; then
+            sudo mv /mnt/pi-root/etc/resolv.conf.build-orig \
+                    /mnt/pi-root/etc/resolv.conf
+          fi
+
+          # The build clone is pure dead weight in a shipped image. (The
+          # emulator binary is removed after the last chroot, below — pull it
+          # now and nothing arm64 can execute any more.)
+          sudo rm -rf /mnt/pi-root/opt/inkypi-src
+
+          # Blank machine-id so each flashed card generates its own on first
+          # boot. dpkg/systemd populated it during the chroot run, which means
+          # every device from this image would otherwise share one identity —
+          # colliding DHCP leases when more than one is on a network. An empty
+          # file is what pi-gen ships and what systemd expects.
+          sudo truncate -s 0 /mnt/pi-root/etc/machine-id
+          if [ -e /mnt/pi-root/var/lib/dbus/machine-id ]; then
+            sudo rm -f /mnt/pi-root/var/lib/dbus/machine-id
+          fi
+
+          echo "--- verifying nothing was left behind ---"
+          test ! -e /mnt/pi-root/usr/local/sbin/systemctl
+          test ! -e /mnt/pi-root/usr/local/sbin/raspi-config
+          test ! -d /mnt/pi-root/opt/inkypi-src
+          test ! -s /mnt/pi-root/etc/machine-id
+          ! grep -q 127.0.0.53 /mnt/pi-root/etc/resolv.conf 2>/dev/null
+          echo "OK: build scaffolding removed"
 
       - name: Shrink on-disk footprint before repack
         # Zero-fill free space so xz can compress it; wipe caches and logs.
@@ -274,6 +371,11 @@ jobs:
             rm -rf /tmp/* /var/tmp/*
             find /var/log -type f -exec truncate -s 0 {} +
           '
+          # Last chroot is done, so the x86-side emulator can come out. It is
+          # ~10 MB of dead weight on every flashed card. Removed before the
+          # zero-fill so the freed blocks compress away too.
+          sudo rm -f /mnt/pi-root/usr/bin/qemu-aarch64-static
+          test ! -e /mnt/pi-root/usr/bin/qemu-aarch64-static
           # Zero-fill unused blocks so xz compresses them away.
           sudo dd if=/dev/zero of=/mnt/pi-root/ZEROFILL bs=1M status=progress || true
           sudo rm -f /mnt/pi-root/ZEROFILL
