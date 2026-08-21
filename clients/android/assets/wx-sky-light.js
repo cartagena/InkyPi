@@ -323,8 +323,12 @@
              busiest part of the layer off the bottom of the frame where the dense rows of
              type live */
           y: Math.pow(rnd(), 0.72) * h * 0.88,
-          r: 0.6 + m * 2.6, m: m,
-          a: 0.10 + m * 0.34,                      /* ceiling 0.44 — a sky, not a rumour */
+          r: 0.5 + m * 3.1, m: m,
+          /* On a curve, not a line. 0.10 + 0.34m put the whole field inside a third of a
+             stop of each other, so a capture showed a dozen near-identical faint points —
+             which is dust, not a sky. A real field is mostly nothing with a handful of
+             genuinely bright stars in it; the exponent is what buys those few. */
+          a: 0.04 + Math.pow(m, 1.6) * 0.52,       /* ceiling 0.56 — a sky, not a rumour */
           /* two incommensurate rates per star, so the field never blinks in step */
           sp: 0.18 + rnd() * 0.34, sp2: 0.07 + rnd() * 0.16,
           ph: rnd() * 6.28, ph2: rnd() * 6.28
@@ -361,10 +365,15 @@
         z = rnd();
         f.flakes.push({
           x: rnd() * w, y: rnd() * h, z: z,
-          r: 1 + z * 2.5, v: 13 + z * 38,
-          /* the nearest quarter carry a soft bloom — a snowfall is not made of hard dots,
-             and out-of-focus flakes are what sells the depth */
-          soft: z > 0.76,
+          /* TWO LAYERS, not a ramp. The far half is a dot a pixel across drifting slowly;
+             the near few are five or six pixels of soft white falling three times as fast.
+             A linear 1..3.5 spread put every flake within two pixels of every other, which
+             at 711 px is not a depth cue at all — it is one field of identical specks,
+             which is exactly the "dust on the glass" verdict this has now earned twice. */
+          r: 0.9 + Math.pow(z, 1.7) * 4.2, v: 10 + z * z * 62,
+          /* the nearest third carry the out-of-focus bloom — a snowfall is not made of
+             hard dots, and it is the depth cue a STILL frame can carry */
+          soft: z > 0.68,
           sw: 0.22 + rnd() * 0.55, ph: rnd() * 6.28
         });
       }
@@ -380,7 +389,10 @@
           /* Bigger, and no two the same shape. The old banks were half a screen wide and
              all the same proportions, which reads as wallpaper; a real bank is wider than
              the frame and the next one along is a different animal. */
-          rx: 150 + z * 260, sq: 0.26 + rnd() * 0.2, z: z, v: 2 + z * 7
+          /* Scale contrast on a curve, because that is what parallax IS: a far bank is
+             half the width of a near one and drifts at a fifth of the speed. 150..410 was
+             not a ratio the eye could read as distance — it read as two smudges. */
+          rx: 95 + z * z * 420, sq: 0.24 + rnd() * 0.22, z: z, v: 1.2 + z * z * 9
         });
       }
 
@@ -404,6 +416,20 @@
           x: rnd() * w * 1.6 - w * 0.3, v: 10 - z * 7,
           a: 0.042 + z * 0.070,
           br: 0.035 + rnd() * 0.055, ph: rnd() * 6.28
+        });
+      }
+
+      /* AND THE BANKS ALOFT. The seven above lie on the floor of the frame, where fog
+         lies — and where, on this panel, four opaque cards cover them completely. These
+         four drift across the top third, which is the only sky the layout actually
+         leaves open; see paintFog for why that is honest rather than a cheat. */
+      f.aloft = [];
+      for (i = 0; i < 4; i++) {
+        z = rnd();
+        f.aloft.push({
+          y: h * (0.03 + 0.30 * z), rx: w * (0.6 + z * 0.6), hh: 40 + z * 90,
+          x: rnd() * w * 1.6 - w * 0.3, v: 12 - z * 8,
+          a: 0.05 + z * 0.055, br: 0.03 + rnd() * 0.05, ph: rnd() * 6.28
         });
       }
 

@@ -95,6 +95,31 @@
     }
     if (json.daily && json.daily.weather_code) {
       json.daily.weather_code = json.daily.weather_code.map(function () { return sc.code; });
+      /* A NIGHT SCENE HAS TO BE NIGHT FOR THE SKY TOO, not only for the icon.
+
+         `is_day: 0` picks the moon glyph, but the light model behind the cards reads the
+         real clock against the real sunrise and sunset — so a clear-night capture taken at
+         four in the afternoon rendered a moon in the Now card over a midday sky with no
+         stars in it. Every night screenshot the project has ever filed was a daytime sky.
+
+         Shifting today's sun times forward by exactly one day fixes it and costs nothing
+         else: the clock strings the Conditions panel prints are unchanged (same hour, next
+         date), and "now" falls before the modelled sunrise, which the model clamps to
+         night. */
+      if (!sc.day) {
+        ["sunrise", "sunset"].forEach(function (k) {
+          var v = json.daily[k];
+          if (!v || !v[0]) return;
+          var t = Date.parse(v[0]);
+          if (!isFinite(t)) return;
+          /* Local ISO with no offset, which is the shape Open-Meteo actually sends and the
+             shape the app parses. toISOString() would hand back UTC and move the clock. */
+          var d = new Date(t + 86400000);
+          function p2(n) { return (n < 10 ? "0" : "") + n; }
+          v[0] = d.getFullYear() + "-" + p2(d.getMonth() + 1) + "-" + p2(d.getDate())
+            + "T" + p2(d.getHours()) + ":" + p2(d.getMinutes());
+        });
+      }
       /* Today's total and today's chance follow the hour, so the panel cannot print a
          downpour under a dry day. Eight hours of it is a believable storm. */
       if (sc.precip && json.daily.precipitation_sum) {

@@ -59,6 +59,14 @@
    put it inside the precipitation bars, because the coldest hour is always on the floor
    of the plot and the bars start eight units under that. */
 .hc-lo { color: var(--temp-cold); }
+/* The precipitation row's caption. Right-aligned to the end of the plot and sitting just
+   over the tallest bar, because that corner is the one place on this chart where neither
+   the curve nor a callout ever goes. Dim and small: it is a key, not a reading. */
+.hc-cap {
+  position: absolute; transform: translate(-100%, -100%);
+  font-size: var(--fs-note); color: var(--dimmer);
+  letter-spacing: 0.02em; white-space: nowrap; pointer-events: none;
+}
 .hc-ticks { position: relative; height: 3.4vh; }
 .hc-ticks span {
   position: absolute; transform: translateX(-50%);

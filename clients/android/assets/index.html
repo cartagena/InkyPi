@@ -62,7 +62,8 @@
      scrolling, not about drift. A nudge is skipped while a finger is down, which is what
      keeps a control from sliding out from under a tap.
      ============================================================================ -->
-<!-- The weather icons' gradients, mounted once by wx-icons.js. One permanent node the
+<!-- The weather icons' gradients and filters, mounted once by wx-icons.js out of
+     wx-icons-mat.js. One permanent node the
      app never repaints: an icon that carried its own <defs> put twenty-six identical ids
      in the document, and a duplicate id resolves to whichever copy the browser saw first —
      which was inside a card, and vanished with the next repaint. -->
@@ -466,6 +467,7 @@
 <script src="app-view.js"></script>
 <script src="app-touch.js"></script>
 <script src="wx-ui.js"></script>
+<script src="wx-icons-mat.js"></script>
 <script src="wx-icons-moon.js"></script>
 <script src="wx-icons.js"></script>
 <script src="wx-clock.js"></script>

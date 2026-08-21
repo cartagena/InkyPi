@@ -191,6 +191,12 @@
   font-size: var(--fs-display);
   transform: translateY(-0.4vh);    /* see .wx-icon — optical, not geometric, centring */
 }
+/* And then a little over it, because a numeral fills its em box and a drawing does not:
+   the cumulus occupies about half the height of its 64-unit frame, so at the same nominal
+   step it lands optically two thirds the size of the 79 beside it. This is the ONE place
+   the pack is drawn big enough for its shading and its texture to be read as such, and
+   the panel has the room — it does not touch the home column's height budget. */
+.big-readout.hero .big-icon .wxi { width: 1.5em; height: 1.5em; }
 .big-readout.hero .big-time { font-size: var(--fs-display); }
 .hero-text { min-width: 0; }
 /* `text-align: left` above exists to line the number and its caption up with each other

@@ -246,6 +246,16 @@
          label is lifted further (a valley has the room; that is what makes it a valley)
          AND both labels knock the curve out behind their own glyphs, the way a map label
          knocks out a contour. See .hc-hi/.hc-lo in style-charts.css. */
+      /* AND THE BARS GET A NAME. A row of blue columns under a temperature curve is an
+         unlabelled quantity — a reader can see that something rises and falls with the
+         hours and has no way to know what. Four words, dim, at the end of the row where
+         the curve has already climbed away from it, and only on the days the row is
+         drawn at all. */
+      var cap = showBars
+        ? '<span class="hc-cap" style="left:' + pctX(R) + ";top:" + pctY(barBase - barMax - 3)
+          + '">% chance of rain</span>'
+        : "";
+
       var hiN = temps.indexOf(hi), loN = temps.indexOf(lo);
       var labels = '<span class="hc-hi" style="left:' + pctX(pts[hiN][0])
         + ";top:" + pctY(pts[hiN][1] - 5) + '">' + Math.round(hi) + "&#176;</span>"
@@ -287,7 +297,7 @@
         + ' vector-effect="non-scaling-stroke"'
         + ' stroke-linecap="round" stroke-linejoin="round"/>'
         + "</svg>"
-        + labels + dot
+        + labels + dot + cap
         + '<div class="hc-ticks">' + ticks + "</div></div>";
     },
 

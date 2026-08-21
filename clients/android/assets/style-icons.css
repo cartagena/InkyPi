@@ -34,6 +34,41 @@
 .wxi { width: 1.18em; height: 1.18em; display: block; margin: 0 auto; }
 .big-icon .wxi, .wx-icon .wxi { width: 1.24em; height: 1.24em; }
 
+/* ---- the texture, and why only two icons get it ----
+   A cloud drawn as a filled outline has a perfectly smooth edge and a perfectly smooth
+   interior, which is the one tell that no gradient can fix: at hero size the eye reads
+   "vector art" before it reads "cloud". wxf-cloud (wx-icons-mat.js) roughens the
+   silhouette with a static fractal noise and lays a faint mottle inside it.
+
+   It is attached HERE rather than in the markup because it is the most expensive thing
+   the pack draws and only two icons are big enough for it to register. The hourly strip
+   carries twenty-four glyphs and the daily row seven; rasterising a filter for each of
+   those, forever, on a 2019 Snapdragon driving a 2560x1600 panel, would buy detail nobody
+   could resolve. The filter's input is static — the bob is on .wxi-cloud, one group
+   above — so the raster is produced once and then merely composited. */
+.wx-icon .wxi .wxi-mass,
+.big-icon .wxi .wxi-mass { filter: url(#wxf-cloud); }
+
+/* ---- the light of the hour, cast on the icons ----
+   The sky layer knows which of six moods the panel is in and stamps it on <html> as
+   data-mood. All it changes here is the HIGHLIGHT tokens — the stop the light lands on
+   and the rim it catches. The body and shadow greys never move, because a cloud that
+   changed colour at teatime would read as a different cloud; a cloud whose lit face goes
+   warm at golden hour and blue at midnight reads as the same cloud in a different sky.
+   That is the whole effect, and it is meant to be felt rather than noticed. */
+:root[data-mood="dawn"], :root[data-mood="golden"] {
+  --ic-cloud-hi:  #fff0d8;
+  --ic-cloud-lit: #f6dcbc;
+}
+:root[data-mood="dusk"] {
+  --ic-cloud-hi:  #f6e9ff;
+  --ic-cloud-lit: #e0cdf0;
+}
+:root[data-mood="night"], :root[data-mood="predawn"] {
+  --ic-cloud-hi:  #e2e9ff;
+  --ic-cloud-lit: #c6d2f0;
+}
+
 /* Every animated part rotates or scales about its own centre, and an SVG child's default
    transform-origin is the viewport corner — which would swing a cloud across the frame
    instead of nudging it. fill-box makes "centre" mean the shape's own centre. */
@@ -63,6 +98,33 @@
 @keyframes wxi-breathe {
   0%, 100% { opacity: 0.75; transform: scale(0.97); }
   50%      { opacity: 1;    transform: scale(1.05); }
+}
+/* The corona is the halo's inner half and breathes against it, half a cycle out, so the
+   two never peak together — that beat is what reads as glare rather than as a pulsing
+   circle. The long outer rays turn instead of rocking, once every --dur-wx-corona; at
+   eight-fold symmetry that is a full visual repeat, and at this rate a person would have
+   to stand and watch for a minute to catch it moving, which is the brief. */
+.wx-icon .wxi .wxi-halo-in,
+.big-icon .wxi .wxi-halo-in {
+  animation: wxi-breathe var(--dur-wx-slow) ease-in-out infinite;
+  animation-delay: calc(var(--dur-wx-slow) * -0.5);
+}
+.wx-icon .wxi .wxi-rays2,
+.big-icon .wxi .wxi-rays2 { animation: wxi-turn var(--dur-wx-corona) linear infinite; }
+@keyframes wxi-turn {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(45deg); }
+}
+/* The bolt's own light on the cloud above it: the underglow tracks the strike, so the
+   belly warms exactly when the bolt flares. */
+.wx-icon .wxi .wxi-underglow,
+.big-icon .wxi .wxi-underglow { animation: wxi-underlit var(--dur-wx-bolt) linear infinite; }
+@keyframes wxi-underlit {
+  0%, 86%   { opacity: 0.55; }
+  89%       { opacity: 0.18; }
+  92%       { opacity: 1; }
+  95%       { opacity: 0.3; }
+  100%      { opacity: 0.55; }
 }
 
 /* ---- the cloud ----

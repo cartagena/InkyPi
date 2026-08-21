@@ -177,6 +177,8 @@
   --dur-wx-slow: 7s;     /* cloud bob, ray rock, halo breath, fog drift — the ambient set */
   --dur-wx-fall: 2.6s;   /* one raindrop, top of frame to bottom */
   --dur-wx-snow: 8s;     /* a flake drifting: slower than rain by the same ratio as real */
+  --dur-wx-corona: 96s;  /* one eighth-turn of the sun's outer rays: the slowest thing on
+                            the panel, and deliberately below the rate an eye can catch */
   --dur-wx-bolt: 5s;     /* strike to strike — the flicker inside it is a keyframe, not a
                             duration, so a storm icon is still mostly just lit */
 

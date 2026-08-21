@@ -57,17 +57,36 @@
     /* what the payload said; null until the first fetch lands, which is the offline and
        first-boot case the light model has a documented fallback for */
     sun: null, cover: null, windKmh: 0, windDir: 270,
-    stars: [], drops: [], flakes: [], clouds: [], bands: [],
+    stars: [], drops: [], flakes: [], clouds: [], bands: [], aloft: [],
     /* the painters in wx-sky-paint.js read these off `this` — how deep each field is
        belongs with the seeding, not with the drawing */
     MAXCLOUD: MAXCLOUD, MAXDROP: MAXDROP, MAXFLAKE: MAXFLAKE,
-    puff: null, puffAt: -1e9, haze: null, moonAt: -1e9, moonK: 1,
+    puff: null, puffFar: null, puffAt: -1e9, haze: null, milky: null, bokeh: null,
+    moonAt: -1e9, moonK: 1,
+    mood: "",
     seedPhase: Math.random() * 1000,
     flashAt: -99, flashNext: 0, flashN: 0,
     raf: 0, last: 0, acc: 0,
     col: {},
 
     init: function () {
+      var self = this;
+      /* follow the same payload the cards render from */
+      if (WP.registry.weather && WP.registry.weather.onData) {
+        WP.registry.weather.onData(function (d) { self.ingest(d); });
+      }
+      /* THE MOOD IS NOT THE CANVAS, so it is wired before the canvas guard and it ignores
+         the Settings switch. Which of the six moods the panel is in is stamped on <html>
+         as data-mood, and style-icons.css uses it to warm the weather icons' highlights at
+         golden hour and cool them at night. That is a property of the hour, not of the
+         animated background — a person who turned the sky layer off still wants the sun
+         icon to look like the sun that is actually in the window. Once a minute is far
+         more often than the light needs; it costs an attribute compare. */
+      this.moodTick();
+      if (typeof setInterval === "function") {
+        setInterval(function () { self.moodTick(); }, 60000);
+      }
+
       var c = document.getElementById("sky");
       /* The test DOM has no canvas contexts and no rAF; the layer simply stays off
          there — everything testable about it (sceneFor, the light model, the settings
@@ -81,11 +100,6 @@
       this.resize();
       window.addEventListener("resize", this.resize.bind(this));
 
-      var self = this;
-      /* follow the same payload the cards render from */
-      if (WP.registry.weather && WP.registry.weather.onData) {
-        WP.registry.weather.onData(function (d) { self.ingest(d); });
-      }
       S.onChange(function (k) {
         if (k === "sky" || k === "*") self.apply();
         /* the wind arrives in whatever unit the panel is set to, so a unit flip changes
@@ -113,6 +127,18 @@
       this.windKmh = (S.isMetric() ? 1 : 1.609344) * (Number(cur.wind_speed_10m) || 0);
       this.windDir = Number(cur.wind_direction_10m);
       this.set(scene, cur.is_day === 0);
+    },
+
+    /* Which mood, onto <html>. Nothing else in the app reads it; it exists so the icon
+       pack can take its highlight colour from the real hour without a paint server ever
+       being touched from JavaScript, which is what kept a duplicate-id bug out of the
+       gradients in the first place. */
+    moodTick: function () {
+      var root = (typeof document !== "undefined") ? document.documentElement : null;
+      if (!root || typeof root.setAttribute !== "function") return;
+      var sun = this.sun || {};
+      var m = L.at(Date.now(), sun.rise, sun.set).phase;
+      if (m !== this.mood) { this.mood = m; root.setAttribute("data-mood", m); }
     },
 
     readPalette: function () {
@@ -167,6 +193,7 @@
       this.flakes = f.flakes;
       this.clouds = f.clouds;
       this.bands = f.bands;
+      this.aloft = f.aloft;
       this.flashNext = f.flashNext;
       this.puffAt = -1e9;
     },
@@ -208,6 +235,7 @@
       var sun = this.sun || {};
       var light = L.at(Date.now(), sun.rise, sun.set);
       var cover = this.cover == null ? coverFor(sc, null) : this.cover;
+      if (light.phase !== this.mood) this.moodTick();
       var d = L.dim(light, cover);
       var wind = L.wind(this.windKmh, this.windDir);
 
@@ -215,7 +243,7 @@
       this.paintHorizon(light, d, w, h);
       this.paintGlow(light, d, t, w, h);
       if (light.stars * d.stars > 0.02) this.paintStars(light, d, t, w, h);
-      if (sc !== "clear" && sc !== "fog") this.paintClouds(light, wind, dt, t, w, h, cover);
+      if (sc !== "clear" && sc !== "fog") this.paintClouds(light, wind, dt, t, w, h, cover, sc);
       if (sc === "rain" || sc === "drizzle" || sc === "storm") {
         this.paintRain(sc, wind, dt, w, h);
       }

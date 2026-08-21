@@ -142,8 +142,8 @@ test("index.html loads exactly the scripts that exist, in the order they need", 
   var srcs = h.scriptOrder(html);
   assert.deepEqual(srcs, [
     "config.js", "app.js", "app-view.js", "app-touch.js", "wx-ui.js",
-    /* the moon is a body and lands before the weather pack that draws night with it */
-    "wx-icons-moon.js", "wx-icons.js",
+    /* materials first, then the moon (a body), then the pack that draws night with it */
+    "wx-icons-mat.js", "wx-icons-moon.js", "wx-icons.js",
     "wx-clock.js", "wx-timer.js", "wx-weather.js", "wx-hourly.js",
     "wx-daily.js", "wx-sensors-demo.js", "wx-sensors.js", "wx-sensors-panel.js",
     "wx-system.js",
