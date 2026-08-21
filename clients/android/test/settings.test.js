@@ -10,17 +10,23 @@ var h = require("./lib/harness.js");
 var fakeBridge = require("./lib/fake-bridge.js");
 
 var KEY = "inky.settings.v2";
-var WIDGETS = ["clock", "weather", "hourly", "daily", "moon", "air", "year",
+var WIDGETS = ["clock", "weather", "hourly", "daily", "moon", "air", "year", "calendar",
                "paper", "gallery",
                "news", "sensors", "system", "timer", "settings"];
 
 function boot(opts) { return h.createApp(opts || {}); }
 
-test("defaults ship every widget visible", function () {
+test("defaults ship every widget visible — except Calendar until a feed is configured", function () {
   var app = boot();
   var show = app.WP.settings.get("show");
   assert.deepEqual(Object.keys(show).sort(), WIDGETS.slice().sort());
-  WIDGETS.forEach(function (w) { assert.equal(show[w], true, w + " should default to visible"); });
+  WIDGETS.forEach(function (w) {
+    assert.equal(show[w], w !== "calendar", w + (w === "calendar" ? " has nothing to show without a feed" : " should default to visible"));
+  });
+  /* configure a feed and it ships visible like the rest */
+  var cfg = h.defaultConfig();
+  cfg.calendar = { urls: ["https://cal.example/basic.ics"], days: 7 };
+  assert.equal(boot({ config: cfg }).WP.settings.get("show").calendar, true);
 });
 
 test("a stale CONFIG.plugins list cannot hide widgets", function () {
@@ -28,6 +34,7 @@ test("a stale CONFIG.plugins list cannot hide widgets", function () {
      it persists — a config file listing three plugins must not black out the other five. */
   var cfg = h.defaultConfig();
   cfg.plugins = ["clock"];
+  cfg.calendar = { urls: ["https://cal.example/basic.ics"] };   // so every widget is in play
   var app = boot({ config: cfg });
   var show = app.WP.settings.get("show");
   WIDGETS.forEach(function (w) { assert.equal(show[w], true, w + " hidden by stale plugins list"); });

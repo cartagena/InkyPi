@@ -202,7 +202,7 @@ window.WP = (function () {
      account and no sync in this product by design, so the screen had nothing to grow into,
      and shipping a fourth empty calendar is worse than shipping eleven panels that all say
      something. The tile went with it: DATE 17 / Mon · Aug restated the clock card. */
-  var WIDGETS = ["clock", "weather", "hourly", "daily", "moon", "air", "year",
+  var WIDGETS = ["clock", "weather", "hourly", "daily", "moon", "air", "year", "calendar",
                  "paper", "gallery",
                  "news", "sensors", "system", "timer", "settings"];
   /* What each widget is called in the Widgets list on the Settings panel. These are the
@@ -214,7 +214,7 @@ window.WP = (function () {
      from twelve full-width rows (1005 CSS px, more than the whole panel) down to four. */
   var WIDGET_LABELS = {
     clock: "Clock", weather: "Now", hourly: "Hourly",
-    daily: "Next days", moon: "Moon", air: "Air", year: "Year",
+    daily: "Next days", moon: "Moon", air: "Air", year: "Year", calendar: "Next",
     paper: "Paper", gallery: "Picture",
     news: "News", sensors: "Home", system: "Device",
     timer: "Timer", settings: "Setup"
@@ -268,6 +268,11 @@ window.WP = (function () {
        only as a starting hint — the Settings panel is now the real control, and it
        persists, so we must not let a stale config file hide half the dashboard. */
     WIDGETS.forEach(function (w) { s.show[w] = true; });
+    /* The one exception: Calendar ships visible only when a feed is configured. Unlike the
+       others it has nothing to show without one, and a permanent "not set up" tile on the
+       clock line is dead weight. The Settings switch still turns it on regardless. */
+    var cal = C.calendar && Array.isArray(C.calendar.urls) && C.calendar.urls.length > 0;
+    s.show.calendar = !!cal;
     return s;
   }
 

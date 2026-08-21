@@ -106,6 +106,17 @@
       <div id="year-sub" class="mini-sub">&nbsp;</div>
     </section>
 
+    <!-- ---- 1c. calendar: InkyPi's calendar plugin on glass — the next event from the
+         configured ICS feeds. Same line as the clock and Year; hidden by default until a
+         feed is configured (app.js defaults), so an unconfigured build does not carry a
+         permanent "not set up" tile. -->
+    <section class="card mini tappable" data-widget="calendar" data-open="calendar"
+             role="button" tabindex="0" aria-label="Calendar">
+      <div class="mini-head">Next</div>
+      <div id="cal-big" class="mini-big">--</div>
+      <div id="cal-sub" class="mini-sub">&nbsp;</div>
+    </section>
+
     <!-- ---- 3. weather now ---- -->
     <section class="card tappable" data-widget="weather" data-open="weather"
                role="button" tabindex="0" aria-label="Current conditions">
@@ -346,6 +357,14 @@
     <div class="panel-body" data-body></div>
   </section>
 
+  <section class="panel" data-panel="calendar">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Calendar</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
   <section class="panel" data-panel="air">
     <header class="panel-head">
       <div><h1 class="panel-title">Air Quality</h1><p class="panel-sub" data-sub></p></div>
@@ -448,6 +467,8 @@
 <script src="wx-moon.js"></script>
 <script src="wx-air.js"></script>
 <script src="wx-year.js"></script>
+<script src="ics.js"></script>
+<script src="wx-calendar.js"></script>
 <script src="wx-paper.js"></script>
 <script src="wx-gallery.js"></script>
 <script src="wx-news.js"></script>

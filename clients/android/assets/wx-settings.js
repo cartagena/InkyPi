@@ -84,7 +84,14 @@
     renderCard: function () {
       var big = $("set-big"), el = $("set-sub");
       if (!el) return;
-      var hidden = WP.WIDGETS.filter(function (w) { return !S.get("show")[w]; }).length;
+      /* "off" means switched off by a person. A widget that ships hidden because it has
+         nothing to show yet (Calendar without a feed — see app.js defaults) is not a
+         choice anybody made, so it does not make the tile say "1 off" on a fresh build. */
+      var hidden = WP.WIDGETS.filter(function (w) {
+        var p = WP.registry[w];
+        if (p && typeof p.configured === "function" && !p.configured()) return false;
+        return !S.get("show")[w];
+      }).length;
       if (big) big.textContent = S.isMetric() ? "°C" : "°F";
       el.textContent = S.get("clockHours") + "h" + (hidden ? " · " + hidden + " off" : "");
     },

@@ -50,6 +50,17 @@ Local arithmetic only, midnight-to-midnight so DST cannot move it. It sits on th
 rather than in a tile row: the clock row had the width and the tile rows did not, and it costs
 the column no height.
 
+**Next** (2026-08-21) is InkyPi's `calendar` plugin: read-only ICS feeds from `config.calendar.urls`,
+fetched through the shell like the news, parsed and expanded by `ics.js` (folded lines, DATE /
+UTC / TZID / floating times via Intl, DURATION, RRULE daily/weekly/monthly/yearly with COUNT,
+UNTIL, BYDAY incl. ordinals, EXDATE, RECURRENCE-ID overrides — a bounded walk, never a guess). The
+tile is the next event — its time as the value, its name and day under it — and the panel is the
+agenda for `days`, grouped by day in the news panel's row idiom. It shares the clock's line with
+Year, ships hidden until a feed is configured, caches the last good feed so a down feed keeps
+yesterday's agenda marked "as of", and in a browser says it needs the tablet. The tile repaints on
+a minute tick but rewrites only when the next event changes, so the once-a-day
+`toLocaleDateString` budget holds.
+
 A third, **Date**, was cut: a month grid computed locally, with no events, because this product
 has no account and no sync by design. See the note in README — a screen that restates the Clock
 card's date is not a screen.

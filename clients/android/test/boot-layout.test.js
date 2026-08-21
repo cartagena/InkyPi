@@ -33,7 +33,8 @@ function layout(app, opts) {
     /* The Year tile shares the clock's LINE (#home is a wrapped row and the two carry a
        basis of 72% + 28%), so it sits beside the clock, not under it: same top and bottom,
        the right-hand 28% of the line, and it advances the column by nothing. */
-    if (n.getAttribute("data-widget") === "year") {
+    var wdg = n.getAttribute("data-widget");
+    if (wdg === "year" || wdg === "calendar") {
       n.setRect({ left: 576, top: y - n.offsetHeight, right: 800, bottom: y });
       return;
     }
@@ -60,7 +61,7 @@ test("every widget registers and initialises", function () {
      events — see the WIDGETS note in app.js); "paper" and "gallery" are the InkyPi
      picture plugins arriving: the daily front page, and the rotating XKCD / Wikimedia /
      NASA / generated picture. */
-  assert.deepEqual(names, ["air", "carousel", "clock", "daily", "gallery", "hourly", "moon",
+  assert.deepEqual(names, ["air", "calendar", "carousel", "clock", "daily", "gallery", "hourly", "moon",
                            "news", "paper", "sensors", "settings", "sky", "system",
                            "timer", "weather", "year"]);
   /* each one has painted something into its card */
@@ -84,7 +85,7 @@ test("the layout report is logged once the cards have their content", function (
   app.advance(12500);                       // the deferred boot measurement
   var line = app.logs.log.filter(function (l) { return l.indexOf("[inky] layout:") === 0; })[0];
   assert.ok(line, "no layout line was logged");
-  assert.match(line, /home overflow=0 overflowX=0 slack=100px cards=9/);
+  assert.match(line, /home overflow=0 overflowX=0 slack=100px cards=10/);
 });
 
 test("overflow is escalated to a warning, not logged as if it were fine", function () {

@@ -44,7 +44,11 @@ Set both to `null` to show a "set your location" notice instead.
 Also configurable: `units` (fahrenheit/celsius), `clockHours` (12/24), `weatherRefreshMinutes`,
 `burnInProtection` (`enabled`, `intervalSeconds`, `maxShiftPx`), and `countdowns` — a list of
 `{ title, date: "YYYY-MM-DD" }` (the same two fields as InkyPi's countdown plugin); the nearest
-upcoming one is shown on the Year tile and all of them in its panel.
+upcoming one is shown on the Year tile and all of them in its panel. `calendar` — `{ urls: [ICS
+feed URLs], days, refreshMinutes }` — turns on the **Next** tile (next event) and its agenda panel;
+a Google "secret address in iCal format" or any published calendar works, read-only. Treat a secret
+address like a password: it ships inside the APK, so only sideload onto your own device and never
+commit a real one.
 
 `units`, `clockHours` and `burnInProtection.enabled` are only **defaults** now — the on-device
 Settings panel owns them once the user touches it, and its choices persist. `plugins` is a
@@ -525,7 +529,7 @@ rendered on or streamed from a Raspberry Pi. "Staying true to InkyPi" means port
    | `comic`, `wpotd`, `apod`, `ai_image` | **Picture** | one tile rotating the four sources |
    | `rss` | **News** | RSS/Atom headlines via the shell fetch |
    | `year_progress`, `countdown` | **Year** | local arithmetic; countdowns from `config.countdowns` |
-   | `calendar` | — next | ICS feeds, read-only; needs an RRULE expander |
+   | `calendar` | **Next** | ICS feeds, read-only, via the shell fetch; `ics.js` parses and expands RRULE/EXDATE/RECURRENCE-ID with Intl time zones; hidden until a feed is configured |
    | `todo_list`, `ai_text` | — | candidates |
    | `image_album` / `image_folder` / `image_upload` / `image_url`, `unsplash`, `github`, `screenshot` | — | need accounts, keys or a file store; decide per plugin |
 

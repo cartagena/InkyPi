@@ -56,6 +56,20 @@ window.CONFIG = {
     // { title: "Vacation", date: "2026-12-20" },
   ],
 
+  // ---- CALENDAR (optional) --------------------------------
+  // Read-only ICS feeds (Google Calendar "Secret address in iCal format", a published
+  // Apple/Outlook/Nextcloud calendar…). The "Next" tile shows the next event and its panel
+  // the agenda for the next `days`. Nothing is signed into; the feed is only read.
+  // !! A secret iCal address grants read access to that calendar — treat it like a password
+  //    and never commit a real one (the pre-commit scanner blocks URLs with tokens).
+  calendar: {
+    urls: [
+      // "https://calendar.google.com/calendar/ical/…/basic.ics",
+    ],
+    days: 7,
+    refreshMinutes: 30,
+  },
+
   // ---- REFRESH --------------------------------------------
   weatherRefreshMinutes: 15,
 

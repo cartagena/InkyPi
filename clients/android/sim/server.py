@@ -39,6 +39,13 @@ ALLOWED_HOSTS = {
     "api.nasa.gov", "apod.nasa.gov",
 }
 ALLOWED_HOSTS |= {h.strip().lower() for h in os.environ.get("SIM_ALLOW_HOSTS", "").split(",") if h.strip()}
+# ...plus every host the checked-out config.js names (calendar feeds, Home Assistant, news
+# feeds), so the sim follows the configuration without a second list to keep in step.
+try:
+    with open(os.path.join(ASSETS, "config.js"), encoding="utf-8") as _f:
+        ALLOWED_HOSTS |= {m.lower() for m in re.findall(r"https?://([A-Za-z0-9.-]+)", _f.read())}
+except OSError:
+    pass
 
 
 def _safe_target(url):

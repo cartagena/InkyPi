@@ -503,7 +503,16 @@ function strings(root) {
 }
 
 test("nothing the wall says is written for whoever built the app", function () {
-  var app = h.createApp({ bridge: require("./lib/fake-bridge.js").make({}) });
+  var calCfg = h.defaultConfig();
+  calCfg.calendar = { urls: ["https://cal.example/basic.ics"], days: 7 };
+  var app = h.createApp({ bridge: require("./lib/fake-bridge.js").make({}), config: calCfg });
+  /* a configured calendar with a real agenda, so the sweep reads the rows and not the
+     "needs the tablet" line */
+  app.registry.calendar.events = app.WP.ics.parse(
+    "BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:sweep\nSUMMARY:Sweep fixture\nLOCATION:Kitchen\n"
+    + "DTSTART:20250610T150000\nDTEND:20250610T160000\nEND:VEVENT\n"
+    + "BEGIN:VEVENT\nUID:sweep2\nSUMMARY:Second fixture\nDTSTART;VALUE=DATE:20250612\n"
+    + "DTEND;VALUE=DATE:20250613\nEND:VEVENT\nEND:VCALENDAR");
   var wx = require("./lib/wx-fixture.js");
   app.registry.weather.data = wx.build({ now: app.clock.now, hours: 48 });
   app.registry.weather.publish();
@@ -540,7 +549,16 @@ test("the copy sweep can actually see a panel body", function () {
   /* The failure this test exists to prevent is the previous one's: a sweep pointed at a
      node that is empty passes forever. Assert the corpus is real, and that the patterns
      fire when something bad is genuinely in it. */
-  var app = h.createApp({ bridge: require("./lib/fake-bridge.js").make({}) });
+  var calCfg = h.defaultConfig();
+  calCfg.calendar = { urls: ["https://cal.example/basic.ics"], days: 7 };
+  var app = h.createApp({ bridge: require("./lib/fake-bridge.js").make({}), config: calCfg });
+  /* a configured calendar with a real agenda, so the sweep reads the rows and not the
+     "needs the tablet" line */
+  app.registry.calendar.events = app.WP.ics.parse(
+    "BEGIN:VCALENDAR\nBEGIN:VEVENT\nUID:sweep\nSUMMARY:Sweep fixture\nLOCATION:Kitchen\n"
+    + "DTSTART:20250610T150000\nDTEND:20250610T160000\nEND:VEVENT\n"
+    + "BEGIN:VEVENT\nUID:sweep2\nSUMMARY:Second fixture\nDTSTART;VALUE=DATE:20250612\n"
+    + "DTEND;VALUE=DATE:20250613\nEND:VEVENT\nEND:VCALENDAR");
   var wx = require("./lib/wx-fixture.js");
   app.registry.weather.data = wx.build({ now: app.clock.now, hours: 48 });
   app.registry.weather.publish();
@@ -580,6 +598,7 @@ test("the three home tiles are one object repeated", function () {
   assert.equal(tiles.length, 7);   // device/timer/setup + moon/air/paper/picture
   /* the Year tile sits on the clock's line, not in a row — same object, same three lines */
   tiles.push(app.qs('#home > .card.mini[data-widget="year"]'));
+  tiles.push(app.qs('#home > .card.mini[data-widget="calendar"]'));
   var shape = tiles.map(function (t) {
     return t.children.filter(function (c) { return c.nodeType === 1; })
       .map(function (c) { return c.getAttribute("class").split(" ")[0]; }).join(",");
