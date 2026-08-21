@@ -311,6 +311,14 @@
 
       var f = {}, i, m, z;
       function rnd() { return Math.random(); }
+      /* DEPTH IS STRATIFIED, not sampled. Seven fog banks drawn from a uniform random
+         depth can all land in the middle of the range — and a field with no near member
+         and no far one is a field with no parallax in it, which is a scene that renders
+         as a smear perhaps one night in twenty. Each member takes its own slice of the
+         range and jitters inside it, so the spread is guaranteed and the arrangement is
+         still never the same twice. It also puts the field in painter's order: the near
+         flakes are drawn last, over the far ones, which is where they belong. */
+      function depth(k, n) { return (k + rnd()) / n; }
 
       f.stars = [];
       for (i = 0; i < 170; i++) {
@@ -337,7 +345,7 @@
 
       f.drops = [];
       for (i = 0; i < MAXDROP; i++) {
-        z = rnd();                                  /* depth: 0 far, 1 near */
+        z = depth(i, MAXDROP);                      /* depth: 0 far, 1 near */
         f.drops.push({
           x: rnd() * w * 1.4 - w * 0.2, y: rnd() * h, z: z,
           v: 240 + z * 470,
@@ -362,7 +370,7 @@
          density is spent on the ones you can actually see. */
       f.flakes = [];
       for (i = 0; i < MAXFLAKE; i++) {
-        z = rnd();
+        z = depth(i, MAXFLAKE);
         f.flakes.push({
           x: rnd() * w, y: rnd() * h, z: z,
           /* TWO LAYERS, not a ramp. The far half is a dot a pixel across drifting slowly;
@@ -380,7 +388,7 @@
 
       f.clouds = [];
       for (i = 0; i < MAXCLOUD; i++) {
-        z = rnd();
+        z = depth(i, MAXCLOUD);
         f.clouds.push({
           x: rnd() * w * 1.6 - w * 0.3,
           /* far banks ride higher, near ones hang low — the parallax the flat version had
@@ -408,7 +416,7 @@
          variation ALONG a bank comes from. */
       f.bands = [];
       for (i = 0; i < 7; i++) {
-        z = rnd();
+        z = depth(i, 7);
         f.bands.push({
           /* fog sits on the floor of the frame, because that is where fog sits */
           y: h * (0.46 + 0.50 * z + rnd() * 0.10),
@@ -425,7 +433,7 @@
          leaves open; see paintFog for why that is honest rather than a cheat. */
       f.aloft = [];
       for (i = 0; i < 4; i++) {
-        z = rnd();
+        z = depth(i, 4);
         f.aloft.push({
           y: h * (0.03 + 0.30 * z), rx: w * (0.6 + z * 0.6), hh: 40 + z * 90,
           x: rnd() * w * 1.6 - w * 0.3, v: 12 - z * 8,

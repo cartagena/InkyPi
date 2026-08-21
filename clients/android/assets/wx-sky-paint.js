@@ -132,7 +132,7 @@
       if (this.puff && t - this.puffAt < 45) return this.puff;
       this.puffAt = t;
       this.puff = blob(rgb, CUMULUS, 0.42);
-      this.puffFar = blob(rgb, DISTANT, 0.30);
+      this.puffFar = blob(rgb, DISTANT, 0.38);
       return this.puff;
     },
 
@@ -163,7 +163,7 @@
            core), so this multiplies down: 0.19 here is about 0.08 on the glass. The far
            half of the field draws the detail-less sprite, which is what buys the depth —
            a big soft swell behind a smaller, better-defined bank. */
-        x.globalAlpha = (0.05 + c.z * 0.15) * (storm ? 1.5 : 1);
+        x.globalAlpha = (0.06 + c.z * 0.19) * (storm ? 1.45 : 1);
         x.drawImage(c.z < 0.45 ? (this.puffFar || puff) : puff,
                     c.x - c.rx, c.y - ry, c.rx * 2, ry * 2);
       }

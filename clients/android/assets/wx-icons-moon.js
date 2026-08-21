@@ -104,7 +104,7 @@
      none of them a filter: a terminator FEATHERED over four steps instead of cut, limb
      darkening on the outer eighth of the radius (a sphere does not end at a bright line,
      it turns away), and craters with two disagreeing inner walls. */
-  function moon(cx, cy, r, p) {
+  function moon(cx, cy, r, p, deep) {
     var s = r / 24;                            /* the maria are authored on a 24-unit disc */
     /* The night side, as the disc minus a lit limb. Drawn FOUR TIMES at four phases a few
        thousandths apart, because a terminator is not a cut.
@@ -134,7 +134,7 @@
       + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="url(#wxg-moon)"/>'
       + '<g transform="translate(' + (cx - 32 * s).toFixed(2)
       + " " + (cy - 32 * s).toFixed(2) + ") scale(" + s.toFixed(3) + ')">'
-      + craters(r >= 14) + "</g>"
+      + craters(deep !== false && r >= 14) + "</g>"
       + night(p, 0) + night(p + back * 0.009, 0.40)
       + night(p + back * 0.019, 0.30) + night(p + back * 0.030, 0.24)
       /* the limb, and then the hairline that keeps a new moon from vanishing entirely */
@@ -153,9 +153,18 @@
      duplicate-reference trap the gradients were just taken out of, on an element the tile
      replaces every hour. A crater in shadow is a crater you cannot see, which is the one
      detail that makes a phase disc look lit rather than printed. */
-  function moonDisc(p, cls) {
+  function moonDisc(p, cls, opt) {
+    opt = opt || {};
+    /* `small` and `halo` are the two things the disc cannot work out for itself. Every
+       copy is authored at r=24 and shrunk by the stylesheet, so the body has no way to
+       know whether it is the panel hero or one of eleven thumbnails in a strip — and the
+       crater rim strokes that make a depression read at 300 px are 200 nodes nobody can
+       resolve at 30. The halo is the same call from the other side: the panel's own hero
+       hangs on a black field at night and wants air around it; a thumbnail in a row does
+       not, because the glow of eleven of them is a smear. */
     return '<svg class="' + (cls || "wxi") + '" viewBox="0 0 64 64" aria-hidden="true">'
-      + moon(32, 32, 24, p) + "</svg>";
+      + (opt.halo ? '<circle cx="32" cy="32" r="31.5" fill="url(#wxg-moonhalo)"/>' : "")
+      + moon(32, 32, 24, p, !opt.small) + "</svg>";
   }
   /* The pack builds its night icons from `body`; the Moon widget takes `path` and `disc`
      through WP.wxIcon, which re-exports them, so there is one moon in the build and every

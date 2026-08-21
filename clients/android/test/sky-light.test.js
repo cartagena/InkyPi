@@ -387,6 +387,12 @@ test("a token hex survives the trip into a canvas gradient", function () {
    frame and along itself. */
 
 test("the fog banks are a depth field, not a stack of identical rectangles", function () {
+  /* This used to fail about one run in eight, and the flake was the bug: the depths were
+     seven independent uniform draws, so a night in twenty got seven banks all within a
+     third of a stop of each other — no near member, no far one, no parallax, a smear
+     rather than a sky. populate() stratifies now (each member takes its own slice of the
+     range and jitters inside it), which makes the spread a property of the field rather
+     than a property of the sample, and this test deterministic rather than usually true. */
   var f = L.populate(711, 1138, 9, 150, 90);
   assert.ok(f.bands.length >= 6, "only " + f.bands.length + " fog banks — too few to layer");
   function spread(k) {

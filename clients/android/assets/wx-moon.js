@@ -85,7 +85,7 @@
       var t = ms + i * 86400000, m = calc(t);
       out += '<div class="mw"><div class="mw-d">'
         + esc(new Date(t).toLocaleDateString(undefined, { weekday: "short" })) + "</div>"
-        + disc(m.p, "mw-i")
+        + disc(m.p, "mw-i", { small: true })
         + '<div class="mw-v">' + Math.round(m.frac * 100) + "%</div></div>";
     }
     return '<div class="moon-week">' + out + "</div>";
@@ -113,7 +113,7 @@
   function phaseStrip(ms) {
     return '<div class="moon-week four">' + nextPhases(ms).map(function (q) {
       return '<div class="mw"><div class="mw-d">' + esc(q.name) + "</div>"
-        + disc(q.p, "mw-i")
+        + disc(q.p, "mw-i", { small: true })
         + '<div class="mw-v">' + esc(shortDate(q.at)) + "</div>"
         + '<div class="mw-x">' + esc(inDays(q.at)) + "</div></div>";
     }).join("") + "</div>";
@@ -136,7 +136,7 @@
       /* The per-cent sign takes the shared small-unit treatment rather than the value's:
          disc plus "62%" at full size measured 86 px inside a 78 px box, and the sign is
          the glyph in it carrying the least. */
-      big.innerHTML = disc(m.p, "moon-mini")
+      big.innerHTML = disc(m.p, "moon-mini", { small: true })
         + "<span>" + Math.round(m.frac * 100) + '<span class="unit">%</span></span>';
       sub.textContent = m.shortName;
     },
@@ -155,7 +155,7 @@
          three cells that are left are three facts the hero does not have, and each carries
          the answer people actually want under it: how long until. */
       WP.qs("[data-body]", panel).innerHTML =
-        '<div class="moon-hero">' + disc(m.p, "moon-disc")
+        '<div class="moon-hero">' + disc(m.p, "moon-disc", { halo: true })
         + '<div class="moon-hero-t"><div class="big-time">' + Math.round(m.frac * 100) + "%</div>"
         + '<div class="big-sub">illuminated</div></div></div>'
         + section("Next 7 nights", week(Date.now()))
