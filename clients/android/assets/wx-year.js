@@ -102,6 +102,32 @@
     return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
   }
 
+  /* THE YEAR AT A GLANCE. Two bars said "64% of the year and 65% of the month", which is
+     the same sentence twice and neither of them says WHICH part is gone. Twelve cells do:
+     the months behind are lit, the month you are in is lit as far as today, and the rest
+     are the empty track. It is the InkyPi year_progress plugin's own picture, and it is
+     what the bottom third of this panel was black for.
+
+     Initials rather than "Jan": twelve three-letter labels do not fit 668 px at any tier
+     the ramp will admit, and the row is read as a shape — the label is there to find your
+     place in it, not to be read left to right. Taken from the runtime locale, because a
+     month grid that spells the months in English on a French tablet is worse than none. */
+  function monthGrid(now) {
+    var y = now.getFullYear(), m = now.getMonth();
+    var som = new Date(y, m, 1), eom = new Date(y, m + 1, 1);
+    var through = daysBetween(som, now) / daysBetween(som, eom) * 100;
+    var out = "";
+    for (var i = 0; i < 12; i++) {
+      var pct = i < m ? 100 : (i === m ? through : 0);
+      var name = new Date(y, i, 1).toLocaleDateString(undefined, { month: "narrow" });
+      out += '<div class="mgc' + (i === m ? " now" : "") + '">'
+        + '<div class="mgc-b"><div style="height:' + pct.toFixed(1) + '%"></div></div>'
+        + '<div class="mgc-l">' + esc(name) + "</div></div>";
+    }
+    return '<div class="mgrid" role="img" aria-label="months of the year, '
+      + (m + 1) + ' of 12 under way">' + out + "</div>";
+  }
+
   function countdownRows(list) {
     if (!list.length) {
       /* An honest empty state, not an empty box. Countdowns are set when the app is
@@ -172,6 +198,7 @@
               ["Left", String(y.monthDaysLeft) + '<span class="unit"> days</span>'],
               ["Ends", shortDate(y.monthEnd), when(y.monthDaysLeft - 1)]
             ], 2))
+        + section("Months", monthGrid(new Date()))
         + section("Countdowns", countdownRows(cds));
     }
   };

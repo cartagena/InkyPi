@@ -61,6 +61,15 @@
             if (sw.running) { sw.laps.unshift(self.swElapsed()); if (sw.laps.length > 30) sw.laps.pop(); }
             break;
           case "sw-reset":  sw.running = false; sw.base = 0; sw.laps = []; break;
+          /* One tap from the stopwatch's empty screen to an armed countdown: switch mode,
+             load the duration, do not start it. Starting it on a single tap would make a
+             mis-tap into a ringing alarm in one minute's time. */
+          case "quick":
+            self.mode = "countdown";
+            cd.duration = Math.max(60000, Number(arg) * 1000);
+            cd.remain = cd.duration;
+            cd.running = false;
+            break;
           case "cd-preset": cd.duration = parseInt(arg, 10) * 1000; self.cdReset(); break;
           case "cd-bump":
             var delta = parseInt(arg, 10) * 1000;
@@ -396,8 +405,21 @@
              read as, drawn in more pixels. On the one screen in the build whose entire
              subject is a single number, the honest use of that space is the number, which
              is why the readout above is the largest type in the app. */
+          /* And under the hint, the thing somebody standing at this panel with no laps
+             on it is actually about to do. A kitchen wall panel is asked for a countdown
+             far more often than for a stopwatch, and the countdown was two taps away
+             behind a mode switch — so the four common durations are here, and each of
+             them switches modes and loads itself. Real controls, not filler: the region
+             was reserved for laps and reserved is not the same as blank. */
           html += section("Laps", '<div class="laps-hint"><div class="muted">'
-            + "Tap Lap while running to split.</div></div>", "laps-sec laps-empty");
+            + "Tap Lap while running to split.</div>"
+            + '<div class="quick-t">Or start a countdown</div>'
+            + '<div class="chip-row cols4">'
+            + [1, 3, 5, 10].map(function (m) {
+                return '<button class="chip tappable" data-ns="timer" data-act="quick"'
+                  + ' data-arg="' + (m * 60) + '">' + m + " min</button>";
+              }).join("")
+            + "</div></div>", "laps-sec laps-empty");
         }
 
       } else {

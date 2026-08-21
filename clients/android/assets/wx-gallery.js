@@ -73,6 +73,29 @@
     return name + " is not answering right now.";
   }
 
+  /* A VOID IS NOT AN EMPTY STATE. This panel reserves its whole body for a picture, so
+     with no picture the honest thing to put in that space is the shape of the thing that
+     is missing: a frame with a landscape in it, drawn in the same fog grey and sun yellow
+     the weather icons use and at an opacity that reads as an outline rather than as
+     content. It was a sentence stranded in the middle of ~700 device px of black, which
+     at 3 m is indistinguishable from a screen that failed to draw.
+     Every no-picture case goes through here, not only the failed one — "Fetching…" on its
+     own line was the same void with fewer words in it. */
+  function emptyState(titleHtml, subHtml) {
+    return '<div class="pic-empty">'
+      + '<svg class="pic-art" viewBox="0 0 120 84" aria-hidden="true">'
+      + '<rect x="2.5" y="2.5" width="115" height="79" rx="6" fill="none"'
+      + ' stroke="var(--ic-fog)" stroke-width="2.4" opacity="0.6"/>'
+      + '<circle cx="92" cy="22" r="8.5" fill="var(--ic-sun)" opacity="0.62"/>'
+      + '<path d="M 6 79 L 40 36 L 64 63 L 80 47 L 114 79 Z"'
+      + ' fill="var(--ic-cloud-dk)" opacity="0.55"/>'
+      + '<path d="M 6 79 L 34 50 L 60 79 Z" fill="var(--ic-cloud)" opacity="0.4"/>'
+      + "</svg>"
+      + '<div class="pic-empty-t">' + titleHtml + "</div>"
+      + '<div class="pic-empty-s">' + subHtml + "</div>"
+      + "</div>";
+  }
+
   var gallery = {
     name: "gallery",
     cur: null,                       // which source the panel is showing
@@ -249,23 +272,18 @@
           + "</div>"
           + (slot.note ? '<div class="pic-note">' + esc(slot.note) + "</div>" : "");
       } else if (!WP.bridgeFetch.available()) {
-        main = '<div class="muted">Pictures arrive through the app shell, which a browser '
-          + "tab does not have.</div>";
+        main = emptyState("Pictures arrive through the app shell",
+          "A browser tab does not have one. This screen works on the tablet.");
       } else if (this.cur === "ai" && !aiEnabled() && !slot) {
-        main = '<div class="muted">Generated pictures need an OpenAI key: add '
-          + "<b>openai: { apiKey: … }</b> to config.js and rebuild. Nothing else on this "
-          + "screen needs one.</div>";
+        main = emptyState("Generated pictures need a key",
+          "Add <b>openai: { apiKey: … }</b> and rebuild. Nothing else on this screen "
+          + "needs one.");
       } else if (!slot) {
-        main = '<div class="muted">Fetching…</div>';
+        main = emptyState("Fetching today's picture", "It arrives on its own.");
       } else {
-        /* Composed, not a line stranded at the top of a black screen: the reason, then
-           what happens next, then the way out — the other sources are one tap away and
-           the chips are right above this. */
-        main = '<div class="pic-empty">'
-          + '<div class="pic-empty-t">' + esc(humanError(slot.err, NAMES[this.cur])) + "</div>"
-          + '<div class="pic-empty-s">It tries again on its own. '
-          + (sources().length > 1 ? "The other sources are above." : "") + "</div>"
-          + "</div>";
+        main = emptyState(esc(humanError(slot.err, NAMES[this.cur])),
+          "It tries again on its own. "
+          + (sources().length > 1 ? "The other sources are above." : ""));
       }
 
       var regen = (this.cur === "ai" && aiEnabled())

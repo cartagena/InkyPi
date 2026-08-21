@@ -18,7 +18,7 @@ var assert = require("node:assert/strict");
 var h = require("./lib/harness.js");
 
 var CSS = ["style.css", "style-home.css", "style-panels.css", "style-widgets.css",
-           "style-theme.css", "style-icons.css"]
+           "style-charts.css", "style-theme.css", "style-icons.css"]
   .map(h.readAsset).join("\n");
 var HTML = h.readAsset("index.html");
 var VIEW_JS = h.readAsset("app-view.js");

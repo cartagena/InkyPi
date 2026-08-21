@@ -85,6 +85,34 @@
     return '<div class="moon-week">' + out + "</div>";
   }
 
+  /* The next four principal phases, with the date each lands on.
+
+     The panel's CYCLE row named two of them — full and new — as two cells of a stat grid,
+     which left the two quarters unnamed and the bottom third of the screen black. The
+     synodic model already knows all four: a phase is a crossing of p = 0, 0.25, 0.5, 0.75,
+     so "when next" is one subtraction each and no extra arithmetic. Drawn as discs from
+     the same moonPath() the hero uses, so this strip is the hero at a quarter size four
+     times over rather than a second way of saying the same thing. */
+  var PRINCIPAL = [[0, "New"], [0.25, "First qtr"], [0.5, "Full"], [0.75, "Last qtr"]];
+
+  function nextPhases(ms) {
+    var p = calc(ms).p;
+    return PRINCIPAL.map(function (q) {
+      var ahead = q[0] - p;
+      if (ahead <= 0.004) ahead += 1;          /* just passed it: that one is a month away */
+      return { p: q[0], name: q[1], at: ms + ahead * SYNODIC * 86400000 };
+    }).sort(function (a, b) { return a.at - b.at; });
+  }
+
+  function phaseStrip(ms) {
+    return '<div class="moon-week four">' + nextPhases(ms).map(function (q) {
+      return '<div class="mw"><div class="mw-d">' + esc(q.name) + "</div>"
+        + disc(q.p, "mw-i")
+        + '<div class="mw-v">' + esc(shortDate(q.at)) + "</div>"
+        + '<div class="mw-x">' + esc(inDays(q.at)) + "</div></div>";
+    }).join("") + "</div>";
+  }
+
   var moon = {
     name: "moon",
     panel: null,
@@ -125,16 +153,21 @@
         + '<div class="moon-hero-t"><div class="big-time">' + Math.round(m.frac * 100) + "%</div>"
         + '<div class="big-sub">illuminated</div></div></div>'
         + section("Next 7 nights", week(Date.now()))
+        /* Four cells that were two. "Full moon" and "New moon" as stat cells left the two
+           quarters unnamed and ~300 device px of black under them; the same four facts as
+           discs are a picture of the month ahead. */
+        + section("Next phases", phaseStrip(Date.now()))
+        /* Two cells, and they are the two facts nothing else on this screen carries. It
+           held "Full moon" and "New moon" as dates, which the phase strip above now draws;
+           a first rewrite put "Lit 62% · Waxing gibbous" here, which is the hero's own
+           number and the panel's own subtitle printed a third and second time. Where this
+           cycle STARTED is genuinely new — everything else on the screen looks forward. */
         + section("Cycle", statGrid([
-            ["Moon age", (Math.round(m.age * 10) / 10) + " days",
-              "of " + Math.round(SYNODIC * 10) / 10],
-            /* "Next full moon" — fourteen tracked capitals — wrapped to two lines in a
-               third of a 711 px panel once the field label was sized for a 3 m read. The
-               section is headed CYCLE and the line under each cell says when, so "next" was
-               the word carrying the least. */
-            ["Full moon", shortDate(m.nextFull), inDays(m.nextFull)],
-            ["New moon", shortDate(m.nextNew), inDays(m.nextNew)]
-          ], 3));
+            ["Moon age", (Math.round(m.age * 10) / 10) + '<span class="unit"> days</span>',
+              "of " + Math.round(SYNODIC * 10) / 10 + " · " + Math.round(m.p * 100) + "% through"],
+            ["Cycle began", shortDate(m.nextNew - SYNODIC * 86400000),
+              Math.round(m.age) + " days ago"]
+          ], 2));
     }
   };
 

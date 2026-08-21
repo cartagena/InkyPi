@@ -27,7 +27,7 @@ var path = require("node:path");
 /* style-icons.css is on this list for the same reason the other five are: the motion
    test reads every duration in the app, and the weather pack's animation lives there. */
 var SHEETS = ["style.css", "style-home.css", "style-panels.css", "style-widgets.css",
-              "style-theme.css", "style-icons.css"];
+              "style-charts.css", "style-theme.css", "style-icons.css"];
 var RAW = SHEETS.map(function (n) {
   return fs.readFileSync(path.join(__dirname, "..", "..", "assets", n), "utf8");
 }).join("\n");
