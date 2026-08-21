@@ -49,6 +49,22 @@ test("every documented WMO code draws a real icon, day and night", function () {
   });
 });
 
+test("no icon in the pack ships a NaN or an undefined in its geometry", function () {
+  /* An arithmetic slip in a primitive does not throw and does not blank the icon: SVG
+     drops the attribute it cannot parse and draws what is left, so a sun whose eight rays
+     had lost their half-width rendered as a plain glowing disc and shipped in a capture
+     review as "the sun has no rays". The pack is generated arithmetic end to end; this is
+     the check that the arithmetic finished. */
+  DOCUMENTED.concat(["banana"]).forEach(function (c) {
+    [false, true].forEach(function (night) {
+      var svg = wxIcon(c, night);
+      var bad = /NaN|undefined|null/.exec(svg);
+      assert.equal(bad, null, "code " + c + (night ? " night" : " day")
+        + " emitted " + (bad && bad[0]) + " into its markup");
+    });
+  });
+});
+
 test("day/night variants exist exactly where day and night look different", function () {
   /* clear, mostly clear, partly cloudy and the shower families swap sun for moon */
   [0, 1, 2, 80, 81, 85, 86].forEach(function (c) {

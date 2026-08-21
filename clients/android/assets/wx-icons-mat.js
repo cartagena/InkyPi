@@ -69,7 +69,7 @@
     /* What a bolt does to the cloud it just left. Warm, short-range and under the belly —
        the one thing that separates a storm anvil from a dark cumulus in a still frame. */
     "wxg-underglow": '<radialGradient id="wxg-underglow">'
-      + stop(0, "bolt-hi", 0.5) + stop(0.45, "bolt", 0.24) + stop(1, "bolt", 0)
+      + stop(0, "bolt-hi", 0.62) + stop(0.42, "bolt", 0.3) + stop(1, "bolt", 0)
       + "</radialGradient>",
     /* THE RIM LIGHT'S TAPER, and it is a fade rather than a colour: a lit edge that stops
        square is a detached bright hook. Object-bounding-box units, so the same one def
@@ -88,8 +88,12 @@
        collar right off the limb and a long faint reach beyond it, and one gradient cannot
        be both without going flat in the middle. */
     "wxg-corona": '<radialGradient id="wxg-corona">'
-      + stop(0, "sun-lit", 0) + stop(0.52, "sun-lit", 0.55)
-      + stop(0.72, "sun", 0.3) + stop(1, "sun", 0) + "</radialGradient>",
+      /* Nothing until the disc's own edge, then the collar. The first version put its
+         bright stop at 0.52 of a circle 1.34 radii wide — i.e. inside the disc, where it
+         painted over solid sun and did nothing at all outside it. A corona is what happens
+         to light AFTER it leaves the limb. */
+      + stop(0, "sun-lit", 0) + stop(0.68, "sun-lit", 0) + stop(0.77, "sun-lit", 0.42)
+      + stop(0.88, "sun", 0.2) + stop(1, "sun", 0) + "</radialGradient>",
     "wxg-moon": vol("wxg-moon", 0.6, 0.34, 0.8,
       stop(0, "moon-lit") + stop(0.55, "moon") + stop(1, "moon-dim")),
     /* Limb darkening. A sphere does not end at a bright line; it turns away, and the last

@@ -126,8 +126,8 @@
      the mass so the texture filter never touches it — a blurred gradient through a
      displacement map is expensive and looks like nothing. */
   function underglow(cx, base, w) {
-    return '<ellipse class="wxi-underglow" cx="' + cx + '" cy="' + (base - 1).toFixed(1)
-      + '" rx="' + (w * 0.42).toFixed(1) + '" ry="' + (w * 0.20).toFixed(1)
+    return '<ellipse class="wxi-underglow" cx="' + cx + '" cy="' + (base - 2).toFixed(1)
+      + '" rx="' + (w * 0.46).toFixed(1) + '" ry="' + (w * 0.19).toFixed(1)
       + '" fill="url(#wxg-underglow)"/>';
   }
 
@@ -139,7 +139,7 @@
      two ray sets now — eight wedges that rock, and eight long thin ones between them that
      turn very slowly — because a single ring of spikes is a compass rose and two rings at
      different rates is glare. */
-  function rayRing(cx, cy, r, i0, o0, hw) {
+  function rayRing(cx, cy, i0, o0, hw) {
     var out = "";
     for (var i = 0; i < 8; i++) {
       var a = (Math.PI / 4) * i + Math.PI / 8;
@@ -154,15 +154,19 @@
     return out;
   }
   function sun(cx, cy, r) {
+    /* ORDER IS THE WHOLE OF IT. The first layered sun drew both ray sets underneath the
+       corona, which is a soft bright disc a third again the radius — so the rays were
+       painted and then painted over, and the icon came out as a plain glowing ball. Air
+       first, then the light travelling through it. */
     return '<circle class="wxi-halo" cx="' + cx + '" cy="' + cy + '" r="'
-      + (r * 1.95).toFixed(1) + '" fill="url(#wxg-halo)"/>'
-      + '<g class="wxi-rays2" fill="var(--ic-ray)" opacity="0.34" transform="rotate(22.5 '
-      + cx + " " + cy + ')">'
-      + rayRing(cx, cy, r * 1.24, r * 2.02, r * 0.055) + "</g>"
+      + (r * 2).toFixed(1) + '" fill="url(#wxg-halo)"/>'
       + '<circle class="wxi-halo-in" cx="' + cx + '" cy="' + cy + '" r="'
-      + (r * 1.34).toFixed(1) + '" fill="url(#wxg-corona)"/>'
+      + (r * 1.5).toFixed(1) + '" fill="url(#wxg-corona)"/>'
+      + '<g class="wxi-rays2" fill="var(--ic-ray)" opacity="0.42" transform="rotate(22.5 '
+      + cx + " " + cy + ')">'
+      + rayRing(cx, cy, r * 1.3, r * 1.95, r * 0.055) + "</g>"
       + '<g class="wxi-rays" fill="var(--ic-ray)">'
-      + rayRing(cx, cy, r * 1.2, r * 1.6, r * 0.175) + "</g>"
+      + rayRing(cx, cy, r * 1.18, r * 1.72, r * 0.19) + "</g>"
       + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="url(#wxg-sun)"/>'
       + '<ellipse cx="' + (cx - r * 0.26).toFixed(1) + '" cy="' + (cy - r * 0.3).toFixed(1)
       + '" rx="' + (r * 0.42).toFixed(1) + '" ry="' + (r * 0.36).toFixed(1)
@@ -287,12 +291,14 @@
     var rows = band.map(function (b, i) {
       var yy = y + i * 8;
       return '<g class="wxi-fogband" opacity="' + b[3] + '">'
-        + '<line stroke-width="' + (b[1] * 2.4).toFixed(1) + '" opacity="0.3"'
-        + ' x1="' + (32 + b[2] - b[0] * 1.12).toFixed(1) + '" y1="' + yy
-        + '" x2="' + (32 + b[2] + b[0] * 1.12).toFixed(1) + '" y2="' + yy + '"/>'
-        + '<line stroke-width="' + b[1] + '"'
-        + ' x1="' + (32 + b[2] - b[0]) + '" y1="' + yy
-        + '" x2="' + (32 + b[2] + b[0]) + '" y2="' + yy + '"/></g>';
+        /* The soft band carries most of the weight and the core is a hint inside it — the
+           other way round draws three capsules, which is a legend. */
+        + '<line stroke-width="' + (b[1] * 3).toFixed(1) + '" opacity="0.42"'
+        + ' x1="' + (32 + b[2] - b[0] * 1.14).toFixed(1) + '" y1="' + yy
+        + '" x2="' + (32 + b[2] + b[0] * 1.14).toFixed(1) + '" y2="' + yy + '"/>'
+        + '<line stroke-width="' + (b[1] * 0.62).toFixed(1) + '" opacity="0.8"'
+        + ' x1="' + (32 + b[2] - b[0] * 0.82).toFixed(1) + '" y1="' + yy
+        + '" x2="' + (32 + b[2] + b[0] * 0.82).toFixed(1) + '" y2="' + yy + '"/></g>';
     }).join("");
     return '<g stroke="url(#wxg-fog)" stroke-linecap="round">' + rows + "</g>";
   }
