@@ -168,7 +168,8 @@ test("configured, no shell: says it needs the tablet instead of failing", functi
 test("the feed origin is on the shell allowlist and the feed is fetched at boot", function () {
   var bridge = fakeBridge.make({ net: true });
   var a = h.createApp(configured({ bridge: bridge }));
-  assert.ok(bridge.lockedOrigins.indexOf("https://cal.example") !== -1, "feed origin missing from allowlist");
+  assert.ok(bridge.lockedOrigins.some(function (o) { return o === "https://cal.example"; }),
+    "feed origin missing from allowlist");
   var call = bridge.fetchCalls.filter(function (c) { return c.url === "https://cal.example/basic.ics"; })[0];
   assert.ok(call, "the feed was never requested");
   assert.match(call.headers.Accept, /text\/calendar/);
