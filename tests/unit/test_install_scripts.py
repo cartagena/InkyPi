@@ -1574,6 +1574,42 @@ class TestPiImageBuildWorkflow:
         )
         assert "login:" in self.content
 
+    def test_workflow_boot_verify_uses_image_own_kernel_on_raspi3b(self):
+        # The point of the gate is to boot what we ship. A generic "virt"
+        # machine would need a foreign distro kernel plus an initramfs (distro
+        # arm64 kernels build virtio_blk as a module, so the rootfs never
+        # mounts without one) and would prove nothing about kernel8.img.
+        assert "-M raspi3b" in self.content
+        assert "-kernel kernel8.img" in self.content
+        assert "bcm2710-rpi-3-b.dtb" in self.content
+
+    def test_workflow_boot_verify_puts_serial_console_last(self):
+        # The kernel hands /dev/console to the LAST console= argument. Pi OS
+        # ships "console=serial0,... console=tty1", so the trailing tty1 must
+        # be stripped and the serial console appended after it — otherwise
+        # getty lands on the virtual terminal and the log scrape sees nothing.
+        assert "s/console=[^ ]*//g" in self.content
+        cmdline_pos = self.content.index('CMDLINE="${CMDLINE} console=ttyAMA0')
+        strip_pos = self.content.index("s/console=[^ ]*//g")
+        assert (
+            strip_pos < cmdline_pos
+        ), "serial console must be appended after existing console= args are stripped"
+
+    def test_workflow_boot_verify_pads_sd_to_power_of_two(self):
+        # qemu's raspi machines reject an SD image whose size is not a power
+        # of two, and pishrink deliberately leaves the image at minimum size.
+        assert "SD_BYTES=$((SD_BYTES * 2))" in self.content
+        assert "truncate -s" in self.content
+
+    def test_workflow_boot_verify_detects_qemu_exit(self):
+        # A startup failure (bad romfile, bad machine type) kills qemu in under
+        # a second. Without a liveness check the loop burns the full 240s and
+        # reports a misleading timeout instead of the real error.
+        assert 'kill -0 "${QPID}"' in self.content
+        # $! must be qemu itself, so its output is redirected rather than piped
+        # into tee — in a pipeline $! is the last element, not qemu.
+        assert "> qemu-boot.log 2>&1 &" in self.content
+
     def test_workflow_attach_release_requires_boot_verification(self):
         # The attach job must `needs: verify-boot` AND gate on its verified
         # output so a failed boot cannot silently upload an image.
