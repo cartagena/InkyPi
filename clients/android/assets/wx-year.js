@@ -155,14 +155,20 @@
       var monthName = new Date().toLocaleDateString(undefined, { month: "long" });
       WP.qs("[data-sub]", panel).textContent = y.daysLeft + " days left in " + y.year;
       WP.qs("[data-body]", panel).innerHTML =
-        hero("", y.pct + "%", "of " + y.year + " gone")
+        /* The hero and the bar under it are one datum printed twice, so they are one
+           colour: --accent is this build's mark for a measured line, and the year bar is
+           named in style.css as one of the three things it is for. */
+        hero("", '<span class="accent-v">' + y.pct + "%</span>", "of " + y.year + " gone")
         + section("Year · " + y.year,
             bar(y.pct, "accent", "year gone") + statGrid([
               ["Left", String(y.daysLeft) + '<span class="unit"> days</span>'],
               ["Quarter", "Q" + y.quarter, y.quarterPct + "% gone · " + y.quarterDaysLeft + " days left"]
             ], 2))
+        /* The month bar is the same measurement one zoom level in, so it takes the same
+           accent at half strength rather than a fourth grey: two bars in two greys said
+           "one of these is data and one is chrome", which was not true. */
         + section("Month · " + monthName,
-            bar(y.monthPct, "", "month gone") + statGrid([
+            bar(y.monthPct, "accent soft", "month gone") + statGrid([
               ["Left", String(y.monthDaysLeft) + '<span class="unit"> days</span>'],
               ["Ends", shortDate(y.monthEnd), when(y.monthDaysLeft - 1)]
             ], 2))

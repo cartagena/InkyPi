@@ -313,6 +313,11 @@
           (this.cd.duration ? Math.max(0, Math.min(100, (r / this.cd.duration) * 100)) : 0) + "%";
         var box = $("tmr-box");
         if (box) box.classList.toggle("alarm-flash", this.ringing);
+        /* the last-minute colour has to arrive on the tick, not on the next rebuild —
+           a rebuild only happens when the state key changes and "59 seconds left" is not
+           a state change */
+        disp.classList.toggle("running", !this.ringing && this.cd.running && r > 60000);
+        disp.classList.toggle("closing", !this.ringing && this.cd.running && r <= 60000);
       }
     },
 
@@ -346,7 +351,8 @@
            ever, on an AMOLED panel — the brightest strobing object in the app, and the
            least useful glyph on the screen: nobody reads tenths from 3 m, they watch them
            move. Small enough to still say "this is running", small enough not to shout. */
-        html += '<div class="big-readout"><div class="big-time mono" id="tmr-disp">'
+        html += '<div class="big-readout"><div class="big-time mono'
+          + (this.sw.running ? " running" : "") + '" id="tmr-disp">'
           + '<span id="tmr-core">' + fmt.stopwatch(e, false) + "</span>"
           + '<span class="tenths" id="tmr-tenths">.' + (Math.floor(e / 100) % 10)
           + "</span></div></div>"
@@ -397,8 +403,15 @@
       } else {
         var r = this.cdRemain();
         var pct = this.cd.duration ? (r / this.cd.duration) * 100 : 0;
+        /* The readout wears the same colour as its own bar, because they are the same
+           datum: a running countdown is a LINE of live data, which is exactly what
+           --accent is reserved for in this build. The last minute goes warm — the one
+           point in a countdown where a glance across the room should change what you do —
+           and the alarm keeps the flash it already had. */
+        var state = this.ringing ? "" : (this.cd.running
+          ? (r <= 60000 ? " closing" : " running") : "");
         html += '<div class="big-readout' + (this.ringing ? " alarm-flash" : "") + '" id="tmr-box">'
-          + '<div class="big-time mono" id="tmr-disp">' + fmt.countdown(r) + "</div>"
+          + '<div class="big-time mono' + state + '" id="tmr-disp">' + fmt.countdown(r) + "</div>"
           /* A full accent bar on an untouched timer read as "finished", not as "ready":
              a progress bar at 100% means done everywhere else on a screen. It stays full —
              all the time IS remaining — but it is only lit once the countdown has actually

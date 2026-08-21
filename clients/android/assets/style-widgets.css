@@ -155,6 +155,48 @@
    stylesheet header says in as many words to avoid large bright fills. Same silhouette,
    roughly a tenth of the lit pixels: a dim column with a bright 0.35vh cap, which is what
    the eye traces anyway. */
+/* The two charts in the app live together: the hourly panel's curve is here and the
+   daily panel's bars are directly below it, so a change to one is made next to the
+   other. (They were a stylesheet apart, which is how the hourly axis and the daily
+   axis came to disagree about their own type size for two rounds.) */
+/* ---- hourly panel chart ----
+   Ticks and hi/lo callouts are HTML over the SVG so their sizes come off the ramp like
+   every other label; the SVG carries only geometry. */
+.hchart-wrap { position: relative; margin: 0.6vh 0 0.2vh; }
+/* The height is DECLARED. With `height: auto` the SVG took it from its own aspect ratio,
+   so the plot was as tall as the panel was wide — 250 CSS px in portrait and 357 px of a
+   711 px-tall landscape screen. That is the landscape bug: the chart pushed the hero and
+   the stat row off the top and its own peak out of view. */
+.hchart { width: 100%; height: 20vh; display: block; }
+/* the selected hour's dot, in HTML so a stretched viewBox cannot turn it into an ellipse */
+.hc-dot {
+  position: absolute;
+  width: 1.1vh; height: 1.1vh;
+  border-radius: 50%;
+  background: var(--fg);
+  transform: translate(-50%, -50%);
+}
+.hc-bars rect { fill: var(--ic-rain); opacity: 0.55; }
+/* The two callouts and the tick row are the only things that say what the curve's HEIGHT
+   means — they are the chart, not decoration on it — so they take the acuity floor the rest
+   of the build takes, --fs-body-lg at 5.05'. They were --fs-caption (2.8'), then --fs-note
+   (3.8'), i.e. a curve whose numbers could not be resolved from the sofa in either round,
+   with the peak callout — the one figure the chart exists to deliver — the least legible
+   mark on its own screen. The tick row grew with the type: a 28.5 px word needs a 3.4vh
+   line, and the axis carries six labels rather than eight so the pitch still pays for it. */
+.hc-hi, .hc-lo {
+  position: absolute; transform: translate(-50%, -100%);
+  font-size: var(--fs-body-lg); font-variant-numeric: tabular-nums;
+}
+.hc-hi { color: var(--temp-warm); }
+.hc-lo { color: var(--temp-cold); transform: translate(-50%, 0); }
+.hc-ticks { position: relative; height: 3.4vh; }
+.hc-ticks span {
+  position: absolute; transform: translateX(-50%);
+  font-size: var(--fs-body-lg); color: var(--dim);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
 .daybars {
   display: flex;
   gap: 0.5vw;

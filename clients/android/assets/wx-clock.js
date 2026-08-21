@@ -146,6 +146,26 @@
         big.textContent = fmt.clock(now, true);
       }
 
+      /* Nine cities in six white columns is a grid where every cell looks the same, and
+         the one thing a person actually wants off a world clock — "is it the middle of the
+         night there?" — was the one thing it did not say. So a time takes the light of its
+         own hour: cool while the city is dark, warm through its dawn and its dusk, plain
+         white through its working day.
+
+         The civil day is 7am to 7pm, which is the same nominal day wx-sky-light.js falls
+         back to when the API has told it nothing — a wall panel in a kitchen has no
+         business fetching nine sunrise tables, and being an hour out in Sydney in June
+         changes nothing about the answer this is giving. The two tokens are the app's
+         existing ones: blue is cold and low light is warm, everywhere else on the wall. */
+      function lightThere(now, zone) {
+        var hh = parseInt(new Intl.DateTimeFormat("en-GB", {
+          timeZone: zone, hour: "2-digit", hour12: false }).format(now), 10);
+        if (!isFinite(hh)) return "";
+        if (hh < 5 || hh >= 21) return "t-cold";
+        if (hh < 7 || hh >= 19) return "t-warm";
+        return "";
+      }
+
       function render() {
         var now = new Date();
         self.panelKey = liveKey();
@@ -193,7 +213,7 @@
               ["Week", String(isoWeek)]
             ], 3))
           + section("World clocks", '<div class="wc-grid">' + zones.map(function (z) {
-              var s = "--:--", day = "";
+              var s = "--:--", day = "", tone = "";
               try {
                 s = new Intl.DateTimeFormat(undefined, {
                   timeZone: z[1], hour: "numeric", minute: "2-digit",
@@ -201,9 +221,10 @@
                 }).format(now);
                 day = new Intl.DateTimeFormat(undefined, {
                   timeZone: z[1], weekday: "short" }).format(now);
+                tone = lightThere(now, z[1]);
               } catch (e) { /* zone unsupported on this ICU build */ }
               return '<div class="wc"><div class="wc-city">' + esc(z[0]) + "</div>"
-                + '<div class="wc-time">' + esc(s) + "</div>"
+                + '<div class="wc-time ' + tone + '">' + esc(s) + "</div>"
                 + '<div class="wc-day">' + esc(day) + "</div></div>";
             }).join("") + "</div>"));
       }

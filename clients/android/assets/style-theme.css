@@ -158,46 +158,24 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
 .band-6 { color: var(--band-6); }
 .band-na { color: var(--dimmer); }
 
-/* ---- hourly panel chart ----
-   Ticks and hi/lo callouts are HTML over the SVG so their sizes come off the ramp like
-   every other label; the SVG carries only geometry. */
-.hchart-wrap { position: relative; margin: 0.6vh 0 0.2vh; }
-/* The height is DECLARED. With `height: auto` the SVG took it from its own aspect ratio,
-   so the plot was as tall as the panel was wide — 250 CSS px in portrait and 357 px of a
-   711 px-tall landscape screen. That is the landscape bug: the chart pushed the hero and
-   the stat row off the top and its own peak out of view. */
-.hchart { width: 100%; height: 20vh; display: block; }
-/* the selected hour's dot, in HTML so a stretched viewBox cannot turn it into an ellipse */
-.hc-dot {
-  position: absolute;
-  width: 1.1vh; height: 1.1vh;
-  border-radius: 50%;
-  background: var(--fg);
-  transform: translate(-50%, -50%);
-}
-.hc-bars rect { fill: var(--ic-rain); opacity: 0.55; }
-/* The two callouts and the tick row are the only things that say what the curve's HEIGHT
-   means — they are the chart, not decoration on it — so they take the acuity floor the rest
-   of the build takes, --fs-body-lg at 5.05'. They were --fs-caption (2.8'), then --fs-note
-   (3.8'), i.e. a curve whose numbers could not be resolved from the sofa in either round,
-   with the peak callout — the one figure the chart exists to deliver — the least legible
-   mark on its own screen. The tick row grew with the type: a 28.5 px word needs a 3.4vh
-   line, and the axis carries six labels rather than eight so the pitch still pays for it. */
-.hc-hi, .hc-lo {
-  position: absolute; transform: translate(-50%, -100%);
-  font-size: var(--fs-body-lg); font-variant-numeric: tabular-nums;
-}
-.hc-hi { color: var(--temp-warm); }
-.hc-lo { color: var(--temp-cold); transform: translate(-50%, 0); }
-.hc-ticks { position: relative; height: 3.4vh; }
-.hc-ticks span {
-  position: absolute; transform: translateX(-50%);
-  font-size: var(--fs-body-lg); color: var(--dim);
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
+/* ---- the accent language, as classes ----
+   These are the same three temperature tokens the hourly curve and the daily chart are
+   built from, promoted to colour classes the way the six band classes already are: a
+   widget picks a TONE (WP.ui.tempTone) and never a colour. Conditions' hero temperature
+   and the world clocks read from here, so the number on a panel wears the same hue the
+   chart two taps away would give it.
+   .daybar carries the same three classes to tint a BAR rather than text, so it opts out. */
+.t-hot  { color: var(--temp-hot); }
+.t-warm { color: var(--temp-warm); }
+.t-cold { color: var(--temp-cold); }
+.daybar.t-hot, .daybar.t-warm, .daybar.t-cold { color: inherit; }
 
 /* rain-chance figures wear rain's colour once they mean something (>= 30%) */
-.hr-p.wet, .hrow-p.wet { color: var(--ic-rain); }
+.hr-p.wet, .hrow-p.wet, .stat-v .wet { color: var(--ic-rain); }
+/* Sun times are sun-coloured, because that is the rule the whole colour layer runs on:
+   warm things are warm. SUNRISE and SUNSET were the two plainest white numbers on a panel
+   whose subject is the sky. */
+.stat-v .sunlit { color: var(--temp-warm); }
 /* Daily lows read cool — hi stays primary text. One rule for every low in the app: the
    home strip (.fc-lo), the Daily panel's hero (.lo) and the hourly chart's valley callout
    (.hc-lo). The panel used to render its low as --dim, so the same number was blue on the
@@ -292,6 +270,14 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
   overflow: hidden;
 }
 .news-row-m { font-size: var(--fs-note); color: var(--dimmer); margin-top: 0.4vh; }
+/* One colour per feed, so a merged list is scannable without reading the word: the source
+   is the only field in a row that distinguishes it from the row above, and it was printed
+   in the same grey as the age beside it. Four steps, all of them tokens the palette
+   already carries; a fifth feed reuses the first. */
+.news-src.s0 { color: var(--accent); }
+.news-src.s1 { color: var(--temp-warm); }
+.news-src.s2 { color: var(--band-1); }
+.news-src.s3 { color: var(--band-5); }
 
 /* ============================= LANDSCAPE =============================
    The tablet can hang either way. Portrait is a single column; landscape is a real

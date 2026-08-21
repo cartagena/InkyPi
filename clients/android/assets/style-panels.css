@@ -250,6 +250,19 @@
    line it turned six pollutant fields into eighteen lines, and moved onto the reference
    line below it left the measurement as a bare `15` above an identical-looking `15`. */
 .stat-v .unit { font-size: var(--fs-body-lg); color: var(--dim); }
+/* ---- the accent language on a panel's one big number ----
+   A hero is the number its screen exists for, and on five panels it was plain white on
+   black while the hourly, daily and air screens two taps away spoke in temperature tones,
+   accent blue and a warm amber. These are the SAME tokens, spent the same way: --accent
+   marks a measured line (the Year panel's percentage is its own bar's number; a running
+   countdown is a live line of data), and warm marks the moment a glance across the room
+   should change what somebody does. Nothing here introduces a hue. */
+.big-time.running, .big-readout .accent-v { color: var(--accent); }
+.big-time.closing { color: var(--warn); }
+/* A world clock's time takes the light of its own hour — see lightThere() in wx-clock.js
+   for why the civil day is nominal and why that is enough. */
+.wc-time.t-cold { color: var(--temp-cold); }
+.wc-time.t-warm { color: var(--temp-warm); }
 
 .wind-arrow { display: inline-block; }
 
@@ -262,6 +275,10 @@
 }
 .bar-fill { height: 100%; background: var(--dim); transition: width var(--dur-fill) var(--ease); }
 .bar-fill.accent { background: var(--accent); }
+/* the same measurement one zoom level in — the Year panel's month bar under its year bar.
+   Half strength, not a different grey: two bars in two greys read as "one of these is
+   data and one is chrome", which was not what they meant. */
+.bar-fill.accent.soft { background: var(--accent); opacity: 0.5; }
 .bar-fill.danger { background: var(--danger); }
 
 .btn-row { display: flex; flex-wrap: wrap; gap: 1.4vw; margin-top: 1.6vh; }

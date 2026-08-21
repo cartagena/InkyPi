@@ -253,11 +253,24 @@
          because then it is the thing that distinguishes one row from the next. */
       var one = shown.every(function (it) { return it.source === shown[0].source; })
         ? shown[0].source : "";
+      /* The source is the only field in a merged list that distinguishes one row from the
+         next, and it was printed in the same grey as the age beside it — so six rows from
+         two feeds read as one undifferentiated column. It takes a colour now, one per
+         feed, stable for the life of the list: the reader learns "blue is the BBC" in two
+         glances and never has to read the word again. Four tokens, all of them already in
+         the palette; a fifth feed simply reuses the first colour. */
+      var feeds = [];
+      shown.forEach(function (it) {
+        if (it.source && feeds.indexOf(it.source) === -1) feeds.push(it.source);
+      });
       var rows = shown.map(function (it) {
-        var meta = (one || !it.source) ? ago(it.at) : it.source + " · " + ago(it.at);
+        var age = esc(ago(it.at));
+        var meta = (one || !it.source) ? age
+          : '<span class="news-src s' + (feeds.indexOf(it.source) % 4) + '">'
+            + esc(it.source) + "</span> · " + age;
         return '<div class="news-row">'
           + '<div class="news-row-t">' + esc(it.title) + "</div>"
-          + '<div class="news-row-m">' + esc(meta) + "</div>"
+          + '<div class="news-row-m">' + meta + "</div>"
           + "</div>";
       }).join("");
       WP.repaint(body, section(one ? "Latest · " + one : "Latest",

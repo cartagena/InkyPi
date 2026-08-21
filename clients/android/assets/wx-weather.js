@@ -58,10 +58,15 @@
        row with a hairline stopping at a third of the width, which reads as a section that
        failed to finish. The two "today" facts are one thought, so they are one cell: the
        total on the value line, the chance on the line under it. */
+    /* Rain figures wear rain's colour once they mean something, exactly as the hourly
+       strip's chance-of-rain figures already do (.hr-p.wet) — a section that only appears
+       when it is going to rain should not be printed in the same white as the pressure. */
+    function wet3(v, on) { return on ? '<span class="wet">' + v + "</span>" : v; }
     return section("Rain", statGrid([
-      ["Right now", (cur.precipitation || 0) + " " + fmt.precipUnit()],
-      ["Next hour", nextHour + "%"],
-      ["Today", (Math.round(todaySum * 100) / 100) + " " + fmt.precipUnit(),
+      ["Right now", wet3((cur.precipitation || 0) + " " + fmt.precipUnit(),
+        (cur.precipitation || 0) > 0)],
+      ["Next hour", wet3(nextHour + "%", nextHour >= 30)],
+      ["Today", wet3((Math.round(todaySum * 100) / 100) + " " + fmt.precipUnit(), todaySum > 0),
         (day && day.precipitation_probability_max)
           ? Math.round(day.precipitation_probability_max[0]) + "% chance" : ""]
     ], 3));
@@ -384,8 +389,20 @@
                            people actually use to answer the same question.
          Cutting a row is the trade the re-scale is paid for with; shrinking the type back
          until nine fields fit is not. */
+      /* The hero temperature takes its tone from the SAME range the hourly curve and the
+         daily bars are drawn against — today's low to today's high — so 79° is the same
+         colour here as it is on the chart one tap away. This screen used to be the one
+         weather surface in the app with no temperature colour on it at all: a white
+         number on a black panel, under a full-colour icon, above a UV index wearing its
+         WHO band. */
+      var tLo = day && day.temperature_2m_min ? day.temperature_2m_min[0] : null;
+      var tHi = day && day.temperature_2m_max ? day.temperature_2m_max[0] : null;
+      var tone = (tLo == null || tHi == null) ? "t-warm"
+        : ui.tempTone(cur.temperature_2m, tLo, (tHi - tLo) || 1);
+
       body.innerHTML =
-        hero(WP.wxIcon(cur.weather_code, cur.is_day === 0), fmt.deg(cur.temperature_2m),
+        hero(WP.wxIcon(cur.weather_code, cur.is_day === 0),
+             '<span class="' + tone + '">' + fmt.deg(cur.temperature_2m) + "</span>",
              esc(info.text) + " · feels " + fmt.deg(cur.apparent_temperature))
 
         + section("Air", statGrid([
@@ -414,8 +431,10 @@
           ], 3))
 
         + section("Sun", statGrid([
-            ["Sunrise", sunrise ? esc(fmt.clock(sunrise, false)) : "--"],
-            ["Sunset", sunset ? esc(fmt.clock(sunset, false)) : "--"],
+            ["Sunrise", '<span class="sunlit">'
+              + (sunrise ? esc(fmt.clock(sunrise, false)) : "--") + "</span>"],
+            ["Sunset", '<span class="sunlit">'
+              + (sunset ? esc(fmt.clock(sunset, false)) : "--") + "</span>"],
             ["Daylight", esc(dayLen)]
           ], 3))
 
