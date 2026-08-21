@@ -164,7 +164,7 @@
          under a subtitle naming its zone, above six cells that each said what kind of hour
          it was where they are. The room's own hour is the one the person reading is
          standing in; if the rule is worth applying to Tokyo it is worth applying here. */
-      function lightThere(now, zone) {
+      function lightThere(now, zone, hero) {
         var hh;
         if (zone) {
           try {
@@ -177,7 +177,14 @@
         if (!isFinite(hh)) return "";
         if (hh < 5 || hh >= 21) return "t-cold";
         if (hh < 7 || hh >= 19) return "t-warm";
-        return "";
+        /* A FLOOR UNDER THE HERO'S TONE, and only the hero's. The rule is sound — a clock
+           wears the light of its own hour — but its working-day case is "no class", so at
+           two in the afternoon the one number this panel is about rendered in the same
+           flat white as every other number in the app, on a screen named in the colour
+           pass. Daylight is not the absence of a tone, it is the warm white of a room with
+           the sun in it. The six world clocks keep the plain white: six warm cells is a
+           panel with a tint on it, where one is a panel with a light source. */
+        return hero ? "t-daylight" : "";
       }
 
       function render() {
@@ -206,7 +213,7 @@
 
         WP.repaint(body,
           '<div class="big-readout"><div class="big-time '
-          + lightThere(now, localZone) + '" id="clk-big">'
+          + lightThere(now, localZone, true) + '" id="clk-big">'
           + esc(fmt.clock(now, true)) + "</div>"
           + '<div class="big-sub">' + esc(now.toLocaleDateString(undefined, {
               weekday: "long", year: "numeric", month: "long", day: "numeric" })) + "</div></div>"

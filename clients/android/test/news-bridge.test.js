@@ -216,8 +216,15 @@ test("merge dedupes across feeds, newest first, capped", function () {
 
 test("without the shell the ticker explains itself instead of erroring forever", function () {
   var app = h.createApp({});
-  assert.match(app.text("news-line"), /tablet/,
-    "the browser fallback copy is gone");
+  /* The copy changed on purpose in round 3: it used to say "Feeds are fetched through the
+     app shell, which a browser tab does not have" — the build's own vocabulary, rendered
+     in the ticker's headline slot and attributed to "News · now", i.e. indistinguishable
+     from a real story. What is pinned now is the thing that matters: the line says it is a
+     PREVIEW, and it never says "app shell" to somebody standing in a kitchen. */
+  assert.match(app.text("news-line"), /preview/i,
+    "the browser fallback no longer marks itself as a preview");
+  assert.doesNotMatch(app.text("news-line"), /app shell/i,
+    "the ticker is printing the build's internal vocabulary");
   app.WP.panels.open("news");
   assert.ok(app.panelBody("news").textContent.length > 40);
 });

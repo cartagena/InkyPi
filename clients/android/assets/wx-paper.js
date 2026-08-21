@@ -156,8 +156,9 @@
       var body = WP.qs("[data-body]", panel);
       if (!this.uri) {
         var why = !WP.bridgeFetch.available()
-          ? ["Front pages arrive through the app shell.",
-             "A browser tab does not have one; the tablet does."]
+          /* not "the app shell" — see the same note in wx-gallery.js */
+          ? ["Front pages arrive on the wall panel.",
+             "This is a browser preview; it cannot fetch one. The tablet can."]
           : this.problem === "offline"
           ? ["No connection to the newspaper archive.",
              "It tries again on its own, and shows the last page it managed to fetch."]

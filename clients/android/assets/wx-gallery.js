@@ -284,8 +284,11 @@
           + "</div>"
           + (slot.note ? '<div class="pic-note">' + esc(slot.note) + "</div>" : "");
       } else if (!WP.bridgeFetch.available()) {
-        main = emptyPanel("Pictures arrive through the app shell",
-          "A browser tab does not have one. This screen works on the tablet.");
+        /* "the app shell" is the build's word for itself, not a word anybody standing in
+           a kitchen has. What the reader needs is which of the two things they are looking
+           at, and that this one is the preview. */
+        main = emptyPanel("Pictures arrive on the wall panel",
+          "This is a browser preview; it cannot fetch them. The tablet can.");
       } else if (this.cur === "ai" && !aiEnabled() && !slot) {
         main = emptyPanel("Generated pictures need a key",
           "Add <b>openai: { apiKey: … }</b> and rebuild. Nothing else on this screen "

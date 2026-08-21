@@ -163,11 +163,20 @@
     fetch: function () {
       if (!WP.bridgeFetch.available()) {
         /* browser/dev: feeds are CORS-blocked from a page, so say so instead of erroring
-           forever. The demo strings double as the layout's fixture. */
+           forever. The demo strings double as the layout's fixture.
+
+           `note` MARKS THEM AS NOT NEWS. They were plain items, so the ticker printed
+           "Feeds are fetched through the app shell…" in the headline slot, attributed to
+           "News · now" — a sentence about the app's own plumbing, in the app's internal
+           vocabulary, dressed as a story off the wire. It never reaches the tablet, but it
+           is in every screenshot anyone reviews. A note renders as what it is: dimmed, and
+           captioned "preview" rather than with an age. */
         if (!this.items.length) {
           this.items = [
-            { title: "Headlines appear here once the panel runs on the tablet", at: Date.now(), source: "News" },
-            { title: "Feeds are fetched through the app shell, which a browser tab does not have", at: Date.now(), source: "News" }
+            { title: "Headlines appear here once the panel is on the wall",
+              at: Date.now(), source: "", note: true },
+            { title: "A browser tab cannot reach the news feeds",
+              at: Date.now(), source: "", note: true }
           ];
           this.renderCard();
         }
@@ -211,9 +220,12 @@
         return;
       }
       var it = this.items[this.idx % this.items.length];
-      el.innerHTML = '<span class="news-t">' + esc(it.title) + "</span>"
-        + '<span class="news-meta">' + esc((it.source ? it.source + " · " : "") + ago(it.at))
-        + (this.stale ? " · stale" : "") + "</span>";
+      el.innerHTML = '<span class="news-t' + (it.note ? " muted" : "") + '">'
+        + esc(it.title) + "</span>"
+        + '<span class="news-meta">'
+        + esc(it.note ? "preview"
+            : (it.source ? it.source + " · " : "") + ago(it.at) + (this.stale ? " · stale" : ""))
+        + "</span>";
     },
 
     onOpen: function (panel) { this.panel = panel; this.paintPanel(); },
@@ -264,11 +276,11 @@
         if (it.source && feeds.indexOf(it.source) === -1) feeds.push(it.source);
       });
       var rows = shown.map(function (it) {
-        var age = esc(ago(it.at));
+        var age = it.note ? "preview" : esc(ago(it.at));
         var meta = (one || !it.source) ? age
           : '<span class="news-src s' + (feeds.indexOf(it.source) % 4) + '">'
             + esc(it.source) + "</span> · " + age;
-        return '<div class="news-row">'
+        return '<div class="news-row' + (it.note ? " note" : "") + '">'
           + '<div class="news-row-t">' + esc(it.title) + "</div>"
           + '<div class="news-row-m">' + meta + "</div>"
           + "</div>";

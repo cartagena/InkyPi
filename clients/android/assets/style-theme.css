@@ -186,10 +186,13 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
 /* rain-chance figures wear rain's colour once they mean something (>= 30%) */
 .hr-p.wet, .hrow-p.wet, .stat-v .wet { color: var(--ic-rain); }
 /* Sun times are sun-coloured, because that is the rule the whole colour layer runs on:
-   warm things are warm. SUNRISE and SUNSET were the two plainest white numbers on a panel
-   whose subject is the sky. Wherever they are printed — a stat cell, or the two ends of
-   the day's arc on Conditions. */
+   warm things are warm — wherever they are printed, a stat cell or the two ends of the
+   day's arc on Conditions. */
 .stat-v .sunlit, .sun-ends .sunlit { color: var(--temp-warm); }
+/* Daylight, as a colour: the warm white of a room with the sun in it, one step off plain
+   --fg. The icon pack's own sun-lit token, because it is the same thing being named. Worn
+   by the Clock hero at the hours the other two tones leave uncovered — see wx-clock.js. */
+.t-daylight { color: var(--ic-sun-lit); }
 /* Daily lows read cool — hi stays primary text. One rule for every low in the app: the
    home strip (.fc-lo), the Daily panel's hero (.lo) and the hourly chart's valley callout
    (.hc-lo). The panel used to render its low as --dim, so the same number was blue on the
@@ -284,6 +287,9 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
   overflow: hidden;
 }
 .news-row-m { font-size: var(--fs-note); color: var(--dimmer); margin-top: 0.4vh; }
+/* A NOTE IS NOT A HEADLINE. The browser preview cannot reach a feed and says so — but it
+   said so in the headline slot, at the headline's weight, over "News · now". */
+.news-row.note .news-row-t { color: var(--dim); }
 /* One colour per feed, so a merged list is scannable without reading the word: the source
    is the only field in a row that distinguishes it from the row above, and it was printed
    in the same grey as the age beside it. Four steps, all of them tokens the palette

@@ -51,13 +51,21 @@
     };
   }
 
-  /* WMO code + day/night the chosen scene implies, or null to leave the real data alone */
+  /* WMO code + day/night the chosen scene implies, or null to leave the real data alone.
+
+     THE RATES ARE RATES A SKY CAN ACTUALLY PRODUCE. `precip` is per hour in whatever unit
+     the panel is set to, and the storm's used to be 6.2 — which rendered as "RIGHT NOW
+     6.2 in" beside "TODAY 0 in", an hourly rate thirty times the record for the continent
+     next to a day total of nothing. A fixture that contradicts itself is a fixture that
+     makes the product look broken in every screenshot taken of it, and it is the reference
+     shot a reviewer reads. Real figures now, and the DAY is derived from the hour below so
+     the two cannot disagree. */
   var SCENES = {
     "clear-day":   { code: 0,  day: 1 },
     "clear-night": { code: 0,  day: 0 },
-    "rain":        { code: 63, day: 1, pop: 85, precip: 2.4 },
-    "snow":        { code: 73, day: 1, pop: 90, precip: 1.1 },
-    "storm":       { code: 95, day: 1, pop: 95, precip: 6.2 },
+    "rain":        { code: 63, day: 1, pop: 85, precip: 0.18 },
+    "snow":        { code: 73, day: 1, pop: 90, precip: 0.09 },
+    "storm":       { code: 95, day: 1, pop: 95, precip: 0.42 },
     "fog":         { code: 45, day: 1 }
   };
 
@@ -87,6 +95,19 @@
     }
     if (json.daily && json.daily.weather_code) {
       json.daily.weather_code = json.daily.weather_code.map(function () { return sc.code; });
+      /* Today's total and today's chance follow the hour, so the panel cannot print a
+         downpour under a dry day. Eight hours of it is a believable storm. */
+      if (sc.precip && json.daily.precipitation_sum) {
+        json.daily.precipitation_sum = json.daily.precipitation_sum.map(function (v, i) {
+          return i === 0 ? Math.round(sc.precip * 8 * 100) / 100 : v;
+        });
+      }
+      if (sc.pop && json.daily.precipitation_probability_max) {
+        json.daily.precipitation_probability_max =
+          json.daily.precipitation_probability_max.map(function (v, i) {
+            return i === 0 ? sc.pop : v;
+          });
+      }
     }
     return json;
   }
