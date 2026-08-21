@@ -49,6 +49,13 @@ window.CONFIG = {
     ],
   },
 
+  // ---- COUNTDOWNS (optional) ------------------------------
+  // Named dates for the Year tile and panel — the same two fields as InkyPi's countdown
+  // plugin. The nearest upcoming one is shown on the tile. Dates are YYYY-MM-DD, local.
+  countdowns: [
+    // { title: "Vacation", date: "2026-12-20" },
+  ],
+
   // ---- REFRESH --------------------------------------------
   weatherRefreshMinutes: 15,
 

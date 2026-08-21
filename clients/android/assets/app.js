@@ -202,7 +202,7 @@ window.WP = (function () {
      account and no sync in this product by design, so the screen had nothing to grow into,
      and shipping a fourth empty calendar is worse than shipping eleven panels that all say
      something. The tile went with it: DATE 17 / Mon · Aug restated the clock card. */
-  var WIDGETS = ["clock", "weather", "hourly", "daily", "moon", "air",
+  var WIDGETS = ["clock", "weather", "hourly", "daily", "moon", "air", "year",
                  "paper", "gallery",
                  "news", "sensors", "system", "timer", "settings"];
   /* What each widget is called in the Widgets list on the Settings panel. These are the
@@ -214,7 +214,7 @@ window.WP = (function () {
      from twelve full-width rows (1005 CSS px, more than the whole panel) down to four. */
   var WIDGET_LABELS = {
     clock: "Clock", weather: "Now", hourly: "Hourly",
-    daily: "Next days", moon: "Moon", air: "Air",
+    daily: "Next days", moon: "Moon", air: "Air", year: "Year",
     paper: "Paper", gallery: "Picture",
     news: "News", sensors: "Home", system: "Device",
     timer: "Timer", settings: "Setup"

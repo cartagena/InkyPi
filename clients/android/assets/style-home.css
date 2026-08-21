@@ -4,6 +4,13 @@
 
 /* ---------- 1. clock ---------- */
 .card-clock, .card[data-widget="clock"] { border: none; padding-left: 0; }
+/* 1b. The Year tile shares the clock's line: #home is a wrapped row, so a clock card with a
+   basis under 100% and a tile with the remainder land side by side and the weather card
+   starts the next line as before. The tile stretches to the clock's height (align-items
+   on the line) and centres its three lines in it (.card is a centred column). When the
+   tile is hidden the clock grows back to the full line — its flex-grow is 1, the tile's 0. */
+#home > .card[data-widget="clock"] { flex: 1 1 calc(72% - 2vw); }
+#home > .card.mini[data-widget="year"] { flex: 0 1 28%; align-self: stretch; }
 .clock-row { display: flex; align-items: baseline; }
 .time {
   font-size: var(--fs-display);

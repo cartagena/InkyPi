@@ -93,6 +93,19 @@
       <div id="date" class="date">&nbsp;</div>
     </section>
 
+    <!-- ---- 1b. year: InkyPi's year_progress + countdown plugins on glass. It shares the
+         clock's LINE, not the tile rows: the clock row had the width (the digits end a third
+         of the way across) and the tile rows did not (four content tiles already ellipsize
+         their heads at 711 CSS px). Costs zero height — the first line is as tall as the
+         clock either way — and reads as what it is: context for the date printed beside it.
+         The nearest countdown rides the sub-line; local arithmetic, no network. -->
+    <section class="card mini tappable" data-widget="year" data-open="year"
+             role="button" tabindex="0" aria-label="Year progress">
+      <div class="mini-head">Year</div>
+      <div id="year-big" class="mini-big">--</div>
+      <div id="year-sub" class="mini-sub">&nbsp;</div>
+    </section>
+
     <!-- ---- 3. weather now ---- -->
     <section class="card tappable" data-widget="weather" data-open="weather"
                role="button" tabindex="0" aria-label="Current conditions">
@@ -325,6 +338,14 @@
     <div class="panel-body" data-body></div>
   </section>
 
+  <section class="panel" data-panel="year">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Year</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
   <section class="panel" data-panel="air">
     <header class="panel-head">
       <div><h1 class="panel-title">Air Quality</h1><p class="panel-sub" data-sub></p></div>
@@ -426,6 +447,7 @@
 <script src="wx-system.js"></script>
 <script src="wx-moon.js"></script>
 <script src="wx-air.js"></script>
+<script src="wx-year.js"></script>
 <script src="wx-paper.js"></script>
 <script src="wx-gallery.js"></script>
 <script src="wx-news.js"></script>

@@ -42,7 +42,9 @@ location: {
 Set both to `null` to show a "set your location" notice instead.
 
 Also configurable: `units` (fahrenheit/celsius), `clockHours` (12/24), `weatherRefreshMinutes`,
-and `burnInProtection` (`enabled`, `intervalSeconds`, `maxShiftPx`).
+`burnInProtection` (`enabled`, `intervalSeconds`, `maxShiftPx`), and `countdowns` — a list of
+`{ title, date: "YYYY-MM-DD" }` (the same two fields as InkyPi's countdown plugin); the nearest
+upcoming one is shown on the Year tile and all of them in its panel.
 
 `units`, `clockHours` and `burnInProtection.enabled` are only **defaults** now — the on-device
 Settings panel owns them once the user touches it, and its choices persist. `plugins` is a
@@ -512,9 +514,23 @@ idea, rendered on a colour AMOLED instead of e-paper.
 rendered on or streamed from a Raspberry Pi. "Staying true to InkyPi" means porting the
 *plugins*, not the pixels:
 
-1. **Plugin parity** — each InkyPi plugin (weather, newspaper, comic, APOD, calendar, AI text,
-   image folder, …) gets a JavaScript widget port. Weather, newspaper and the picture plugins
-   already exist; the server's `src/plugins/` is the reference implementation.
+1. **Plugin parity** — each InkyPi plugin gets a JavaScript widget port; the server's
+   `src/plugins/` is the reference implementation. Where each one stands:
+
+   | InkyPi plugin | On the tablet | Notes |
+   |---|---|---|
+   | `clock` | **Clock** | plus world clocks, day-of-year, ISO week |
+   | `weather` | **Now / Hourly / Next days / Air** | Open-Meteo, same source; Air from the air-quality endpoint |
+   | `newspaper` | **Paper** | Freedom Forum front pages, same source |
+   | `comic`, `wpotd`, `apod`, `ai_image` | **Picture** | one tile rotating the four sources |
+   | `rss` | **News** | RSS/Atom headlines via the shell fetch |
+   | `year_progress`, `countdown` | **Year** | local arithmetic; countdowns from `config.countdowns` |
+   | `calendar` | — next | ICS feeds, read-only; needs an RRULE expander |
+   | `todo_list`, `ai_text` | — | candidates |
+   | `image_album` / `image_folder` / `image_upload` / `image_url`, `unsplash`, `github`, `screenshot` | — | need accounts, keys or a file store; decide per plugin |
+
+   Things the server has that the tablet adds on top: Moon (local), Home Assistant tiles, Timer,
+   Device, and the sky layer.
 2. **Same vocabulary** — plugin settings, playlist/cycle timing and refresh intervals mirror the
    server's so the two feel like one product.
 3. **Same data sources** — Open-Meteo, Freedom Forum, XKCD, NASA, etc., so the tablet shows what

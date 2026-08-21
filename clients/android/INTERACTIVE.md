@@ -43,6 +43,13 @@ path with the icon set) and **Air** (Open-Meteo's air-quality endpoint, same COR
 the weather fetch; the AQI number wears the EPA band colours and the strip under it says which
 of the six bands today is in).
 
+**Year** (2026-08-21) is InkyPi's `year_progress` and `countdown` plugins on glass: the share of
+the year gone as the tile's value, the days left — or the nearest configured countdown — on its
+sub-line, and a panel of year / quarter / month bars plus every countdown from `config.countdowns`.
+Local arithmetic only, midnight-to-midnight so DST cannot move it. It sits on the CLOCK's line
+rather than in a tile row: the clock row had the width and the tile rows did not, and it costs
+the column no height.
+
 A third, **Date**, was cut: a month grid computed locally, with no events, because this product
 has no account and no sync by design. See the note in README — a screen that restates the Clock
 card's date is not a screen.

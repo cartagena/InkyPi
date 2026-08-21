@@ -12,7 +12,7 @@ var assert = require("node:assert/strict");
 var h = require("./lib/harness.js");
 
 var CARD_H = 150;
-var VIEW_H = 1300;   // 8 home children x 150 + 100 slack
+var VIEW_H = 1300;   // 8 home LINES x 150 + 100 slack (the Year tile shares the clock line)
 
 var VIEW_W = 800;
 
@@ -30,6 +30,13 @@ function layout(app, opts) {
   var y = 0;
   kids.forEach(function (n) {
     n.offsetHeight = opts.cardHeight == null ? CARD_H : opts.cardHeight;
+    /* The Year tile shares the clock's LINE (#home is a wrapped row and the two carry a
+       basis of 72% + 28%), so it sits beside the clock, not under it: same top and bottom,
+       the right-hand 28% of the line, and it advances the column by nothing. */
+    if (n.getAttribute("data-widget") === "year") {
+      n.setRect({ left: 576, top: y - n.offsetHeight, right: 800, bottom: y });
+      return;
+    }
     n.setRect({ left: 0, top: y, right: 800, bottom: y + n.offsetHeight });
     y += n.offsetHeight;
   });
@@ -55,7 +62,7 @@ test("every widget registers and initialises", function () {
      NASA / generated picture. */
   assert.deepEqual(names, ["air", "carousel", "clock", "daily", "gallery", "hourly", "moon",
                            "news", "paper", "sensors", "settings", "sky", "system",
-                           "timer", "weather"]);
+                           "timer", "weather", "year"]);
   /* each one has painted something into its card */
   assert.notEqual(app.text("time"), "--:--");
   assert.notEqual(app.text("date").trim(), "");
@@ -77,7 +84,7 @@ test("the layout report is logged once the cards have their content", function (
   app.advance(12500);                       // the deferred boot measurement
   var line = app.logs.log.filter(function (l) { return l.indexOf("[inky] layout:") === 0; })[0];
   assert.ok(line, "no layout line was logged");
-  assert.match(line, /home overflow=0 overflowX=0 slack=100px cards=8/);
+  assert.match(line, /home overflow=0 overflowX=0 slack=100px cards=9/);
 });
 
 test("overflow is escalated to a warning, not logged as if it were fine", function () {
