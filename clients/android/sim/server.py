@@ -41,12 +41,25 @@ ALLOWED_HOSTS = {
 ALLOWED_HOSTS |= {h.strip().lower() for h in os.environ.get("SIM_ALLOW_HOSTS", "").split(",") if h.strip()}
 
 
-def _allowed(url):
+def _safe_target(url):
+    """Return a rebuilt URL whose scheme/host come from the allowlist, or None.
+
+    The host is taken from ALLOWED_HOSTS (a constant), not from the request, so the
+    destination can never be anything the allowlist does not name.
+    """
     try:
         p = urllib.parse.urlsplit(url)
     except ValueError:
-        return False
-    return p.scheme in ("http", "https") and (p.hostname or "").lower() in ALLOWED_HOSTS
+        return None
+    if p.scheme not in ("http", "https"):
+        return None
+    want = (p.hostname or "").lower()
+    host = next((h for h in ALLOWED_HOSTS if h == want), None)
+    if host is None:
+        return None
+    netloc = host if p.port is None else "%s:%d" % (host, p.port)
+    scheme = "https" if p.scheme == "https" else "http"
+    return urllib.parse.urlunsplit((scheme, netloc, p.path or "/", p.query, ""))
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
@@ -114,8 +127,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def proxy(self, method):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
-        url = (q.get("u") or [None])[0]
-        if not url or not _allowed(url):
+        url = _safe_target((q.get("u") or [""])[0])
+        if not url:
             return self.send_error(400, "proxy target not in SIM_ALLOW_HOSTS")
         body = None
         if method == "POST":
