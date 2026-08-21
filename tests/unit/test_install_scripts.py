@@ -3743,6 +3743,29 @@ class TestBootVerifyScript:
                 "the UART that actually registers"
             )
 
+    def test_masks_units_that_cannot_work_without_hardware(self):
+        # inkypi.service drives an Inky HAT via inky.auto(), which identifies
+        # the panel by reading an EEPROM over I2C. There is no HAT under qemu,
+        # so it fails every time, and Restart=on-failure with RestartSec=60 and
+        # StartLimitBurst=5 turned that into ~350s of a 600s budget with
+        # multi-user.target queued behind it. NetworkManager-wait-online holds
+        # network-online.target for a NIC raspi3b does not emulate, and
+        # inkypi.service is ordered after that, so the two delays stack.
+        #
+        # The gate measures whether the image boots. Whether the app runs on
+        # real hardware is checked by audit_pi_image.sh instead.
+        assert "systemd.mask=inkypi.service" in self.script
+        assert "systemd.mask=NetworkManager-wait-online.service" in self.script
+
+    def test_masking_is_compensated_by_the_image_audit(self):
+        # Masking inkypi.service in the boot test is only safe because
+        # something else still checks the app is wired up correctly.
+        audit = (SCRIPTS_DIR / "audit_pi_image.sh").read_text()
+        for probe in ("/usr/local/inkypi/src", "inkypi.service", "i2c-dev"):
+            assert (
+                probe in audit
+            ), f"audit must still check {probe} — the boot test no longer does"
+
     def test_pins_systemd_logging_to_kmsg(self):
         # systemd switches from kmsg to the journal as soon as journald starts.
         # The journal is a file inside the guest that we never read, so its

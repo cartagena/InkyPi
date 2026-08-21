@@ -199,6 +199,24 @@ CMDLINE="${CMDLINE} systemd.log_target=kmsg systemd.show_status=true"
 # kmsg rate limit that would otherwise drop messages under that extra volume,
 # including possibly the boot-completion line this script waits for.
 CMDLINE="${CMDLINE} systemd.journald.forward_to_kmsg=1 printk.devkmsg=on"
+
+# Mask the two units that cannot possibly succeed under emulation, so the gate
+# measures the image rather than qemu's missing hardware.
+#
+# inkypi.service drives an Inky e-paper HAT. Its driver calls inky.auto(),
+# which identifies the panel by reading an EEPROM over I2C — there is no HAT
+# here, so it fails every time, and the unit is configured to keep trying:
+# Restart=on-failure, RestartSec=60, StartLimitBurst=5. That loop ate ~350s of
+# a 600s budget before tripping its start limit, and multi-user.target sat
+# behind it. Whether the app runs on real hardware is not something a
+# hardware-free boot can answer; scripts/audit_pi_image.sh checks its wiring
+# instead (src symlink resolves, venv, launcher, unit enabled, i2c-dev).
+#
+# NetworkManager-wait-online holds network-online.target until it gives up,
+# and qemu's raspi3b emulates no NIC at all. inkypi.service is ordered after
+# network-online.target, so this delay stacks on top of the one above.
+CMDLINE="${CMDLINE} systemd.mask=inkypi.service"
+CMDLINE="${CMDLINE} systemd.mask=NetworkManager-wait-online.service"
 echo "Boot cmdline: ${CMDLINE}"
 
 # ── pad to a power of two ─────────────────────────────────────────────────────
