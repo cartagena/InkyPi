@@ -1,0 +1,447 @@
+/* Inky OLED — wall panel dashboard.
+   Target: Galaxy Tab S6 mounted on a wall. The device reports 1600x2560 physical at
+   360 dpi, i.e. a 711 x 1138 CSS-pixel PORTRAIT viewport at devicePixelRatio 2.25.
+   (The manifest asks for landscape; Samsung's large-screen policy ignores fixed
+   orientation requests, so the real render is portrait — sizes below are tuned from
+   actual screenshots at that resolution, and a landscape fallback follows at the end.)
+
+   1 vh = 11.4 CSS px = 25.6 device px, so the spec's 88-device-pixel minimum touch
+   target is 3.5 vh. Nothing tappable here is under 5 vh.
+
+   Deliberately dark and low-coverage: on OLED black pixels are OFF, which saves power
+   and is the main defence against burn-in. Avoid large bright fills. */
+
+/* Contrast budget (measured against #000, WCAG 2.1):
+     --fg     #f2f2f2  18.8:1   primary readouts
+     --dim    #a2a2a2   8.2:1   supporting text
+     --dimmer #7a7a7a   4.9:1   labels, units, status — passes 4.5:1 body text
+   --dimmer was #4a4a4a (2.37:1), which carried most of the secondary information on a
+   panel meant to be read from 2-4 m and failed even the large-text threshold. */
+:root {
+  --bg:        #000000;
+  --fg:        #f2f2f2;
+  --dim:       #a2a2a2;
+  --dimmer:    #7a7a7a;
+  /* --accent IS --temp-cold, the same hex, and that is the whole problem it used to
+     cause: blue meant "this number is a low", "this thing is selected" and "this switch is
+     on", all at once, on screens where two of the three were 2 cm apart. Selection and
+     on/off are drawn in white now (see .chip.on, .seg-b.on, .switch.on) and blue is left to
+     mean cold and nothing else. What --accent still marks is a LINE of data: the sensor
+     trace, the countdown bar, the rain figure. */
+  --accent:    #6db3f2;
+  --warn:      #f2b46d;
+  --danger:    #f26d6d;
+  --ok:        #7de08d;
+  --card-line: #1c1c1c;
+  --card-line2:#2a2a2a;
+  --press:     rgba(255, 255, 255, 0.10);
+
+  /* ---------------- type ramp ----------------
+     Sizes used to be chosen per element: 30 distinct font-size values across eight panels,
+     which is the main reason the panels did not read as one app. Every size now comes off
+     this ramp and nothing may introduce a new value — pick the NEAREST step.
+
+     Eight steps: a ~1.16 ratio through the text range (fine enough that adjacent tiers are
+     distinguishable at 2-4 m without any tier feeling arbitrary), then three larger jumps
+     for the hero tiers, which are read as shapes rather than as text.
+
+     ---------------- how big is big enough, in arcminutes ----------------
+     The ramp used to be chosen by eye against a screenshot on a desk, and the whole build
+     came out sized for a tablet in the hand. The panel is 244.5 x 152.8 mm of active area
+     at 2560 x 1600, so 1 CSS px = 0.215 mm; cap height is ~0.72 em; and a cap of height h
+     read from 3 m subtends h/3000 * 3438 arcminutes. 20/20 acuity RESOLVES about 5' — that
+     is the threshold at which a letter stops being a smudge, not a reading size. Fluent
+     glance-reading wants 12-18'.
+
+     Measured against that, every panel VALUE in the app was --fs-title-sm = 33 CSS px =
+     5.9', every field label 3.7', and every chart axis and unit 2.8'. Only the home clock
+     (15.3') and the home hero (10.5') were sized for the room, which is exactly why the
+     home screen worked from the sofa and the twelve panels did not: you walked to them.
+
+     So the panel tiers now sit on these steps, and the arcminute figure is the reason:
+
+       value    --fs-title-lg  45.5 CSS px   8.1'    a number you read, not decode
+       heading  --fs-title-sm  33.0 CSS px   5.9'    at --dim
+       label    --fs-body-lg   28.5 CSS px   5.05'   at --dimmer
+       axis     --fs-body-lg   28.5 CSS px   5.05'   at --dim — the SAME step as a label
+
+     The axis tier used to be --fs-note (21.1 CSS px, 3.8'), and the suite enforced a floor
+     of 3.6' and called that "the axis tier" — i.e. the one place in the build where the
+     stated floor was set BELOW the 5' this file spends four paragraphs establishing, and
+     the round that wrote it certified the exact fault it was written to catch. The `93°`
+     peak on the Hourly chart, which is the single number that chart exists to deliver, was
+     the least legible thing on its own screen.
+
+     A chart annotation is not decoration on a chart, it is what makes the chart's height
+     mean anything, so it takes the same floor as everything else: --fs-body-lg at --dim.
+     The bill is paid where the acuity argument says it should be — in ticks and bars, not
+     in points. The Hourly axis carries six labels instead of eight and the Daily axis six
+     instead of eight; the shapes are unchanged and the numbers on them are now readable
+     from the sofa.
+
+     --fs-body-lg moved 2.45 -> 2.5vh with that change, which is 5.05' rather than 4.95' —
+     the tier is the acuity floor now, so it has to be ON the right side of it. It also
+     makes the ramp more even, not less: the step ratios through the text range were
+     1.143 / 1.156 / 1.162 / 1.140 / 1.184 and are now 1.143 / 1.156 / 1.162 / 1.163 /
+     1.160. The 1.16 ratio the ramp claims is finally the ratio it has.
+
+     --fs-title-lg is the step this needed and did not have: --fs-title (38.7) is the panel
+     TITLE and a value cannot equal the name of the screen it is on, and --fs-hero (59.2) is
+     a hero. Two adjacent tiers of the same ramp, one step apart, is the answer.
+
+     --fs-caption is now the floor of the ramp rather than a tier anything important uses.
+     Nothing may set it together with --dimmer — see the ban in the label block below.
+
+     Units are vh for the same reason the rest of the layout is: this panel has exactly one
+     viewport and the whole column is a height budget. The remap was measured on device
+     against that budget — see the overflow/slack line in the boot log, which must stay
+     overflow=0 in all four 12h/24h x seconds combinations. */
+  --fs-caption:    1.4vh;    /* the floor: badges, tile sub-lines. Never with --dimmer. */
+  --fs-label:      1.6vh;    /* letter-spaced small caps: card labels on the home column */
+  --fs-note:       1.85vh;   /* panel subtitles, chart axes, secondary prose */
+  --fs-body:       2.15vh;   /* list rows, chips, the toast */
+  --fs-body-lg:    2.5vh;    /* FIELD LABEL and CHART ANNOTATION; things a finger aims at */
+  --fs-title-sm:   2.9vh;    /* a panel's SECTION HEADING; tile glyphs; list values */
+  --fs-title:      3.4vh;    /* panel titles, tile headline numbers */
+  --fs-title-lg:   4.0vh;    /* a panel's VALUE — the number the screen is about */
+  --fs-hero:       5.2vh;    /* the home weather hero */
+  --fs-display:    7.6vh;    /* the clock, and a panel's one big readout */
+  /* The stopwatch, and the widest string this ramp step ever has to hold: a 60-minute
+     countdown reads "1:00:00", seven glyphs, ~3.3 em of tabular digits. 16vh is 182 CSS px,
+     which lays that out in 603 of the 668 px the panel body has. It was 10.5vh — the one
+     screen in the app whose entire subject is a single number, drawn smaller than the home
+     clock, on the least-inked panel in the build. */
+  --fs-display-xl: 16vh;
+
+  /* One recipe for every letter-spaced small-caps label, so a section heading looks the
+     same in Conditions as it does in Settings (see the label block further down).
+     These two are the whole small-caps look. A mutation that set the tracking to 0 and the
+     weight to 900 survived the test suite: the recipe test asserted that .psec-t and
+     friends REFERENCE var(--label-track), never what the token contains, so every label in
+     the app could turn into bold squashed capitals with the suite still green. The values
+     are pinned as ranges in design-system.test.js now. */
+  --label-track:  0.16em;
+  --label-weight: 500;
+
+  /* ---------------- control padding ----------------
+     The type ramp's counterpart for the things a finger aims at. Five steps, and every
+     `.tappable` in the app takes its vertical padding from one of them.
+
+     Why a scale and not per-control values: the touch-target test can only enforce a
+     FLOOR, and the floor has about 2x slack on most controls — a mutation that cut a
+     settings row's padding by 76% (1.7vh -> 0.4vh), wrecking the rhythm of the whole
+     panel, still cleared 88 device px and passed. A control that is off the scale is now
+     the failure, which is a property about the design rather than about the minimum.
+
+     The steps are named for the ROLE, because that is what decides the value: a chip in a
+     gapped grid is separated by the gap and needs little of its own; a row in a flush,
+     hairline-divided list has nothing but its padding between it and the next target. */
+  --pad-chip:    0.5vh;   /* .hr, .fc-day, .sensor — gapped strips and grids */
+  --pad-inline:  0.75vh;  /* .link-btn, .card — a control inside another control's line */
+  --pad-tile:    0.9vh;   /* .card.mini — the three home tiles */
+  --pad-row:     1.3vh;   /* .hrow, .lap, .chip — a row in a flush list */
+  --pad-control: 1.8vh;   /* .btn, .seg-b, .srow, .wide-btn — a control on its own line */
+
+  /* ---------------- motion ----------------
+     Three durations, one easing. Nothing in the app animates on a number that is not one
+     of these, so a press, a switch knob and a panel entrance all feel like the same
+     machine. The two deliberate exceptions are documented where they occur: the line under
+     the toast vanishes instantly (transition:none) so the two are never legible through
+     each other, and the burn-in drift uses --dur-drift, which is slow enough to be
+     invisible rather than to be "animation". */
+  --ease:       cubic-bezier(0.2, 0.6, 0.2, 1);
+  --dur-press:  0.12s;   /* finger feedback — must beat the eye, not be admired */
+  --dur-ui:     0.2s;    /* panels, switch knobs, badges, bars */
+  --dur-fill:   0.3s;    /* a progress bar sweeping to a new width reads better slightly slower */
+  --dur-drift:  4s;      /* burn-in nudge: long enough that a 12px step is never seen moving */
+  /* The one repeating animation in the app: the slow breath on an alert. It was authored
+     as a literal `1s` in three places, and the motion test only ever read `transition:`
+     declarations — so the sentence three lines above ("nothing in the app animates on a
+     number that is not one of these") was simply false, and a mutation that moved it to
+     3.7s passed. It is a token now and the test reads `animation:` too. */
+  --dur-pulse:  1s;      /* the alert breath — slow enough to read as breathing, not blinking */
+
+  /* The home column is a fixed budget: 100vh has to hold 8 widgets with nothing clipped.
+     Sizes below were measured off real 1600x2560 screenshots — if you grow one card,
+     take the height back out of another.
+     Measured on device with all 8 visible: overflow=0 overflowX=0 slack=17 device px,
+     identical across all four 12h/24h x seconds combinations (the boot log carries the
+     numbers; see homeMetrics in app.js). It was 34 px before the Now card's bare grey
+     chevron became the same labelled "Details >" button its three neighbours use — that
+     button is a touch target and so is 0.8vh taller than the glyph it replaced, and the
+     consistency is worth the pixels. That slack is deliberate and must not be spent — a
+     downward burn-in nudge is up to 12 px, and #home is the only thing standing between a
+     nudge and the bottom tile row falling off the frame. Verified on device across five
+     drift samples: the ink block translates rigidly and the lowest ink sat at y=2525 of a
+     2560 px frame at its lowest.
+     Because every card carries flex-grow, the slack is handed back to the cards as extra
+     internal breathing room, so trimming intrinsic padding above costs nothing visually. */
+  /* Between cards in the home column. 0.8vh x 7 gaps was 64 device px of the budget at a
+     moment when the column had 2 px spare; the column is the constraint, not the rhythm. */
+  --gap: 0.62vh;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+*::-webkit-scrollbar { width: 0; height: 0; }
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, -apple-system, "Roboto", "Segoe UI", sans-serif;
+  overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  /* stop a deliberate long press from turning into a callout/selection gesture — people
+     press and hold a wall panel, and that gesture used to eat the tap entirely */
+  -webkit-touch-callout: none;
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  text-align: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ---------- press feedback ----------
+   Every tappable element dims-in on pointerdown. The class is set from JS because
+   :active is unreliable inside WebView scroll containers. */
+/* Every tappable thing in the app gets the same response on the same clock: it lights and
+   it gives a little under the finger. Deliberately NOT extended to border-color — half the
+   controls here carry a meaningful border (an accent outline is what "selected" means on a
+   chip or a segment), and a press must not read as a state change. */
+.tappable {
+  transition: background-color var(--dur-press) var(--ease),
+              transform var(--dur-press) var(--ease),
+              opacity var(--dur-press) var(--ease);
+}
+.tappable.is-press { background-color: var(--press); transform: scale(.985); }
+
+/* ============================================================================
+   HOME VIEW
+   ============================================================================ */
+
+/* drift wrapper for the home view. It is no longer the only layer that drifts: the panel
+   layer (#panels) and the alarm overlay (#alarm) take the identical transform on the same
+   cycle, because a detail panel left open overnight is exactly the scenario that ghosts an
+   AMOLED. They move by the same offset, so nothing is ever out of register. The transition
+   below is what makes a 12px step invisible in use — 4s of ease, not a jump. */
+#drift {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0.95vh 3vw;
+  transition: transform var(--dur-drift) ease-in-out;
+}
+
+#topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2vw;
+  height: 4.2vh;
+}
+.status {
+  font-size: var(--fs-note);
+  color: var(--dimmer);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.status.warn { color: var(--warn); }
+
+.icon-btn {
+  flex: 0 0 auto;
+  /* 4.6vh of a 1138 CSS px viewport is 52.4 CSS px, which at this panel's 2.25x ratio
+     measures 118 device px — above the 88 device px minimum touch target. */
+  width: 4.6vh;
+  height: 4.6vh;
+  font-size: var(--fs-title-sm);
+  line-height: 1;
+  border: 1px solid var(--card-line);
+  border-radius: 50%;
+  color: var(--dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The column is sized to fit at 1138 CSS px tall; overflow-y is a safety valve so a
+   long locale string can never clip content off the bottom of a wall panel.
+   Hiding a widget must *reflow*, not leave a hole. space-between used to push the
+   reclaimed height into the gaps, which turned one hidden card into two voids of dead
+   black. Handing it to the surviving cards instead (flex-grow below) makes them breathe:
+   nothing moves when all 8 are visible, because then there is no free space to hand out,
+   and when free space is negative flex-grow is inert so the scroll valve still works. */
+#home {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  /* row wrap, not column: every card takes a full line (flex-basis 100%), so this reads
+     as the same single column — EXCEPT the two tile rows, whose basis is half a line, so
+     DEVICE/TIMER/SETTINGS and MOON/AIR/CALENDAR sit side by side. Six tiles on one line
+     is the whole portrait height budget for the second trio: as a full-width row they
+     cost 110px the column did not have (measured overflow=100 on device). */
+  flex-flow: row wrap;
+  align-content: stretch;
+  justify-content: flex-start;
+  gap: var(--gap) 2vw;
+  overflow-y: auto;
+  padding-bottom: 0.25vh;
+}
+/* Direct children only — .card.mini lives inside .row3 and is laid out on the other axis. */
+#home > .card { flex: 1 1 100%; flex-shrink: 0; }
+/* the tile rows MAY shrink — six tiles sharing a line ellipsize their sub-lines rather
+   than push the last tile off the screen edge (measured overflowX=27 without this) */
+#home > .row3 { flex: 1 1 calc(50% - 2vw); min-width: 0; }
+
+/* ---------- empty state (every widget hidden) ---------- */
+.empty {
+  margin: auto 0;            /* centre in whatever space the hidden cards gave back */
+  text-align: center;
+  padding: 0 6vw;
+}
+.empty[hidden] { display: none; }
+.empty-icon { font-size: var(--fs-display); line-height: 1; color: var(--dim); }
+.empty-t { font-size: var(--fs-title); font-weight: 300; margin-top: 1.4vh; }
+.empty-s { font-size: var(--fs-body); color: var(--dim); line-height: 1.5; margin: 1.2vh 0 3vh; }
+.empty .wide-btn { max-width: 60vw; margin: 0 auto; }
+
+.card {
+  flex: 0 0 auto;
+  border: 1px solid var(--card-line);
+  border-radius: 1.5vh;
+  /* intrinsic padding is deliberately tight; flex-grow pads it back out to fill the
+     column, which is what keeps ~24 px of slack in the budget without looking cramped */
+  padding: var(--pad-inline) 2.2vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+/* ---------- the one label recipe ----------
+   Every letter-spaced small-caps label in the app is drawn from here, so UNITS in Settings,
+   AIR in Conditions, BATTERY in Device and NOW on the home card are the same object seen in
+   different places. Previously each was authored separately and they drifted to five sizes
+   (1.5 / 1.6 / 1.65 / 1.7 vh), four trackings (0.06 / 0.08 / 0.1 / 0.2 em) and two weights.
+
+   Three tiers, and the difference between them IS the hierarchy:
+     .psec-t   a panel's section heading — --fs-title-sm (33 CSS px, 5.9' at 3 m) at --dim
+     .stat-k   a panel's FIELD label — --fs-body-lg (27.9 px, 5.0' at 3 m) at --dimmer
+     the rest  a card label on the home screen, where the card's own shape does half the
+               work of saying what it is — smallest, dimmest, subordinate to its value
+
+   Why .stat-k was pulled out. It carried the meaning of every number on every panel and
+   it was set at the smallest step in the ramp AND the lowest contrast in the palette:
+   1.6vh is 41 device px and --dimmer is 4.9:1, which at the 2-4 m this panel is read from
+   is about 6 arcmin of low-contrast small caps — i.e. gone. What reached the viewer was an
+   unlabelled sheet of numbers (55%, 63°, 29.91 inHg, 0%, 33.4 mi) beside a 74-device-px
+   white value it was supposed to explain. The label tier is the tier that has to be
+   readable; the value is the tier you can guess. Raising it costs one grid row per panel,
+   and the field cuts in the panels below are what paid for it.
+
+   Why the heading is BRIGHTER than the label under it, and why they are a full step apart.
+   The first pass at this raised .stat-k to --fs-note and left .psec-t at --fs-body, both at
+   --dim: a 14% size step and the same grey. Cropped from the Conditions panel, AIR and
+   HUMIDITY were indistinguishable as tiers — HUMIDITY actually read optically brighter,
+   because it is the wider word — so the page came out as grey / grey / white repeated nine
+   times and the parent-child relation the grid is built on was simply not drawn. Two tiers
+   that differ only in a rounding error are one tier. They now differ on both axes at once:
+   a whole ramp step (2.9 vs 2.45vh) AND a whole shade (8.2:1 vs 4.9:1). The label can
+   afford --dimmer at this size in a way it could not at 1.6vh — 4.9:1 is the WCAG body-text
+   threshold and 5.0' is above the acuity floor; what was fatal before was small AND dim
+   together, and the size half of that is fixed.
+
+   THE BAN. Nothing anywhere — no axis number, no unit, no tick, no caption — may set
+   --fs-caption together with --dimmer. That combination is 15.9 CSS px at 4.9:1, which is
+   2.8' at 3 m: below the threshold at which the eye resolves a glyph at all. It is not
+   "small print", it is a blank. The sensor chart's y-axis, the daily panel's hour ticks and
+   the µg/m³ units were all built at exactly that spec in the round that condemned it, which
+   is why it is now a test (design-system.test.js) rather than a habit. */
+.psec-t,
+.card-label, .mini-head, .stat-k, .fc-name, .hr-t, .wc-city, .sensor-label, .daybar-t {
+  font-size: var(--fs-label);
+  font-weight: var(--label-weight);
+  letter-spacing: var(--label-track);
+  text-transform: uppercase;
+  color: var(--dimmer);
+}
+.psec-t { font-size: var(--fs-title-sm); color: var(--dim); }
+/* NOWRAP, and it is the row that this protects rather than the label. A stat grid is read
+   ACROSS: three labels on one line, three values on the next. When the label tier was
+   re-scaled, `DAY OF YEAR` no longer fitted its third of the Clock panel, wrapped to two
+   lines, and pushed its own value ~90 device px below the two beside it — so the TODAY row
+   had three baselines and stopped being a row at all. Nothing in a grid of independent
+   cells equalises that: each cell stacks its own label over its own value.
+   A label that will not fit now overhangs its cell instead, which is visible and local,
+   where a wrap is invisible and moves a number. The real answer is that a label in a
+   three-column grid has about nine characters — which is enforced over the rendered DOM in
+   design-system.test.js, so it is a budget rather than a hope. */
+.stat-k { font-size: var(--fs-body-lg); color: var(--dimmer); white-space: nowrap; }
+/* Five Home Assistant tiles across a 711 px card is 142 px each, and an ellipsised label
+   is worse than a small one — so this is the one label in the app still on --fs-caption,
+   and it therefore has to give on the OTHER axis: --dim, not the recipe's --dimmer. See
+   THE BAN above — caption AND dimmer together is 2.8' at 3 m, and where the width
+   genuinely cannot pay, the contrast does. */
+.sensor-label {
+  font-size: var(--fs-caption);
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+/* The daily chart's TIME AXIS, at the annotation tier with every other chart annotation in
+   the build. It was caption/--dimmer (2.8' at 3 m — a chart with no x-scale on it), then
+   --fs-note (3.8', still under the acuity floor this stylesheet sets for everything else).
+   At 28.5 px it is labelled every FOURTH bar rather than every third: six labels across the
+   panel is 111 CSS px of pitch for a 52 px word, which is the trade the acuity argument
+   asks for — fewer ticks, readable ones. */
+.daybar-t {
+  font-size: var(--fs-body-lg);
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 1.6vw;
+  margin-bottom: 0.5vh;
+}
+/* WHITE, not --accent. The accent is the same hex as --temp-cold, so blue on this screen
+   meant both "this number is a low" and "this thing opens something" — 65° 64° 64° in blue
+   two centimetres from "Details ›" in blue. Colour is spent on data; an affordance is
+   spelled out by the box, the chevron and the words. */
+.link-btn {
+  margin-left: auto;
+  font-size: var(--fs-note);
+  color: var(--fg);
+  padding: var(--pad-inline) 1.6vw;   /* ~3.9vh tall = 95 device px */
+  border-radius: 0.9vh;
+  border: 1px solid var(--card-line2);
+}
+
+.badge {
+  font-size: var(--fs-label);
+  font-weight: var(--label-weight);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 0.45vh 1.1vw;
+  border-radius: 0.7vh;
+  border: 1px solid currentColor;
+  transition: color var(--dur-ui) var(--ease), border-color var(--dur-ui) var(--ease);
+}
+/* NEUTRAL. The demo badge and "AIR 68 Moderate" were the same amber 200 px apart on the
+   same screen — one a note about where the numbers come from, the other a value on the
+   EPA's own scale. The scale keeps the colour, since there it IS the datum; provenance
+   gets an outline. --warn stays for the stale badge, which is a genuine warning. */
+.badge-demo  { color: var(--dim); }
+.badge-live  { color: var(--ok); }
+.badge-stale { color: var(--warn); }

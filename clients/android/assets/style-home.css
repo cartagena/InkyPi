@@ -1,0 +1,262 @@
+/* Wall panel dashboard — THE HOME WIDGETS.
+   The cards of the dashboard itself: clock, weather now, the hourly strip, the daily
+   row, the Home Assistant tiles and the six mini tiles. Tokens live in style.css. */
+
+/* ---------- 1. clock ---------- */
+.card-clock, .card[data-widget="clock"] { border: none; padding-left: 0; }
+.clock-row { display: flex; align-items: baseline; }
+.time {
+  font-size: var(--fs-display);
+  font-weight: 200;
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+/* AM/PM and the seconds sit on ONE baseline beside the digits, never stacked.
+   Stacking them was a hard layout failure, not a cosmetic one: in 12-hour mode with
+   seconds on, .clock-side became a two-line column (AM above :24) and grew the clock
+   block by ~59 device px. The home column only carries ~58 px of slack, so the third
+   line of the DEVICE / TIMER / SETTINGS tiles fell off the bottom of the frame — and
+   12-hour is the default. Row layout costs zero extra height in all four combinations
+   of 12h/24h x seconds on/off.
+   :empty still matters — whichever of the two is absent must not reserve its gap.
+
+   Horizontal order and spacing matter as much as the baseline: seconds trail the digits
+   directly (a ~2px hair, so "2:33" + ":01" reads as one number) and the meridiem follows
+   after a real gap. Reversed, with the seconds after AM and a 19 device px gap in front of
+   them, the row read as "2:33 AM :01" — a detached fragment rather than a clock. .clock-row
+   therefore carries no gap of its own; whichever of the two side items survives brings its
+   own left margin, so :empty collapsing cannot leave a stray gap. */
+.clock-side { display: flex; flex-direction: row; align-items: baseline; }
+.ampm:empty, .secs:empty { display: none; }
+.ampm {
+  font-size: var(--fs-title-sm);
+  font-weight: 300;
+  color: var(--dim);
+  letter-spacing: 0.12em;
+  margin-left: 1.6vw;
+}
+.secs {
+  font-size: var(--fs-title-sm);
+  font-weight: 300;
+  color: var(--dimmer);
+  font-variant-numeric: tabular-nums;
+  margin-left: 0.25vw;
+}
+.date { font-size: var(--fs-body-lg); font-weight: 300; color: var(--dim); margin-top: 0.4vh; }
+
+/* ---------- 3. weather now ---------- */
+.wx-main { display: flex; align-items: center; gap: 2.4vw; }
+/* The glyph is vertically centred against the whole TEXT BLOCK — the big temperature plus
+   the condition line under it — which is geometrically right and optically wrong: the eye
+   pairs the glyph with the number, and it was measured sitting 19 device px below the
+   digits' optical centre. Nudged back onto the digits with a transform, so nothing about
+   the row's layout or its height budget changes. Same correction, same amount, on the
+   panel heroes (.big-readout.hero .big-icon), because they are the same object magnified. */
+.wx-icon {
+  font-size: var(--fs-hero);
+  line-height: 1;
+  flex: 0 0 auto;
+  transform: translateY(-0.75vh);
+}
+.wx-block { flex: 0 0 auto; }
+.wx-temp {
+  font-size: var(--fs-hero);
+  font-weight: 200;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.wx-desc { font-size: var(--fs-note); color: var(--dim); margin-top: 0.3vh; }
+.wx-quick {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2vh;
+  text-align: right;
+}
+.wxq { font-size: var(--fs-note); }
+.wxq-k { color: var(--dimmer); margin-right: 0.8vw; }
+.wxq-v { color: var(--fg); font-variant-numeric: tabular-nums; }
+.wx-meta { font-size: var(--fs-label); letter-spacing: 0.02em; color: var(--dimmer); margin-top: 0.6vh; }
+
+/* ---------- 4. hourly strip ----------
+   A horizontal scroller always cuts its last chip somewhere; the only question is whether
+   the cut reads as "there is more this way" or as "this is broken". It read as broken: in
+   24-hour mode the eighth chip was sliced through the middle of a digit at the card's
+   right edge, so 20:00 rendered as a sheared "2" hard against the border. (12-hour mode
+   happened to land cleanly on "7 P" and so hid it.) The mask dissolves the last 4vw
+   instead of guillotining it, which is the whole convention for "this list continues".
+   A mask rather than the gradient overlay used on the panel edges, because a chip may be
+   mid-scroll under it and the .hr.now background is not --bg.
+
+   Two changes, for one complaint: the last visible column read as a rendering fault rather
+   than as "there is more this way".
+
+   .scrolls, which relayoutHome() sets, so the fade only exists on a strip that really is
+   wider than its box. (It usually is — the strip carries all 24 hours — but a card wide
+   enough to hold them, or a shorter forecast, must not be dimmed for nothing.)
+
+   2vw, not 4: at 4 the mask was as wide as 80% of a landscape chip, so a whole column — its
+   hour, its glyph and its temperature together — rendered at reduced opacity and read as
+   broken. At 2 it dissolves the EDGE of that column, which is what the convention actually
+   is: a cut that says "continues", not a column that says "failed to draw". */
+.hstrip {
+  display: flex;
+  gap: 1.1vw;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.4vh;
+}
+.hstrip.scrolls {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2vw), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 2vw), transparent 100%);
+}
+.hr {
+  flex: 0 0 auto;
+  min-width: 11.4vw;   /* 81 CSS px = 182 device px wide */
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2vh;
+  padding: var(--pad-chip) 0.5vw;
+  border-radius: 1vh;
+  border: 1px solid transparent;
+}
+.hr.now { border-color: var(--card-line2); background: rgba(109, 179, 242, 0.07); }
+.hr-i { font-size: var(--fs-body-lg); line-height: 1.1; }
+.hr-d { font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
+/* --dim, not --dimmer: see THE BAN in style.css. The strip is eight columns across a
+   711 px card, so the size cannot move; the contrast is the half of it that can. */
+.hr-p { font-size: var(--fs-caption); color: var(--dim); font-variant-numeric: tabular-nums; }
+.hr-p.wet { color: var(--accent); }
+
+/* ---------- 5. daily forecast ---------- */
+.forecast { display: flex; gap: 1vw; justify-content: space-between; }
+.fc-day {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2vh;
+  padding: var(--pad-chip) 0.3vw;
+  border-radius: 1vh;
+}
+.fc-icon { font-size: var(--fs-body-lg); line-height: 1.1; }
+.fc-hi   { font-size: var(--fs-body); font-variant-numeric: tabular-nums; }
+.fc-lo   { font-size: var(--fs-note); color: var(--dim); font-variant-numeric: tabular-nums; }
+
+/* ---------- 6. Home Assistant sensors ----------
+   Five across so nine entities land in two rows; the card cannot afford a third. */
+.sensors {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5vh 1vw;
+}
+.sensor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1vh;
+  padding: var(--pad-chip) 0.8vw;
+  border-radius: 1vh;
+  border: 1px solid transparent;
+  min-width: 0;
+  position: relative;
+}
+/* One "on", one colour. This tile was green while the Settings switch beside the same
+   idea was blue, so the app had two on-states in two hues on two screens. Both are white
+   now; see .switch.on. */
+.sensor.on { border-color: rgba(255, 255, 255, 0.30); background: rgba(255, 255, 255, 0.06); }
+.sensor.alertish { border-color: rgba(242, 180, 109, 0.4); }
+/* line-height is pinned, not `normal`: these labels lead with symbol-font glyphs
+   (house / moon / sun / umbrella / bolt / circle / diamond / bar) and a fallback font's
+   ascent+descent metrics were inflating the line box, which multiplied across two rows
+   of tiles and helped push the bottom of the home column off the frame. */
+.sensor-label {
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The pill sits on the VALUE's line, not the label's. Parked in the top-right corner it
+   was level with the word LAMP while the state it sets ("Off") sat on the line below — a
+   control and its own readout on two different baselines, in a tile 102 px wide. Reading
+   the tile meant reading down the left and then back up the right. */
+.sensor.has-sw .sensor-value { padding-right: 3.8vw; }
+.sensor-value {
+  font-size: var(--fs-body-lg);
+  font-weight: 200;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: color var(--dur-ui) var(--ease);
+}
+.sensor-unit { font-size: var(--fs-caption); color: var(--dim); margin-left: 0.3vw; }
+
+/* ---------- a Home Assistant reading that is no longer being refreshed ----------
+   An expired token 401s every poll and the app kept painting the last-good numbers, so an
+   overnight expiry left a wall of plausible-but-wrong values with nothing to say so. The
+   tile keeps the number (blanking it would be worse — you lose the last thing that WAS
+   true) and drops it to the label's own brightness, which reads across a room as "this is
+   not live" without inventing a second colour. The card-level `stale` badge beside HOME is
+   the part you see first; it is the same badge the weather card has used all along. */
+.sensor.stale { border-color: rgba(242, 180, 109, 0.35); }
+.sensor.stale .sensor-value,
+.sensor.stale .sensor-unit { color: var(--dimmer); }
+.sensor-sw {
+  position: absolute;
+  bottom: 0.7vh; right: 0.8vw;
+  width: 3vw; height: 1.6vh;
+  border-radius: 0.8vh;
+  background: #222;
+}
+.sensor-sw span {
+  display: block;
+  width: 1.4vh; height: 1.4vh;
+  margin: 0.1vh;
+  border-radius: 50%;
+  background: var(--dim);
+  transition: transform var(--dur-ui) var(--ease), background-color var(--dur-ui) var(--ease);
+}
+.sensor.on .sensor-sw { background: rgba(255, 255, 255, 0.22); }
+.sensor.on .sensor-sw span { background: var(--fg); transform: translateX(calc(3vw - 1.6vh)); }
+
+/* ---------- 7/2/8. mini tiles ---------- */
+.row3 { flex: 0 0 auto; display: flex; gap: 1.4vw; min-width: 0; }
+.card.mini { flex: 1 1 0; min-width: 0; padding: var(--pad-tile) 1.4vw; align-items: flex-start; }
+.mini-head { line-height: 1.2; }
+/* D8 — the six tiles are one object repeated, so their three lines are pinned rather than
+   left to whatever each happens to contain. The LINE BOX is fixed here, so the sub-line
+   underneath sits on one baseline across all six whatever the value happens to be — a
+   percentage, a clock, a moon disc beside a figure, a date.
+
+   There is no .glyph variant any more. It existed for the Setup tile, which put a gear
+   where its five siblings put a number: the one row on the home screen the eye reads as a
+   strip of values, with a picture in the middle of it. The tile shows the unit setting
+   instead, so the box no longer has to accommodate an ink box that is nothing like a
+   digit's. */
+.mini-big {
+  font-size: var(--fs-title-sm);
+  font-weight: 200;
+  height: calc(var(--fs-title-sm) * 1.15);
+  display: flex;
+  align-items: center;
+  font-variant-numeric: tabular-nums;
+}
+.mini-big.alert { color: var(--danger); animation: pulse var(--dur-pulse) infinite; }
+.mini-head { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-big { white-space: nowrap; }
+.mini-sub {
+  font-size: var(--fs-caption);
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Never fades below 0.6 — the alarm has to stay legible in any single frame, including
+   whatever instant a screenshot happens to catch. */
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }

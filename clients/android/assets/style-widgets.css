@@ -1,0 +1,436 @@
+/* Wall panel dashboard — THE PANEL LAYER, part 2 of 2: ONE WIDGET'S OWN PANEL.
+   The blocks that belong to exactly one screen and would mean nothing on another: the
+   stopwatch's lap list, the hourly rows, the daily hour bars, the world clocks and the
+   Home Assistant trace. The shared vocabulary they sit inside — panel chrome, sections,
+   stat grids, controls — is style-panels.css, which loads first and explains the seam. */
+
+/* ---------- stopwatch / timer panel ----------
+   D2: this screen was ~55% empty black below "Tap Lap while running to split.", while
+   Conditions two taps away was overflowing. Both were the same failure — no panel had a
+   declared vertical strategy — so this one has an explicit one, and it is now stated as a
+   composition rather than as a centring:
+
+     the readout is the largest type in the app (--fs-display-xl, 182 CSS px). It is the
+       entire point of the screen and it used to be optically SMALLER than the home clock,
+       because 00:00.0 is seven glyphs where 12:25 is five;
+     the pinned control cluster keeps its intrinsic height, at the top;
+     the lap TABLE takes everything under it, drawn and labelled whether or not there is a
+       lap in it yet.
+
+   The body is a flex column for the third point. position:sticky on .stick still pins,
+   because the scroll container is unchanged — only the layout of its children is. */
+/* No justify-content here any more. Centring a cluster that is a third of the panel tall
+   in a column that is the whole panel does not compose it, it just splits the emptiness in
+   two: measured on the device, this screen opened with a 747 device px unbroken black band
+   above the mode switch and closed with another ~440 below the helper line, and was the
+   least-inked screen in the build at 2.05%. The column now states where its two blocks go —
+   the control cluster keeps its intrinsic height at the top, the lap table takes everything
+   under it — and the emptiness is spent on the readout, which is the one thing the screen
+   is for. */
+.panel[data-panel="timer"] .panel-body {
+  display: flex;
+  flex-direction: column;
+}
+.panel[data-panel="timer"] .stick { flex: 0 0 auto; }
+/* With no laps yet the pinned cluster TAKES the column and centres the readout in it. The
+   two previous versions both spent that space on the lap table: first as ~40% of the screen
+   in undifferentiated black, then as seven full-width hairlines with nothing on any of them
+   — 8.5% of the panel's total ink, an empty ruled notepad. Neither is content, and this is
+   the one screen in the build whose entire subject is a single number. So the number gets
+   the room, and the lap region shrinks to its heading and its one sentence until there is
+   actually a lap in it. */
+.panel[data-panel="timer"] .stick.roomy {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  /* space-evenly, not center: centring the three blocks as one cluster left the whole
+     surplus as two 200 px bands, and a 200 px band of black on a wall panel reads as
+     something that failed to load. Evenly spaced, the same surplus is the rhythm between
+     the mode switch, the number and its controls. */
+  justify-content: space-evenly;
+  min-height: 0;
+}
+.laps-sec { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+.laps-sec.laps-empty { flex: 0 0 auto; }
+.laps-sec .laps { flex: 0 0 auto; }
+/* The reserved lap region, with NO frame drawn in it until there is a lap to frame.
+
+   It carried seven full-width hairlines at a real lap row's pitch, on the argument that a
+   ruled empty table reads as "nothing yet" where a bare rectangle reads as "failed to
+   load". Measured on the device, it read as neither: seven rules with nothing on any of
+   them were 8.5% of all the ink on the screen and about 40% of its height, on the panel
+   whose stated rule is that lit pixels are data. An empty ruled notepad is decoration that
+   has learned to look like content. The region still RESERVES its space, so the layout does
+   not jump when lap 1 arrives — that part of the diagnosis was right — and one sentence
+   says what will fill it. */
+.laps-hint {
+  flex: 1 1 auto;
+  text-align: center;
+  min-height: 0;
+}
+.laps-hint .muted { margin-top: 1.4vh; }
+#tmr-disp { font-size: var(--fs-display-xl); }
+/* see the tenths note in wx-timer.js: a ramp step down and a shade dimmer, because this is
+   the one glyph on the wall that changes ten times a second */
+.tenths { font-size: var(--fs-display); color: var(--dim); }
+
+.laps { display: flex; flex-direction: column; }
+.lap {
+  display: flex;
+  justify-content: space-between;
+  gap: 3vw;
+  padding: var(--pad-row) 0.5vw;
+  border-bottom: 1px solid var(--card-line);
+  font-size: var(--fs-body-lg);
+}
+.lap:last-child { border-bottom: none; }   /* no rule under the last row of a list */
+.lap-n { color: var(--dimmer); }
+.lap-d { color: var(--dim); }
+.mono { font-variant-numeric: tabular-nums; }
+
+/* ---------- hourly panel list ----------
+   The list is the last block on the panel and it takes exactly what is left: the section
+   grows into the body, the rows share it, and eight of them land at ~5vh each — over the
+   88-device-px floor with room to spare. Emitting all 24 into a scrollport that could show
+   four is what made this the worst of the four panels that ended on a row sliced in half;
+   wx-hourly.js now emits eight and the chart above carries the whole day. */
+.panel[data-panel="hourly"] .panel-body { display: flex; flex-direction: column; }
+.panel[data-panel="hourly"] .psec:last-child {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.panel[data-panel="hourly"] .hrows { flex: 1 1 auto; }
+/* The floor is DERIVED from the type the row holds, not typed. It was a literal 4.4vh,
+   and when the landscape ramp was restated at 1.45x the row's own temperature figure grew
+   to a 54 CSS px line box inside a 31 px box: the figure painted through the hairline of
+   the row above it and the last one was sliced by the bottom bezel. A row that cannot be
+   shorter than its own value cannot do that again, whatever the ramp does next. */
+.panel[data-panel="hourly"] .hrow {
+  flex: 1 1 0;
+  min-height: calc(var(--fs-title-lg) * 1.35 + var(--pad-row) * 2);
+}
+
+.hrows { display: flex; flex-direction: column; }
+.hrow {
+  display: flex;
+  align-items: center;
+  gap: 2vw;
+  padding: var(--pad-row) 1vw;
+  border-bottom: 1px solid var(--card-line);
+  border-radius: 0.8vh;
+}
+.hrow:last-child { border-bottom: none; }  /* no rule under the last row of a list */
+.hrow.sel { background: rgba(255, 255, 255, 0.07); }   /* selected, not cold */
+.hrow-t { flex: 0 0 12vw; font-size: var(--fs-title-sm); color: var(--dim); font-variant-numeric: tabular-nums; }
+/* A FIXED basis, like every other column in this row. It was `flex: 0 0 auto`, so the
+   glyph column was as wide as whatever glyph happened to be in it — and a sun, a moon and
+   a cloud are not the same width. The bars beside them therefore started at three
+   different x positions (measured: 356 / 382 / 391 device px, a 35 px swing) purely
+   according to the weather. A bar chart's baseline cannot move per row: that is the one
+   thing a bar chart is. Centred, because the glyph no longer fills its column. */
+.hrow-i {
+  flex: 0 0 7vw;
+  text-align: center;
+  font-size: var(--fs-title-sm);
+}
+/* The column that takes the remainder — and it says what the weather IS, in words. It
+   replaced a grey progress track that encoded the same temperature the figure at the end of
+   the row already gives, against an arbitrary zero; see WP.ui.tempTone. */
+.hrow-w { flex: 1 1 auto; min-width: 0; font-size: var(--fs-body); color: var(--dim);
+          white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hrow-d { flex: 0 0 15vw; text-align: right; font-size: var(--fs-title-lg); font-variant-numeric: tabular-nums; }
+/* The chart's three stops, on the figure. One variable, one visual language. */
+.hrow-d.t-hot  { color: var(--temp-hot); }
+.hrow-d.t-warm { color: var(--temp-warm); }
+.hrow-d.t-cold { color: var(--temp-cold); }
+.hrow-p { flex: 0 0 10vw; text-align: right; font-size: var(--fs-note); color: var(--dimmer); }
+.hrow-p.wet { color: var(--accent); }
+
+/* daily panel hour bars — see the block comment in wx-daily.js paintPanel().
+   The chart's two jobs on a wall are "when is it warm" and "how warm"; it does not need to
+   be lit to do either. A 24-column solid accent fill measured 5.97% accent coverage, 54x
+   the home screen and the largest bright area anywhere in the app, on an OLED panel whose
+   stylesheet header says in as many words to avoid large bright fills. Same silhouette,
+   roughly a tenth of the lit pixels: a dim column with a bright 0.35vh cap, which is what
+   the eye traces anyway. */
+.daybars {
+  display: flex;
+  gap: 0.5vw;
+  align-items: flex-end;
+  /* 16vh, not 22. The chart's two jobs are "when is it warm" and "how warm", and 24 bars
+     over 182 CSS px answer both; the extra 68 px were the panel's whole overflow budget
+     once its values were sized for the room. */
+  height: 16vh;
+  /* the bottom row is the TIME AXIS and it is the point of the chart; the panel body's
+     own bottom padding is what stops the footer cutting through it */
+  padding-bottom: 0.2vh;
+}
+/* `min-width: 0` is the whole fix for the sliver, and the reason it was needed is worth
+   keeping: a flex item's automatic minimum size is its MIN-CONTENT width, so the two bars
+   carrying a `93°` callout and the eight carrying a `12A` tick each demanded the width of
+   that word. Twenty-four bars then measured 53-90 device px apiece instead of one width,
+   the row came out 30 CSS px wider than the panel, and the 24th hour rendered as a 3-px
+   scratch against the right rail. With the floor released, `1 1 0` gives all 24 the
+   identical share and the last one lands inside the rail; the annotations are centred over
+   their own bar and simply overhang their neighbours, which are blank. The first bar's tick
+   is left-aligned instead, so `12A` starts on the same rail as every heading on the panel
+   rather than half a word to the left of it. */
+.daybar { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; height: 100%; }
+/* the two extremes' own numbers — the annotation tier, like every other chart annotation */
+.daybar-v {
+  font-size: var(--fs-body-lg);
+  color: var(--dim);
+  text-align: center;
+  height: 3.4vh;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.daybar-c { flex: 1 1 auto; display: flex; align-items: flex-end; }
+/* EVERY bar's cap wears the temperature it is, off the same three stops the hourly curve
+   is drawn from and the hourly list is tinted with (WP.ui.tempTone picks the class).
+
+   Twice now this chart has had colour applied to some of its bars and not the rest, and
+   both times the result was worse than either extreme. First: an identical amber cap on all
+   24, i.e. the ramp applied and not discriminating — amber, which means "hot" everywhere
+   else, painted on the coldest hours of the day. Then: 22 identical grey bars with the min
+   and max in a muddy navy and a dull brown, the two lowest-contrast marks on the screen —
+   so height carried everything and colour marked two extremes in colours you cannot resolve
+   at 3 m. A ramp is either the chart's language or it is not in the chart.
+
+   The body of the bar stays dark whatever the cap says. The cap is 0.35vh of the ~180 px
+   the chart occupies, which is what the eye traces anyway, and this is an OLED panel whose
+   stylesheet header says in as many words to avoid large bright fills. */
+.daybar-c div {
+  width: 100%;
+  background: linear-gradient(to bottom,
+    var(--dim) 0, var(--dim) 0.35vh, #1b1b1b 0.35vh);
+  border-radius: 0.4vh 0.4vh 0 0;
+}
+.daybar.t-hot .daybar-c div { background: linear-gradient(to bottom,
+    var(--temp-hot) 0, var(--temp-hot) 0.35vh, #1b1b1b 0.35vh); }
+.daybar.t-warm .daybar-c div { background: linear-gradient(to bottom,
+    var(--temp-warm) 0, var(--temp-warm) 0.35vh, #1b1b1b 0.35vh); }
+.daybar.t-cold .daybar-c div { background: linear-gradient(to bottom,
+    var(--temp-cold) 0, var(--temp-cold) 0.35vh, #1b1b1b 0.35vh); }
+/* The warmest and coldest hours are the two that carry a NUMBER, and the number is what
+   marks them now — the bars themselves are already the right colour, so nothing has to be
+   said twice. Each callout wears its own bar's tone, so the annotation and the bar it
+   belongs to are obviously the same object. */
+.daybar.peak .daybar-v { color: var(--fg); }
+.daybar.peak.t-hot  .daybar-v { color: var(--temp-hot); }
+.daybar.peak.t-cold .daybar-v { color: var(--temp-cold); }
+.daybar-t { text-align: center; height: 3.4vh; white-space: nowrap; }
+.daybar:first-child .daybar-t { text-align: left; }
+
+/* world clocks — two across; see the zone list in wx-clock.js for why it is not three */
+.wc-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.2vh 3vw; }
+.wc { border-bottom: 1px solid var(--card-line); padding-bottom: 0.8vh; }
+/* Six cities, two across: the last row is the last two, and it carries no rule under it.
+   A table rule with no next row is the unfinished-table tell, and this grid ended every
+   Clock panel with one. */
+.wc-grid .wc:nth-last-child(-n+2) { border-bottom: none; }
+/* A world clock's time is that cell's VALUE and takes the value tier, like every other
+   number on every other panel; the weekday under it is the qualifier. */
+.wc-time { font-size: var(--fs-title-lg); font-weight: 300; font-variant-numeric: tabular-nums; }
+.wc-day { font-size: var(--fs-note); color: var(--dim); }
+
+/* The hour chart takes whatever the panel has left rather than leaving it as a band under
+   the grid: cutting DAY from nine cells to three freed ~170 CSS px, and a fixed-height chart
+   would have handed all of it straight back to the black. PORTRAIT ONLY — in landscape this
+   panel is two columns of sections (see the landscape block in style-theme.css) and a flex
+   column here would out-rank that grid on specificity and quietly undo it. */
+@media (orientation: portrait) {
+  .panel[data-panel="daily"] [data-body] { display: flex; flex-direction: column; }
+  .panel[data-panel="daily"] .psec:last-child {
+    flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
+  }
+  .panel[data-panel="daily"] .daybars { flex: 1 1 auto; height: auto; min-height: 16vh; }
+}
+
+/* ---------- the moon panel ----------
+   The hero art and the seven-night strip: one panel draws them, which is what this file is
+   for. The tile's small disc stays with the icon palette in style-theme.css. */
+.moon-hero { display: flex; align-items: center; justify-content: center;
+             gap: 5vw; padding: 1.2vh 0 0.6vh; }
+/* No halo. The glow was a drop-shadow of the lit colour around the whole silhouette, which
+   is decoration on the panel whose stated rule is that lit pixels are data, on a display
+   that pays for every one — and at 1.3x zoom the bloom read as a second pale disc offset
+   behind the dark one, so the moon looked like an egg rather than a sphere. (The geometry
+   itself was right: measured on the device frame, the terminator sits at 0.51r of a 211 px
+   radius and the lit area is 24%, which is the phase. It was the glow that lied.) */
+.moon-disc { width: 15vh; height: 15vh; flex: 0 0 auto; }
+
+/* the next seven nights: the same crescent geometry as the hero, seven times smaller */
+.moon-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0 1vw; }
+.mw { text-align: center; min-width: 0; }
+.mw-d { font-size: var(--fs-note); color: var(--dim); }
+.mw-i { width: 7vh; height: 7vh; margin: 0.6vh auto 0.4vh; display: block; }
+.mw-v { font-size: var(--fs-body-lg); font-variant-numeric: tabular-nums; }
+
+/* ---------- sparkline, and the axis that keeps it honest ----------
+   The plot's corners carry the top and bottom of the y-domain and its ends carry the two
+   times, because without them the line's height meant nothing and a 1 °F drift drawn to
+   fill 500 px read as a crisis (see the domain floor in wx-sensors-panel.js). Positioned
+   over the SVG, so they cost the chart no height and stay on the type ramp. */
+.spark { width: 100%; height: 10vh; display: block; }
+/* Two boxes, and the split is the whole point: .plot-y is exactly the picture, so the two
+   y labels pin to ITS corners, and the time row is outside it. While both scales shared one
+   box the bottom label was held clear of the time row by a hand-tuned 2.2vh — and the moment
+   the annotation tier grew, the y-minimum printed BELOW the times, so the left edge of the
+   Sensors panel read 75.5 °F / chart / 2h ago / 71.5 °F and the last two looked like a pair.
+   They are not a pair. They are the two ends of two different axes. */
+.plot { display: flex; flex-direction: column; }
+.plot-y { position: relative; }
+.plot-hi, .plot-lo {
+  position: absolute;
+  left: 0;
+  font-size: var(--fs-body-lg);
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.plot-hi { top: 0; }
+.plot-lo { bottom: 0; }
+.plot-x {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-body-lg);
+  color: var(--dim);
+  padding-top: 0.2vh;
+}
+
+/* The Home Assistant panel's whole subject is one reading and how it has moved, and the
+   ENTITY grid that used to fill its lower third was the entity id printed a second time
+   beside its domain and a sample count — machine text, now gone (see the copy sweep).
+   Removing it left about a third of the panel empty, and at 2-4 m a large dead region
+   reads as "this failed to load", which is exactly the fault D2 called out on the Timer.
+   So the trace the panel exists for takes the space instead: the last section grows, and
+   the sparkline grows inside it. preserveAspectRatio="none" on the SVG means it simply
+   stretches. A toggle entity carries an extra button row and a four-cell grid, and the
+   min-height is what keeps its chart honest when there is less room to give away. */
+.panel[data-panel="sensors"] .panel-body { display: flex; flex-direction: column; }
+.panel[data-panel="sensors"] .psec:last-child {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+/* the trace and its axis grow together — .plot-y is the picture, .plot is it plus the times */
+.panel[data-panel="sensors"] .psec:last-child .plot { flex: 1 1 auto; min-height: 0; }
+.panel[data-panel="sensors"] .psec:last-child .plot-y {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 0;
+}
+/* CAPPED. `flex: 1 1 auto` with no ceiling grew the plot to ~500 CSS px to fill whatever
+   the panel had spare, of which 366 device px measured as empty: a two-hour trace of a room
+   temperature does not become more informative by being half a metre tall, it just becomes
+   a large permanently-lit region. 22vh is 250 CSS px, which is enough for the shape of two
+   hours and no more. */
+.panel[data-panel="sensors"] .psec:last-child .spark {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 10vh;
+  max-height: 22vh;
+}
+/* FLAT means flat. The panel says "Steady" at the value tier and then drew the same series
+   over a 250 px plot, where 0.9 °F of drift against a 4 °F domain became a visible climb
+   with visible jitter — so the screen argued with its own headline, and the picture is the
+   half people believe. When the series is inside the domain floor the trace stops being the
+   largest object on the screen: it is a 120 px band of evidence under the words, not a
+   claim of its own. See the decimation in wx-sensors-panel.js for the jitter half.
+
+   And the height it gives up is DISTRIBUTED, not pooled. Capping the trace alone left one
+   455 device px band of black between the line and the axis label beneath it — the same
+   void, moved down the screen. Nothing on a flat panel needs to grow: the words are the
+   verdict and the blocks space themselves down the column, which is what Moon and Air
+   already do with a short screen. */
+.panel[data-panel="sensors"] .psec:last-child .plot.is-flat .spark { max-height: 10.5vh; }
+/* PORTRAIT ONLY. A 711 px-tall landscape body has no spare height to distribute — the same
+   blocks already fill it — and space-evenly against content that does not fit pushes the
+   last row out of the frame (measured 54 px past it). Distributing space you do not have is
+   how a spacing fix becomes a clipping fix. */
+@media (orientation: portrait) {
+  .panel[data-panel="sensors"].flat .panel-body { justify-content: space-evenly; }
+  .panel[data-panel="sensors"].flat .psec:last-child { flex: 0 0 auto; }
+  .panel[data-panel="sensors"].flat .psec:last-child .plot { flex: 0 0 auto; }
+}
+/* The Air Quality panel's two pictures. They live here rather than with the band palette
+   in style-theme.css for the reason this file exists: one panel draws them and no other
+   ever will.
+
+   The band strip replaced two attempts at a gauge (see the note in wx-air.js). It is six
+   equal segments, not a linear axis, because the US AQI is a 0-500 scale on which every
+   reading anyone ever sees lives in the first fifth — a linear gauge of it spends most of
+   its ink on values that would mean evacuate, which is exactly why the arc read as a 14 px
+   stub. The unlit segments are the EPA's own colours at a quarter strength, so the strip
+   reads as the scale everybody already knows (green through maroon) with today's band lit,
+   and it is full-width: a mark at 711 CSS px is resolvable from the sofa where a 43 px one
+   is not. */
+.aqi-scale { display: flex; gap: 0.9vw; margin: 0.4vh 0 0.8vh; }
+.aqi-seg {
+  flex: 1 1 0;
+  height: 1.6vh;
+  border-radius: 0.8vh;
+  background: currentColor;
+  opacity: 0.22;
+}
+.aqi-seg.on { opacity: 1; }
+/* The range the lit band covers — the "61 of what" neither gauge ever answered. */
+.aqi-range { font-size: var(--fs-body-lg); color: var(--dim); }
+.aqi-spark .spark-line { stroke: currentColor; }
+
+.spark-line { fill: none; stroke: var(--accent); stroke-width: 3; vector-effect: non-scaling-stroke;
+              stroke-linejoin: round; }
+.spark-empty { font-size: var(--fs-note); color: var(--dimmer); padding: 2vh 0; }
+
+/* ---- the picture panels (front page, daily picture) ----
+   The image IS the screen: letterboxed on true black, no frame, no chrome. It flexes to
+   whatever height the chips and caption leave, and object-fit keeps the whole page or
+   photo visible rather than cropping a headline off a masthead. */
+.page-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.page-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.panel[data-panel="paper"] [data-body],
+.panel[data-panel="gallery"] [data-body] {
+  display: flex;
+  flex-direction: column;
+  gap: 1vh;
+}
+/* the alt text / prompt line under a picture, one line, quiet */
+.pic-note {
+  flex: 0 0 auto;
+  font-size: var(--fs-note);
+  color: var(--dim);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+/* A picture screen with no picture. It used to be one grey line at the top of an
+   otherwise black panel — the reason floating in a void, which reads as a crash rather
+   than as a state. The block centres in the space the image would have filled. */
+.pic-empty {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1.2vh;
+  text-align: center;
+  padding: 0 6vw;
+}
+.pic-empty-t { font-size: var(--fs-title); color: var(--fg); }
+.pic-empty-s { font-size: var(--fs-note); color: var(--dim); }

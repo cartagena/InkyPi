@@ -1,0 +1,435 @@
+/* Wall panel dashboard — THE PANEL LAYER, part 1 of 2: THE SHARED VOCABULARY.
+   Full-screen detail panel chrome (panel, header, scrollport), and the objects every
+   panel is assembled from: sections, the hero block, stat grids, bars, buttons, chips,
+   segmented controls and switch rows. Nothing here belongs to one widget.
+
+   Part 2 is style-widgets.css — the blocks that belong to exactly one panel (the timer's
+   lap list, the hourly rows, the daily bars, the world clocks, the sparkline). The seam is
+   "would a second panel ever use this": if yes it is here, if no it is there. The split
+   exists because this file passed the project's 500-line budget; the seam was chosen
+   rather than the line number.
+
+   Tokens live in style.css, which loads first. */
+
+/* ============================================================================
+   PANEL LAYER — full-screen detail views
+   ============================================================================ */
+/* Drifts with the home view (see #drift). The transform makes this a containing block for
+   its own fixed descendants — there are none; .panel is absolute and inset:0 either way. */
+#panels {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  transition: transform var(--dur-drift) ease-in-out;
+}
+
+.panel {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(2.4vh);
+  transition: opacity var(--dur-ui) var(--ease), transform var(--dur-ui) var(--ease);
+}
+/* is-mounted is the 240ms window in which the panel is still painted; is-open is the window
+   in which it is the thing you are looking at. pointer-events belongs on the second, not the
+   first: while it hung off is-mounted, a panel that had already been closed and faded to
+   invisible went on eating taps for 240ms, so tapping the close ✕ and then immediately
+   tapping a card did nothing at all (a 350ms pause worked). */
+.panel.is-mounted { visibility: visible; }
+.panel.is-open { opacity: 1; transform: translateY(0); pointer-events: auto; }
+
+.panel-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2vw;
+  padding: 1.8vh 3vw 1.4vh;
+  border-bottom: 1px solid var(--card-line);
+}
+.panel-title { font-size: var(--fs-title); font-weight: 300; letter-spacing: -0.01em; }
+.panel-sub { font-size: var(--fs-note); color: var(--dimmer); margin-top: 0.3vh; }
+
+.close-btn {
+  flex: 0 0 auto;
+  width: 7vh;
+  height: 7vh;
+  border-radius: 50%;
+  border: 1px solid var(--card-line2);
+  color: var(--fg);
+  font-size: var(--fs-title);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* The scrollport sits under a hairline divider and its content passes beneath it.
+   Untreated, a row caught mid-scroll is chopped straight through the glyphs by an
+   unrelated 1px line, and content cut off mid-glyph reads as broken rather than as
+   scrolled — measured on the hourly list shearing under the header.
+
+   Every panel is now SIZED to fit this box (see the per-panel fit blocks below and the
+   fit test in panels.test.js), so overflow-y is a safety valve for a long locale string
+   rather than the way a screen is read: nobody scrolls a wall panel. The bottom padding
+   is what keeps the last row off the frame edge; it was 3.4vh to clear a footer bar that
+   no longer exists. */
+.panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 1.6vh 3vw 1.8vh;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* A black-to-transparent overlay hanging off the header divider, so whatever crosses it
+   dissolves. This works as a mask would ONLY because the background is a true #000 —
+   which it is, deliberately, on an OLED panel — so it is written against --bg rather than
+   against a literal, and a lightened theme would need a real mask instead.
+   pointer-events:none: it sits over the scrollport and must not eat a drag. */
+.panel-head { position: relative; z-index: 4; }
+.panel-head::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2vh;
+  pointer-events: none;
+  top: 100%;
+  background: linear-gradient(to bottom, var(--bg), transparent);
+}
+
+/* The rule under a pinned block insets to the same 3vw rail every other rule in the app
+   uses. It was `border-bottom` on .stick itself, and .stick cancels the body's side padding
+   with a negative margin so that its background reaches the scrollport edges — which made
+   this the one rule in the build drawn full-bleed to both edges of the screen, on the panel
+   with the fewest other things to look at. A block child sits inside the padding, so the
+   rule lands on the rail without giving up the full-width background. */
+.stick::after {
+  content: "";
+  display: block;
+  margin-top: 0.8vh;
+  border-bottom: 1px solid var(--card-line);
+}
+
+/* Control block pinned under the panel header while only the list below it scrolls.
+   Past ~9 laps the stopwatch readout and the Lap button used to scroll off the top, so
+   looking at lap 1 cost you both the running time and the button you needed next.
+   The negative margins cancel .panel-body's padding so the opaque background reaches the
+   full width of the scrollport; the matching padding puts the inset back visually.
+   Without that, rows scrolled up through the 1.6vh gap above the pinned block. */
+.stick {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--bg);
+  margin: -1.6vh -3vw 0;
+  padding: 1.6vh 3vw 0.8vh;
+}
+
+/* Still the empty state's "Open settings" and the alarm's "Dismiss" — both of which are
+   the one thing on their screen. No panel has one any more; see the PANEL LAYER note. */
+.wide-btn {
+  display: block;
+  width: 100%;
+  padding: var(--pad-control) 0;
+  text-align: center;
+  font-size: var(--fs-body-lg);
+  color: var(--fg);          /* an affordance is not data — see .link-btn */
+  border: 1px solid var(--card-line2);
+  border-radius: 1.3vh;
+}
+
+/* ---------- panel content blocks ---------- */
+/* 1.2vh, not 1.6 and not 2. Each drop paid for a re-scale: with the hero laid out as a row
+   and the grids running three across, Conditions came to within one stat row of fitting its
+   screen, and 1.6 closed it; sizing every value for a 3 m read then cost roughly 2vh per
+   stat row, and 1.2 is what Conditions and Daily needed to close again. It costs nothing
+   visually — the gap between a section's last value and the next section's heading is still
+   over 2vh once the stat cell's own bottom padding is counted, and the heading is now a
+   whole ramp step larger than the labels under it, which separates the blocks by itself. */
+.psec { margin-top: 1.2vh; }
+.psec-t { margin-bottom: 1vh; }   /* size/weight/tracking/colour: see the label recipe */
+
+/* ---------- the one hero block ----------
+   Every panel opens with the same object: a glyph, the one number the screen is about, and
+   a line of context. Two layouts, and which one a panel gets is decided by whether it has a
+   glyph at all, not by taste:
+
+     .hero      glyph BESIDE the number (weather, hourly, daily, HA, device). The stacked
+                version spent ~8vh on a line that carries no information the words below it
+                do not, and Conditions was overflowing its screen by roughly that much. It
+                also matches the home Now card, which has always put the two side by side.
+     plain      no glyph: the number is the whole hero (timer). */
+.big-readout {
+  text-align: center;
+  padding: 1.4vh 0 1.8vh;
+  border-bottom: 1px solid var(--card-line);
+}
+.big-readout.hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4vw;
+  text-align: left;
+  padding: 1vh 0 1.4vh;
+}
+.big-readout.hero .big-icon {
+  flex: 0 0 auto;
+  font-size: var(--fs-hero);
+  transform: translateY(-0.75vh);   /* see .wx-icon — optical, not geometric, centring */
+}
+.big-readout.hero .big-time { font-size: var(--fs-display); }
+.hero-text { min-width: 0; }
+/* `text-align: left` above exists to line the number and its caption up with each other
+   BESIDE a glyph. With no glyph there is nothing to line up beside, and the block came out
+   left-of-centre on a screen whose only content is that number (Air, whose two attempts at
+   a hero glyph were both decoration standing in for a scale). No icon, no offset. */
+.big-readout.hero.no-icon { text-align: center; }
+
+.big-icon { font-size: var(--fs-display); line-height: 1; }
+.big-time {
+  font-size: var(--fs-display);
+  font-weight: 200;
+  line-height: 1.05;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.big-time.mono { font-variant-numeric: tabular-nums; letter-spacing: 0.01em; }
+.big-sub { font-size: var(--fs-body); color: var(--dim); margin-top: 0.6vh; }
+.dim { color: var(--dim); }
+/* The one-sentence answer — "None forecast in the next 7 days.", "Steady, +/-0.5 deg over
+   2 h". It replaced whole grids of zeros on three panels, so it is not a footnote about the
+   screen, it IS the screen's answer, and it is set as prose at --fs-body/--dim (4.4' at 3 m)
+   rather than at the note tier it was left on (3.8' at 4.9:1). */
+.muted { font-size: var(--fs-body); color: var(--dim); line-height: 1.5; margin-top: 0.8vh; }
+/* One-line notice for a panel that is not showing live data — the demo simulator, or a
+   Home Assistant feed that has stopped answering. Sized as a note, not as body copy: it
+   explains a state, it is not something to read. */
+.demo-note {
+  font-size: var(--fs-note);
+  color: var(--warn);
+  line-height: 1.45;
+  border: 1px solid rgba(242, 180, 109, 0.3);
+  border-radius: 1.1vh;
+  padding: 1.2vh 2vw;
+  margin-bottom: 1.4vh;
+}
+
+.stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.1vh 3vw; }
+/* Three across for the panels whose values are short (a percentage, a temperature, a wind
+   speed). Two columns made Conditions 111vh of an 100vh screen; three fits it in one
+   screenful with the same type, the same rhythm and no scrolling. Panels with long values
+   — a timezone, an entity id, a storage figure — stay on two. */
+.stat-grid.cols3 { grid-template-columns: repeat(3, 1fr); gap: 1.1vh 2.2vw; }
+.stat { border-bottom: 1px solid var(--card-line); padding-bottom: 0.8vh; min-width: 0; }
+.stat.last-row { border-bottom: none; }   /* see statGrid(): a rule with no next row */
+/* The one number a field is about. --fs-title-lg is 45.5 CSS px, i.e. 8.1 arcminutes of
+   cap height at 3 m; it was --fs-title-sm, 5.9', which is the 20/20 THRESHOLD — the size at
+   which a glyph resolves rather than the size at which a sentence reads. Every value on
+   every one of the twelve panels sat there, which is why the panels were screens you walked
+   to and the home hero was a screen you read. See the arcminute block in style.css. */
+.stat-v {
+  font-size: var(--fs-title-lg);
+  font-weight: 300;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+/* The qualifier under a value — "Low" under a UV index, "from 286°" under a compass
+   point. It carries the BAND, which is the part a person acts on, so it is a step of prose
+   and not a footnote: --fs-label was 3.3' at 3 m. */
+.stat-x { font-size: var(--fs-body); letter-spacing: 0.02em; color: var(--dim); }
+/* A unit riding INLINE on a value line, a step down and a shade dimmer so the figure still
+   reads first. It exists because the alternatives both failed on the Air panel: on its own
+   line it turned six pollutant fields into eighteen lines, and moved onto the reference
+   line below it left the measurement as a bare `15` above an identical-looking `15`. */
+.stat-v .unit { font-size: var(--fs-body-lg); color: var(--dim); }
+
+.wind-arrow { display: inline-block; }
+
+.bar {
+  height: 1.6vh;
+  border-radius: 0.8vh;
+  background: #191919;
+  overflow: hidden;
+  margin: 1vh 0;
+}
+.bar-fill { height: 100%; background: var(--dim); transition: width var(--dur-fill) var(--ease); }
+.bar-fill.accent { background: var(--accent); }
+.bar-fill.danger { background: var(--danger); }
+
+.btn-row { display: flex; flex-wrap: wrap; gap: 1.4vw; margin-top: 1.6vh; }
+.btn {
+  flex: 1 1 auto;
+  min-width: 18vw;
+  padding: var(--pad-control) 1.6vw;
+  text-align: center;
+  font-size: var(--fs-body-lg);
+  border: 1px solid var(--card-line2);
+  border-radius: 1.3vh;
+  color: var(--fg);
+}
+/* There is no .primary and no .danger any more. A green Start on the Timer and a red
+   "Reset to defaults" in Settings took the palette from three hues to five, and both of the
+   additions were on AFFORDANCES — the rule this app is built on is that colour marks data.
+   What the button does is carried by its word, its position and, for the destructive one,
+   by the confirm step it already has. --danger survives where it is a STATE and not a
+   control: the countdown alarm's flash, and a battery reading in the red.
+   .off is not a hue, it is the disabled shade — Lap with nothing to split.
+   .fill is not a hue either: it is the PRIMARY, marked with weight. Removing the green from
+   Start was right and leaving the Timer with three identical hairline pills was not — a
+   stopwatch with no obvious way to start it. It is the same white-alpha family .chip.on and
+   .seg-b.on already use, one step up because a primary action outranks a selected chip —
+   one idiom at three weights rather than a fourth one invented for a button. */
+.btn.off     { color: var(--dimmer); }
+.btn.fill    { background: rgba(255, 255, 255, 0.16); border-color: transparent; }
+
+.chip-row { display: flex; flex-wrap: wrap; gap: 1.2vw 1.2vw; }
+/* A wrapping flex row breaks wherever the text happens to run out, which for the nine
+   Home Assistant entities meant 4 + 4 + 1 and for the eight timer presets 6 + 2 — a last
+   row holding one or two items under a row of eight reads as something that failed to
+   finish rather than as a deliberate grid. Where the count is known and fixed, the row
+   becomes a grid and the break is chosen instead of discovered. */
+.chip-row.cols3 { display: grid; grid-template-columns: repeat(3, 1fr); }
+.chip-row.cols4 { display: grid; grid-template-columns: repeat(4, 1fr); }
+.chip-row.cols7 { display: grid; grid-template-columns: repeat(7, 1fr); }
+.chip-row.cols3 .chip, .chip-row.cols4 .chip, .chip-row.cols7 .chip {
+  flex: initial;
+  min-width: 0;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chip {
+  flex: 0 0 auto;
+  /* 1.9vw of side padding, not 2.2: the ramp moved chips a step up in size, and the nine
+     Home Assistant entity chips spilled onto a third row. Height is untouched — the row is
+     5.4vh ≈ 138 device px, comfortably over the 88 px minimum. */
+  padding: var(--pad-row) 1.9vw;
+  font-size: var(--fs-body);
+  border: 1px solid var(--card-line2);
+  border-radius: 1.2vh;
+  color: var(--dim);
+  min-width: 0;
+}
+/* SELECTED is white — a brighter box, not a different hue. In blue it was the same
+   colour as a low temperature, and on the Daily panel the selected day chip and the day's
+   low sat within a hand's width of each other. Selection is a state of the control, so it
+   is drawn the way a control is: more light. */
+.chip.on { color: var(--fg); border-color: var(--fg); background: rgba(255, 255, 255, 0.10); }
+
+/* Segmented control — the ONLY paired-button idiom left in the app, and it is reserved for
+   a genuine either/or with two named values (°F/°C, 12-hour/24-hour). Anything that is
+   merely on or off is a .switch row instead; see D1 in the design notes. Two idioms for one
+   concept, 20 cm apart on the same screen, was the worst thing on the Settings panel. */
+.seg { display: flex; gap: 1.2vw; }
+.seg-b {
+  flex: 1 1 0;
+  padding: var(--pad-control) 1vw;
+  text-align: center;
+  font-size: var(--fs-body-lg);
+  color: var(--dim);
+  border: 1px solid var(--card-line2);
+  border-radius: 1.3vh;
+}
+.seg-b.on { color: var(--fg); border-color: var(--fg); background: rgba(255, 255, 255, 0.12); }
+
+/* ---------- switch rows ----------
+   The single idiom for every on/off in the app: seconds, screen drift, and each widget's
+   visibility. Full-row target (>= 88 device px tall), label on the left, knob on the right,
+   and the knob SLIDES rather than snapping — a switch that teleports reads as a redraw, not
+   as something you did. */
+.srows { display: flex; flex-direction: column; }
+/* Twelve switches that are a checklist, not a settings list: three across, in the same row
+   idiom, so the section is four rows instead of twelve. Each cell is ~209 x 63 CSS px =
+   470 x 142 device px, well over the 88 px target floor, and the knob is narrower because a
+   third of the width has a third of the room for one. */
+.srows.cols3 { display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 2vw; }
+.srows.cols3 .srow { padding: var(--pad-row) 0; gap: 1.5vw; }
+.srows.cols3 .srow-k { font-size: var(--fs-body); }
+/* 9vw, not 6.5: at 6.5 the pill was barely wider than its own knob, so the knob travelled
+   5 px between off and on and twelve switches all read as the same state from 30 cm, let
+   alone from across the room. A switch that cannot show which way it is set is not a
+   switch. The label still has ~123 px, which fits the longest of them ("Next days"). */
+.srows.cols3 .switch { width: 9vw; }
+.srows.cols3 .switch.on span { transform: translateX(calc(9vw - 3.6vh)); }
+/* No rule under the last row: a table rule with nothing after it is the classic
+   unfinished-table tell, and it was under the final row of every grid in the app. Twelve
+   widgets across three columns is four whole rows, so the last three cells are that row. */
+.srows.cols3 .srow:nth-last-child(-n+3) { border-bottom: none; }
+/* The three clock/units controls sit on ONE line, because they are one question asked
+   three times: what should the numbers on this wall look like. They were three stacked
+   blocks under two separate headings, ~200 CSS px of a panel that was overflowing by
+   1157. The switch keeps its own idiom — it is a switch beside two segmented controls,
+   not a third segmented control. */
+.seg-pair { display: flex; align-items: stretch; gap: 2vw; }
+.seg-pair .seg { flex: 1 1 0; min-width: 0; }
+/* The switch row needs more of the line than a pair of buttons does: it carries a word AND
+   a pill, and at an even third the word came out as "Secon" with the knob over the rest. */
+.seg-pair .srows { flex: 1.5 1 0; min-width: 0; }
+.seg-pair .srow { padding: var(--pad-row) 1vw; border-bottom: none; gap: 1.5vw; }
+/* ...except inside the units cluster, where the row sits in a bordered box of its own. */
+
+/* Seven day chips across a 711 px panel have ~95 px each; the side padding a chip carries
+   for a wrapping row is width it cannot spare here. */
+.chip-row.cols7 .chip { padding: var(--pad-row) 0.4vw; }
+
+/* A panel's closing strip: one control and the one line that belongs beside it. */
+.pfoot { display: flex; align-items: center; gap: 2.5vw; margin-top: 1.6vh; }
+.pfoot .btn-row { flex: 0 0 40%; margin-top: 0; }
+.pfoot .muted { flex: 1 1 auto; margin-top: 0; }
+/* No side padding. The 1vw here was 5 CSS px, and it applied to the LABEL but not to the
+   row's own hairline or to the section heading above it — so every switch row in Settings
+   started 12 device px to the right of the rule it sits on and of the heading that owns it,
+   and the panel had a visibly ragged left rail running its whole length. A row that is a
+   full-width target does not need to inset its own contents; the panel body's 3vw is the
+   rail, and everything on the screen now starts on it. */
+.srow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3vw;
+  padding: var(--pad-control) 0;
+  border-bottom: 1px solid var(--card-line);
+  border-radius: 0.8vh;
+  width: 100%;
+}
+.srows > .srow:last-child { border-bottom: none; }   /* see .stat.last-row */
+.srow-t { display: flex; flex-direction: column; min-width: 0; }
+.srow-k { font-size: var(--fs-body-lg); }
+/* Where a switch needs a reason, it gets ONE line here rather than a paragraph underneath.
+   The burn-in control used to carry five lines of body copy explaining AMOLED ghosting on a
+   settings screen; the full version lives in INTERACTIVE.md, where somebody who wants it
+   will be. */
+.srow-x { font-size: var(--fs-note); color: var(--dimmer); margin-top: 0.2vh; line-height: 1.3; }
+.switch {
+  flex: 0 0 auto;
+  width: 10vw;
+  height: 3.4vh;
+  border-radius: 1.7vh;
+  background: #202020;
+  border: 1px solid var(--card-line2);
+  padding: 0.25vh;
+  transition: background-color var(--dur-ui) var(--ease),
+              border-color var(--dur-ui) var(--ease);
+}
+.switch span {
+  display: block;
+  width: 2.7vh; height: 2.7vh;
+  border-radius: 50%;
+  background: var(--dimmer);
+  transition: transform var(--dur-ui) var(--ease), background-color var(--dur-ui) var(--ease);
+}
+/* ON is white, for the same reason SELECTED is: every toggle in Settings was blue, which
+   is the colour of a cold temperature two screens away. The knob's POSITION is what says
+   which way the switch is set; the brightness is what makes that readable at 3 m. */
+.switch.on { background: rgba(255, 255, 255, 0.22); border-color: var(--fg); }
+.switch.on span { background: var(--fg); transform: translateX(calc(10vw - 3.6vh)); }
+

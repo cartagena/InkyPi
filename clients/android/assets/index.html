@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Content Security Policy.
+
+     shouldOverrideUrlLoading in MainActivity only sees NAVIGATIONS. It does not see a
+     <script src>, an <img>, or a fetch, so on its own it does not stop an injected remote
+     script from loading — and that script would get window.Android, because
+     addJavascriptInterface attaches the bridge to the WebView, not to a page. esc() is the
+     only thing standing in that path today. This meta closes it at the browser level.
+
+     The directive doing the security work is script-src 'self': no remote origin, no data:
+     URI and no inline <script> can execute, so the bridge is reachable only from the three
+     files packaged in the APK.
+
+     Two deliberate relaxations, both load-bearing:
+       style-src 'unsafe-inline' — the panels emit style="width:NN%" for the fill bars
+         (bar(), the countdown progress bar). Without it every bar renders at zero width.
+         It permits no script.
+       connect-src http: https: — the Home Assistant base URL is user configuration in
+         config.js and can be any host on the LAN; a static meta tag cannot know it, and
+         hard-coding api.open-meteo.com alone would break the HA feed the day somebody
+         enables it. Widen no further than this: 'none' everywhere else means an injected
+         string still cannot load code, only talk to a host it cannot get code from.
+
+         Deliberately NOT tightened, and the reason is worth recording. The one way to
+         narrow it is to have build.ps1 rewrite this attribute from the config it is
+         already baking into the APK — emitting the Open-Meteo origin alone when
+         homeAssistant.enabled is false, and adding the configured origin when it is true.
+         That is the right answer and it is a change to the build, not to the app; it was
+         left for a round that can re-verify a build-time string substitution against a
+         real Home Assistant rather than for the last hour of the last one. The exposure
+         it would close is narrow: script-src 'self' already means nothing injected can
+         execute, so the residual risk is exfiltration by a string that got past esc(),
+         and esc() is itself covered by four tests. -->
+
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' http: https:; base-uri 'none'; form-action 'none'">
+<title>Wall Panel</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style-home.css">
+<link rel="stylesheet" href="style-panels.css">
+<link rel="stylesheet" href="style-widgets.css">
+<link rel="stylesheet" href="style-theme.css">
+</head>
+<body>
+
+<!-- The weather, drawn: stars / rain / snow / fog / cloud banks behind the dashboard,
+     chosen from the same Open-Meteo payload the cards read. Fixed, pointer-events:none,
+     z-index under #drift. Everything on it moves, so it cannot burn in. -->
+<canvas id="sky" aria-hidden="true"></canvas>
+
+<!-- ============================================================================
+     HOME VIEW
+     #drift wraps the home view. Burn-in drift nudges it a few pixels every couple of
+     minutes — and nudges #panels and #alarm by the identical offset on the same cycle,
+     so a detail panel left open overnight is not sitting on static pixels either.
+     Keeping panels in their own layer (rather than inside #drift) is about z-order and
+     scrolling, not about drift. A nudge is skipped while a finger is down, which is what
+     keeps a control from sliding out from under a tap.
+     ============================================================================ -->
+<div id="drift">
+
+  <!-- The status line is the app's one running commentary ("Updated 3:41 PM", "Home
+       Assistant refused the token"). aria-live=polite so a change is announced when it
+       happens without interrupting; role=status gives it that meaning even where the
+       live-region mapping is patchy. -->
+  <header id="topbar">
+    <span id="status" class="status" role="status" aria-live="polite">Starting&hellip;</span>
+    <button class="icon-btn tappable" data-open="settings" aria-label="Settings">&#9881;</button>
+  </header>
+
+  <main id="home">
+
+    <!-- ---- 1. clock ---- -->
+    <!-- role=button + aria-label on every whole-card target: these are <section>s, so
+         without them a screen reader is told nothing is here at all — eight of the twelve
+         screens were unreachable. The a11y test only swept <button>s and never saw it. -->
+    <section class="card tappable" data-widget="clock" data-open="clock"
+               role="button" tabindex="0" aria-label="Clock details">
+      <!-- Seconds come BEFORE the meridiem and sit tight against the digits, so the row
+           reads "2:33:01 AM" the way a clock is read. Trailing the meridiem, they read as a
+           detached fragment ("2:33 AM :01"). Both stay on the digits' baseline — stacking
+           them cost ~59 device px of column height, which the budget does not have. -->
+      <div class="clock-row">
+        <div id="time" class="time">--:--</div>
+        <div class="clock-side">
+          <div id="secs" class="secs"></div>
+          <div id="ampm" class="ampm"></div>
+        </div>
+      </div>
+      <div id="date" class="date">&nbsp;</div>
+    </section>
+
+    <!-- ---- 3. weather now ---- -->
+    <section class="card tappable" data-widget="weather" data-open="weather"
+               role="button" tabindex="0" aria-label="Current conditions">
+      <!-- Three cards on this screen open a detail panel from their heading, and this one
+           used to do it with a bare grey chevron while Hourly, Daily and Home used a
+           labelled blue "Details >" / "All >". Two idioms for "open me", ten centimetres
+           apart. The whole card stays tappable — a bigger target than the button — but the
+           affordance now matches its neighbours. -->
+      <div class="card-head">
+        <span class="card-label">Now</span>
+        <span id="wx-badge" class="badge badge-stale" hidden>stale</span>
+        <button class="link-btn tappable" data-open="weather"
+                aria-label="Current conditions details">Details &rsaquo;</button>
+      </div>
+      <div class="wx-main">
+        <!-- decorative: wx-desc immediately below spells the same condition out in words -->
+        <div id="wx-icon" class="wx-icon" aria-hidden="true">&middot;</div>
+        <div class="wx-block">
+          <div id="wx-temp" class="wx-temp">--&deg;</div>
+          <div id="wx-desc" class="wx-desc">&nbsp;</div>
+        </div>
+        <div id="wx-quick" class="wx-quick"></div>
+      </div>
+      <div id="wx-meta" class="wx-meta">&nbsp;</div>
+    </section>
+
+    <!-- ---- 4. hourly forecast (horizontally scrollable strip) ---- -->
+    <section class="card" data-widget="hourly">
+      <div class="card-head">
+        <span class="card-label">Next 24 hours</span>
+        <button class="link-btn tappable" data-open="hourly"
+                aria-label="Hourly forecast details">Details &rsaquo;</button>
+      </div>
+      <div id="hourly" class="hstrip"></div>
+    </section>
+
+    <!-- ---- 5. daily forecast ---- -->
+    <section class="card" data-widget="daily">
+      <div class="card-head">
+        <span class="card-label">Next days</span>
+        <button class="link-btn tappable" data-open="daily"
+                aria-label="Daily forecast details">Details &rsaquo;</button>
+      </div>
+      <div id="forecast" class="forecast"></div>
+    </section>
+
+    <!-- ---- 6. Home Assistant sensors ---- -->
+    <section class="card" data-widget="sensors">
+      <div class="card-head">
+        <span class="card-label">Home</span>
+        <!-- live / stale / demo. `stale` is the one that matters: a Home Assistant token
+             expires overnight, every poll 401s, and without this the wall keeps showing
+             yesterday's numbers as if they were current. Same badge the weather card has
+             always used for the same reason. -->
+        <span id="ha-badge" class="badge badge-demo">demo</span>
+        <button class="link-btn tappable" data-open="sensors"
+                aria-label="All home readings">All &rsaquo;</button>
+      </div>
+      <div id="sensors" class="sensors"></div>
+    </section>
+
+    <!-- ---- 7 / 2 / 8. device, timer, settings ---- -->
+    <div class="row3">
+      <section class="card mini tappable" data-widget="system" data-open="system"
+               role="button" tabindex="0" aria-label="Device status">
+        <div class="mini-head">Device</div>
+        <div id="sys-big" class="mini-big">--%</div>
+        <div id="sys-sub" class="mini-sub">reading&hellip;</div>
+      </section>
+
+      <section class="card mini tappable" data-widget="timer" data-open="timer"
+               role="button" tabindex="0" aria-label="Stopwatch and timer">
+        <div class="mini-head">Timer</div>
+        <div id="tmr-big" class="mini-big">00:00</div>
+        <div id="tmr-sub" class="mini-sub">ready</div>
+      </section>
+
+      <!-- The value line used to be a gear glyph, in the one slot on the home screen where
+           the eye is scanning a strip of numbers: 83% / 00:00 / ⚙ / 24% / 70 / 17. Five
+           tiles answered "what is it now" and the sixth answered "what am I", which the
+           heading directly above it had already said. The unit setting IS this tile's
+           value — it is the thing on this screen the tile changes — so it is where a value
+           goes, and the clock format moved down to the sub-line beside anything hidden. -->
+      <section class="card mini tappable" data-widget="settings" data-open="settings"
+               role="button" tabindex="0" aria-label="Settings">
+        <div class="mini-head">Setup</div>
+        <div id="set-big" class="mini-big">&deg;F</div>
+        <div id="set-sub" class="mini-sub">&nbsp;</div>
+      </section>
+    </div>
+
+    <!-- ---- 9 / 10. moon, air quality ----
+         Two tiles, not three. The third was DATE, which printed "17 / Mon · Aug" on a
+         screen whose clock card says "Monday, August 17" 300 px above it, and which opened
+         a month grid with nothing on it. See the note in README about why the Calendar
+         widget was cut rather than left empty for a fourth round. .card.mini is `flex: 1 1 0`,
+         so the two survivors take the row between them; there is no hole. -->
+    <div class="row3">
+      <section class="card mini tappable" data-widget="moon" data-open="moon"
+               role="button" tabindex="0" aria-label="Moon phase">
+        <div class="mini-head">Moon</div>
+        <div id="moon-big" class="mini-big moon-row">&nbsp;</div>
+        <div id="moon-sub" class="mini-sub">&nbsp;</div>
+      </section>
+
+      <section class="card mini tappable" data-widget="air" data-open="air"
+               role="button" tabindex="0" aria-label="Air quality">
+        <div class="mini-head">Air</div>
+        <div id="air-big" class="mini-big">--</div>
+        <div id="air-sub" class="mini-sub">waiting&hellip;</div>
+      </section>
+
+      <!-- ---- 11 / 12: the InkyPi picture plugins, on glass. Paper is today's actual
+           front page; Picture rotates the day's image among XKCD, Wikimedia's picture of
+           the day, NASA's APOD and (with a key) a generated image. This row is the
+           CONTENT row — the row above is the tools. -->
+      <section class="card mini tappable" data-widget="paper" data-open="paper"
+               role="button" tabindex="0" aria-label="Front page">
+        <div class="mini-head">Paper</div>
+        <div id="paper-big" class="mini-big">--</div>
+        <div id="paper-sub" class="mini-sub">&nbsp;</div>
+      </section>
+
+      <section class="card mini tappable" data-widget="gallery" data-open="gallery"
+               role="button" tabindex="0" aria-label="Daily picture">
+        <div class="mini-head">Picture</div>
+        <div id="gallery-big" class="mini-big">--</div>
+        <div id="gallery-sub" class="mini-sub">&nbsp;</div>
+      </section>
+    </div>
+
+    <!-- ---- 12. news ticker: one line, rotates through the freshest headlines ---- -->
+    <section class="card tappable news-card" data-widget="news" data-open="news"
+             role="button" tabindex="0" aria-label="News headlines">
+      <span class="card-label">News</span>
+      <div id="news-line" class="news-line"><span class="news-t muted">waiting for headlines&hellip;</span></div>
+    </section>
+
+    <!-- Shown only when every widget is switched off, so an all-hidden dashboard reads as
+         a deliberate state instead of a crashed app. Toggled by WP applyVisibility(). -->
+    <div id="empty" class="empty" hidden>
+      <div class="empty-icon" aria-hidden="true">&#9881;</div>
+      <div class="empty-t">Every widget is hidden</div>
+      <div class="empty-s">Nothing is switched on to display. Open Settings &rarr; Widgets
+        and turn back on whatever this panel should show.</div>
+      <button class="wide-btn tappable" data-open="settings">Open settings</button>
+    </div>
+
+  </main>
+</div>
+
+<!-- ============================================================================
+     PANEL LAYER
+     One full-screen panel per widget. Shells are authored here (so the markup stays
+     readable); bodies are filled by each plugin's onOpen().
+
+     ONE exit: the circled X in the header. There used to be a full-width "← Dashboard"
+     bar under every panel as well, and it was the most expensive 113 CSS px in the app —
+     it duplicated an affordance already in the header, it sat at the bottom edge where a
+     standing viewer's thumb is furthest away, and its gradient fade turned every panel
+     that ran long into one that looked half-drawn. Four screens ended on a chopped row
+     because of it and four pooled 400-900 px of black above it. Swiping left/right still
+     moves between screens (wx-carousel.js), and the Android back button is intentionally
+     dead on this kiosk, so the X is the way out and it is in the corner the eye already
+     goes to for a title.
+     ============================================================================ -->
+<div id="panels">
+
+  <section class="panel" data-panel="clock">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Clock</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
+  <section class="panel" data-panel="timer">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Stopwatch &amp; Timer</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
+  <section class="panel" data-panel="weather">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Conditions</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
+  <section class="panel" data-panel="hourly">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Hourly</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
+  <section class="panel" data-panel="daily">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Daily</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
+  <section class="panel" data-panel="sensors">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Home Assistant</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
+  <section class="panel" data-panel="system">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Device</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
+  <section class="panel" data-panel="moon">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Moon</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
+  <section class="panel" data-panel="air">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Air Quality</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
+  <section class="panel" data-panel="news">
+    <header class="panel-head">
+      <div><h1 class="panel-title">News</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
+  <section class="panel" data-panel="paper">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Front Page</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
+  <section class="panel" data-panel="gallery">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Picture</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
+  <section class="panel" data-panel="settings">
+    <header class="panel-head">
+      <div><h1 class="panel-title">Settings</h1><p class="panel-sub" data-sub></p></div>
+      <button class="close-btn tappable" data-close aria-label="Close">&#10005;</button>
+    </header>
+    <div class="panel-body" data-body></div>
+  </section>
+
+</div>
+
+<!-- transient confirmation for actions that have no other visible result -->
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<!-- position dots: which screen of the carousel you are on; decorative, fades out -->
+<div id="dots" aria-hidden="true"></div>
+
+<!-- Countdown alarm overlay — full-screen so it is impossible to miss across the room.
+     data-act on the overlay itself as well as on the button, for two reasons. First, both
+     have to be on the pointer delegation: the Dismiss button used to carry its own click
+     listener and was therefore the one control in the app that ignored a press-and-hold.
+     Second, while this is up it covers the whole dashboard, so somebody who taps a tile
+     underneath and gets nothing should be able to clear it with that same tap rather than
+     having to find the button. It also takes itself down after 60s unattended (WP idle
+     layer) and leaves a quiet note on the TIMER tile that it fired. -->
+<div id="alarm" class="alarm" data-ns="timer" data-act="alarm-dismiss"
+     role="alertdialog" aria-label="Timer finished">
+  <div class="alarm-inner">
+    <div class="alarm-title">Timer finished</div>
+    <div id="alarm-sub" class="alarm-sub"></div>
+    <button id="alarm-dismiss" class="wide-btn tappable"
+            data-ns="timer" data-act="alarm-dismiss">Dismiss</button>
+  </div>
+</div>
+
+<!-- Load order is part of the contract, not incidental:
+
+       config.js   defines window.CONFIG, which app.js reads at parse time
+       app.js      defines window.WP — the registry, the panel stack, the formatters
+       wx-ui.js    hangs the shared panel builders off WP.ui; every widget below reads them
+                   at parse time, so it must precede all of them
+       wx-*.js     one file per widget, each registering itself. wx-weather.js owns the one
+                   Open-Meteo fetch and must come before wx-hourly.js and wx-daily.js, which
+                   resolve WP.registry.weather when their IIFE runs. wx-sensors.js precedes
+                   wx-settings.js for the same reason.
+       wx-sky-light.js
+                   the sky layer's pure half (the sun-phase light model, the WMO->scene
+                   map). wx-sky.js reads WP.skyLight at parse time, so it comes after.
+
+     assets/ is flat by necessity — aapt2 on Windows writes a subdirectory separator as a
+     backslash and file:///android_asset/ cannot resolve it — so "one file per widget" means
+     nine files here rather than a directory. test/assets.test.js pins both the order and
+     the fact that every one of them exists. -->
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script src="app-view.js"></script>
+<script src="app-touch.js"></script>
+<script src="wx-ui.js"></script>
+<script src="wx-icons.js"></script>
+<script src="wx-clock.js"></script>
+<script src="wx-timer.js"></script>
+<script src="wx-weather.js"></script>
+<script src="wx-hourly.js"></script>
+<script src="wx-daily.js"></script>
+<script src="wx-sensors-demo.js"></script>
+<script src="wx-sensors.js"></script>
+<script src="wx-sensors-panel.js"></script>
+<script src="wx-system.js"></script>
+<script src="wx-moon.js"></script>
+<script src="wx-air.js"></script>
+<script src="wx-paper.js"></script>
+<script src="wx-gallery.js"></script>
+<script src="wx-news.js"></script>
+<script src="wx-settings.js"></script>
+<script src="wx-carousel.js"></script>
+<script src="wx-sky-light.js"></script>
+<script src="wx-sky.js"></script>
+</body>
+</html>
