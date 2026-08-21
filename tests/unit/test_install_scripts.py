@@ -3694,7 +3694,24 @@ class TestBootVerifyScript:
         pl011 = self.script.index("-serial file:uart-pl011.log")
         mini = self.script.index("-serial file:uart-mini.log")
         assert pl011 < mini, "PL011 must be serial_hd(0), mini UART serial_hd(1)"
-        assert 'grep -qh "login:" uart-pl011.log uart-mini.log' in self.script
+        assert "uart-pl011.log uart-mini.log" in self.script
+
+    def test_keeps_console_output_alive_through_sysctl(self):
+        # Everything we can see arrives over printk: /dev/console never opens
+        # under qemu, so systemd falls back to /dev/kmsg. systemd-sysctl then
+        # applies Pi OS's kernel.printk and the log went silent mid-boot,
+        # which is indistinguishable from a hang. keep_bootcon holds earlycon
+        # open and ignore_loglevel overrides the loglevel sysctl just set.
+        assert "keep_bootcon" in self.script
+        assert "ignore_loglevel" in self.script
+
+    def test_accepts_boot_completion_without_a_login_prompt(self):
+        # "login:" needs a getty on a UART we can see, which the missing
+        # /dev/console makes unreliable. Reaching multi-user.target proves what
+        # the gate actually cares about — rootfs mounted, fstab sane, userspace
+        # up — and arrives over printk, so accept it too.
+        assert "Reached target multi-user.target" in self.script
+        assert "login:" in self.script
 
     def test_pads_sd_to_power_of_two(self):
         # qemu's raspi machines reject an SD image whose size is not a power

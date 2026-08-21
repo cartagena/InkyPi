@@ -31,11 +31,10 @@
 #   one of them yields a completely silent boot.
 set -euo pipefail
 
-# raspi3b gets no KVM acceleration on an x86_64 host, so every instruction is
-# emulated. Measured factor is roughly 40x: a run that reached kernel t=15s had
-# burned 598s of wall clock. Pi OS Lite reaches a login prompt around t=30s, so
-# the budget has to be ~1200s with margin on top.
-TIMEOUT="${BOOT_VERIFY_TIMEOUT:-1800}"
+# Emulation without KVM runs roughly 2x slower than real time — a measured run
+# reached kernel t=13s inside 30s of wall clock. A full Pi OS Lite boot is well
+# under two minutes here; the rest of the budget is margin for a loaded runner.
+TIMEOUT="${BOOT_VERIFY_TIMEOUT:-600}"
 WORKDIR="${BOOT_VERIFY_WORKDIR:-.boot-verify}"
 KEEP_RUNNING=0
 
@@ -177,6 +176,14 @@ CMDLINE="${CMDLINE} earlycon=pl011,0x3f201000"
 # prompt, and a log that only ever contained earlycon output.
 CMDLINE="${CMDLINE} console=ttyS0,115200 console=ttyAMA0,115200"
 CMDLINE="${CMDLINE} console=ttyAMA1,115200"
+# keep_bootcon stops the kernel unregistering earlycon once a real console
+# appears, and ignore_loglevel stops systemd-sysctl silencing us when it applies
+# Pi OS's kernel.printk. Without the pair the log died mid-boot at
+# "Starting systemd-sysctl.service" and never resumed, which reads exactly like
+# a hang: the guest was still running, we had simply gone blind. Everything we
+# can see arrives over printk, because /dev/console never opens under qemu
+# ("unable to open an initial console") and systemd falls back to /dev/kmsg.
+CMDLINE="${CMDLINE} keep_bootcon ignore_loglevel"
 echo "Boot cmdline: ${CMDLINE}"
 
 # ── pad to a power of two ─────────────────────────────────────────────────────
@@ -236,12 +243,26 @@ fail() {
     exit 1
 }
 
+# What counts as a successful boot.
+#
+# "login:" is the strongest signal — getty running means userspace is fully up —
+# but it depends on a getty being attached to a UART we can see, and under qemu
+# /dev/console never opens, so it may never appear however healthy the image is.
+#
+# Reaching multi-user.target proves the same thing the gate actually cares
+# about: the rootfs mounted, fstab was sane, and systemd brought userspace up.
+# Those messages arrive over printk, which survives the missing console. Accept
+# whichever shows up first.
+BOOT_OK_PATTERNS='login:|Reached target multi-user.target|Reached target Multi-User System|Startup finished in'
+
 for i in $(seq 1 "${TIMEOUT}"); do
     # Either UART satisfies the gate — the question is whether the image boots,
     # not which serial port it lands on.
-    if grep -qh "login:" uart-pl011.log uart-mini.log 2>/dev/null; then
+    if grep -qhE "${BOOT_OK_PATTERNS}" uart-pl011.log uart-mini.log 2>/dev/null; then
         echo ""
-        echo "PASS: login prompt observed at ${i}s"
+        echo "PASS: boot completed at ${i}s"
+        grep -hE "${BOOT_OK_PATTERNS}" uart-pl011.log uart-mini.log 2>/dev/null \
+            | tail -3 | sed 's/^/  matched: /'
         dump_logs
         record true
         if [ "${KEEP_RUNNING}" -eq 1 ]; then
