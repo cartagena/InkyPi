@@ -164,19 +164,22 @@ test("a broken picture source never prints the machine's own words", function ()
 
 test("an unreachable source and an empty day are different states on the tile", function () {
   /* Two words at 3 m have to separate "the wifi is out" from "they did not post today",
-     because only one of them is worth walking over to look at. */
-  /* with no bridge at all the tile correctly says "needs the tablet" — that answer
+     because only one of them is worth walking over to look at. CHANGED: the words are
+     shorter. Seven tiles share the row and the sub-line's box is 78 px, in which "nothing
+     today" measured 99 and shipped as "nothing t…" — a distinction nobody can read is not
+     a distinction. */
+  /* with no bridge at all the tile correctly says "tablet only" — that answer
      outranks every other, so this case needs a shell to be about what it claims */
   var app = h.createApp({ bridge: require("./lib/fake-bridge.js").make({ net: true }) });
   var g = app.registry.gallery;
   g.cur = "apod";
   g.slots.apod = { err: "Error: sim offline", at: app.clock.now };
   g.renderCard();
-  assert.equal(app.text("gallery-sub"), "no connection");
+  assert.equal(app.text("gallery-sub"), "offline");
 
   g.slots.apod = { err: "no picture today", at: app.clock.now };
   g.renderCard();
-  assert.equal(app.text("gallery-sub"), "nothing today");
+  assert.equal(app.text("gallery-sub"), "not today");
 });
 
 test("the front page walks back a shelf, and says which one it landed on", function () {

@@ -194,15 +194,21 @@ test("the settings tile summarises the current state", function () {
   /* CHANGED in the fit round: the unit moved up to the tile's VALUE line, which used to
      hold a gear glyph — the one slot in a row of six tiles where the eye is scanning for a
      number, spent on a picture of the word already printed above it. The sub-line keeps the
-     clock format and the count of hidden widgets, shortened because the tile is 102 CSS px
-     wide and "°C · 24h · 1 hidden" needed nearly twice its content box. */
+     clock format and the count of hidden widgets, shortened because the tile is 89 CSS px
+     wide and "°C · 24h · 1 hidden" needed nearly twice its content box.
+
+     CHANGED AGAIN: the sub-line says the clock format in WORDS and drops the compound.
+     "24h" set beside a value line reading "°C" read as a second unit rather than as a
+     setting, and the compound "24h · 1 off" spent the tile's whole width saying two things
+     of which only one is ever urgent. A widget somebody switched off is the answer to "why
+     is the moon gone"; the clock format is not urgent at all, so it yields the line. */
   var app = boot();
   assert.equal(app.text("set-big"), "°F");
-  assert.equal(app.text("set-sub"), "12h");
+  assert.equal(app.text("set-sub"), "12-hour");
   app.WP.settings.set("units", "celsius");
   app.WP.settings.set("clockHours", 24);
   assert.equal(app.text("set-big"), "°C");
-  assert.equal(app.text("set-sub"), "24h");
+  assert.equal(app.text("set-sub"), "24-hour");
   app.WP.settings.setShow("daily", false);
-  assert.equal(app.text("set-sub"), "24h · 1 off");
+  assert.equal(app.text("set-sub"), "1 hidden");
 });

@@ -35,7 +35,7 @@
       p < 0.52 ? "Full moon" :
       p < 0.73 ? "Waning gibbous" :
       p < 0.77 ? "Last quarter" : "Waning crescent";
-    /* The tile is 102 CSS px wide and its sub-line holds about eleven characters, so
+    /* The tile is 89 CSS px wide and its sub-line holds about ten characters, so
        "Waxing crescent" rendered there as "Waxing cr…". Half of a phase name is worse than
        the half that fits: waxing/waning is the half that says which way the moon is going,
        and crescent-or-gibbous is already answered by the percentage printed beside it. The
@@ -134,7 +134,7 @@
       if (!big) return;
       var m = calc(Date.now());
       /* The per-cent sign takes the shared small-unit treatment rather than the value's:
-         disc plus "62%" at full size measured 86 px inside a 79 px tile, and the sign is
+         disc plus "62%" at full size measured 86 px inside a 78 px box, and the sign is
          the glyph in it carrying the least. */
       big.innerHTML = disc(m.p, "moon-mini")
         + "<span>" + Math.round(m.frac * 100) + '<span class="unit">%</span></span>';

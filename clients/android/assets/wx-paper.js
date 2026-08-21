@@ -97,9 +97,11 @@
       big.textContent = code().replace(/^[A-Z]{2}_/, "");
       if (problem) { sub.textContent = problem; return; }
       if (!this.uri) { sub.textContent = "fetching…"; return; }
+      /* Ten characters. "today's page" measured 93 px in a 78 px box and shipped as
+         "today's …"; under a heading that says PAPER and a value that says USAT, the word
+         "page" was the one carrying nothing. */
       var today = new Date().getDate();
-      sub.textContent = this.shownDay === today ? "today's page"
-        : "page of the " + fmt.ordinal(this.shownDay);
+      sub.textContent = this.shownDay === today ? "today" : "the " + fmt.ordinal(this.shownDay);
     },
 
     onOpen: function (panel) { this.panel = panel; this.paintPanel(); },

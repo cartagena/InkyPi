@@ -191,11 +191,20 @@
    the annotation tier grew, the y-minimum printed BELOW the times, so the left edge of the
    Sensors panel read 75.5 °F / chart / 2h ago / 71.5 °F and the last two looked like a pair.
    They are not a pair. They are the two ends of two different axes. */
-.plot { display: flex; flex-direction: column; }
-.plot-y { position: relative; }
+/* THE Y LABELS HAVE A GUTTER. They used to be painted straight over the picture at left:0,
+   which on the Sensors panel meant the trace ran through "72.8 °F" — text over graphic, on
+   a shipped screen, and the least professional chart in the app. An axis label is not an
+   annotation floating on the plot; it is beside it. The gutter is set in ems of the label's
+   own step, so it holds a five-character reading ("76.8 °F", "1.15", "-0.15") whatever the
+   viewport does to the ramp, and the time row is indented to match so the two axes start on
+   one line. The margin is the other half of the same complaint: the top label sat flush
+   against the sentence above it. */
+.plot { display: flex; flex-direction: column; margin-top: 0.5vh; }
+.plot-y { position: relative; padding-left: var(--plot-gut); }
 .plot-hi, .plot-lo {
   position: absolute;
   left: 0;
+  width: var(--plot-gut);
   font-size: var(--fs-body-lg);
   color: var(--dim);
   font-variant-numeric: tabular-nums;
@@ -209,6 +218,7 @@
   font-size: var(--fs-body-lg);
   color: var(--dim);
   padding-top: 0.2vh;
+  padding-left: var(--plot-gut);
 }
 
 /* The Home Assistant panel's whole subject is one reading and how it has moved, and the

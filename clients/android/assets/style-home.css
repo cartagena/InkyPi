@@ -258,6 +258,13 @@
   font-variant-numeric: tabular-nums;
 }
 .mini-big.alert { color: var(--danger); animation: pulse var(--dur-pulse) infinite; }
+/* The Device tile's battery state, in the colour language the Air tile beside it already
+   speaks. It replaces the "↯" that used to be welded to the per-cent sign: state is a
+   property OF the number, so it belongs in the number's colour rather than in a second
+   symbol competing with it for 78 px. No animation — a wall panel that pulses because it
+   is charging would pulse all night, every night. */
+.mini-big.batt-chg { color: var(--ok); }
+.mini-big.batt-low { color: var(--danger); }
 /* Seven tiles across a 711 px screen is about 90 px each, which is tighter than the five
    Home Assistant tiles that already bought .sensor-label its exception to the label recipe
    — so the tile head takes the same exception, for the same reason and with the same

@@ -90,23 +90,37 @@
       if (!big) return;
       var i = this.info;
       if (!i) {
+        big.className = "mini-big";
         this.put(big, sub, "n/a", WP.bridge.present() ? "sensor error" : "no device link");
         return;
       }
-      /* "↯" (U+21AF), not "⚡" (U+26A1): the latter is an emoji-presentation codepoint and
-         Android drew it as a colour sprite in an otherwise monochrome tile row. It sits
-         hard against the percentage rather than after a space: the tile row is seven
-         across now and "83% ↯" measured two pixels wider than the box it sits in. */
+      /* THE CHARGING MARK MOVED DOWN A LINE. "83%↯" fitted the 78 px box and still read as
+         a garbled glyph from across the room, because the mark was welded to the per-cent
+         sign — two symbols in a row with no air between them resolve into one shape the eye
+         cannot name. The sub-line has 25 px spare where the value line has none, so the
+         mark goes there with a space in front of it and the value keeps its own state in
+         colour instead: charging is --ok, nearly flat is --danger.
+
+         "↯" (U+21AF) and not "⚡" (U+26A1) wherever it lands: the latter is an
+         emoji-presentation codepoint and Android draws it as a colour sprite.
+
+         The per-cent sign takes the same small-unit treatment the Moon tile gives its own,
+         for the same reason — under a heading that says DEVICE, "83" is the fact and "%"
+         is punctuation, and shrinking it buys the room a charging state needs. */
+      var lvl = i.battery && i.battery.level;
+      var chg = !!(i.battery && i.battery.charging);
+      big.className = "mini-big"
+        + (chg ? " batt-chg" : (lvl != null && lvl <= 15 ? " batt-low" : ""));
       this.put(big, sub,
-        (i.battery && i.battery.level != null ? i.battery.level : "--") + "%"
-          + (i.battery && i.battery.charging ? "↯" : ""),
+        (lvl != null ? lvl : "--") + '<span class="unit">%</span>',
+        (chg ? "↯ " : "") +
         /* ONE fact, not three. Six tiles share one line of the home column, so a tile is
-           102 CSS px wide and its sub-line has room for about eleven characters —
-           "104 GB · 21h up · Wi-Fi" needed 152 px of an 80 px box and rendered as
+           89 CSS px wide and its sub-line has room for about ten characters —
+           "104 GB · 21h up · Wi-Fi" needed 152 px of a 78 px box and rendered as
            "104 GB · …", which is a tile with no content strategy, only a clamp. Uptime and
            the network are one tap away on this widget's own panel; free storage is the one
            of the three that can actually go wrong quietly. Even "104 GB free" measured 82 px
-           of that 80 — the word went and the figure stayed, because under a heading that
+           of that 78 — the word went and the figure stayed, because under a heading that
            says DEVICE and a value that says 83%, a figure in GB is not ambiguous. */
         fmt.bytes(i.storage && i.storage.free));
     },
@@ -114,7 +128,9 @@
     /* Dirty-checked tile write. A poll that finds nothing changed — which is most of them,
        since the tile's coarsest field is a whole percent — should cost no DOM writes at all. */
     put: function (big, sub, bigText, subText) {
-      if (bigText !== this.shownBig) { this.shownBig = bigText; big.textContent = bigText; }
+      /* innerHTML on the value line only, and only ever from the two shapes above — the
+         small "%" is markup, so textContent would print the tag. */
+      if (bigText !== this.shownBig) { this.shownBig = bigText; big.innerHTML = bigText; }
       if (subText !== this.shownSub) { this.shownSub = subText; sub.textContent = subText; }
     },
 

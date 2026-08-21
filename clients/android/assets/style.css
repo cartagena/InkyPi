@@ -105,6 +105,11 @@
   --fs-title:      3.4vh;    /* panel titles, tile headline numbers */
   --fs-title-lg:   4.0vh;    /* a panel's VALUE — the number the screen is about */
   --fs-hero:       5.2vh;    /* the home weather hero */
+
+  /* The y-axis gutter on a plot: wide enough for a five-character reading at the label
+     step, so the trace never has to be drawn under its own numbers. In ems of that step,
+     not vh, because the thing it has to clear is type. */
+  --plot-gut: calc(var(--fs-body-lg) * 4.1);
   --fs-display:    7.6vh;    /* the clock, and a panel's one big readout */
   /* The stopwatch, and the widest string this ramp step ever has to hold: a 60-minute
      countdown reads "1:00:00", seven glyphs, ~3.3 em of tabular digits. 16vh is 182 CSS px,

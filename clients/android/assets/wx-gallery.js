@@ -234,13 +234,15 @@
       if (!big) return;
       var slot = this.slots[this.cur];
       big.textContent = NAMES[this.cur] || "—";
-      sub.textContent = !WP.bridgeFetch.available() ? "needs the tablet"
+      /* Every one of these has to SET in 78 px, which is about ten characters at the
+         caption step — "nothing today" measured 99 and shipped as "nothing t…". The tile
+         still says WHICH kind of failure, so a glance from across the room distinguishes
+         "the wifi is out" from "they have not posted today"; it just says it shorter. */
+      sub.textContent = !WP.bridgeFetch.available() ? "tablet only"
         : !slot ? "fetching…"
-        /* the tile says WHICH kind of failure, in two words, so a glance from across the
-           room distinguishes "the wifi is out" from "they have not posted today" */
         : slot.err ? (/offline|failed to fetch|timed out|network|refused/i.test(slot.err)
-            ? "no connection" : "nothing today")
-        : "tap to view";
+            ? "offline" : "not today")
+        : "tap to see";
     },
 
     onOpen: function (panel) { this.panel = panel; this.paintPanel(); },

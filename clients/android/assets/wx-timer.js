@@ -179,8 +179,9 @@
          which beats something merely parked. A stopwatch running through an alarm has to
          keep the tile — it is the live number. */
       var trace = this.trace();
-      /* Every one of these strings has to SET in about eleven characters: six tiles share
-         one line of the home column, so this one is 102 CSS px wide and "stopwatch running"
+      /* Every one of these strings has to SET in about ten characters: SEVEN tiles share
+         one line of the home column now, so this one is 89 CSS px wide with 78 px of
+         content inside its padding, and "stopwatch running"
          needed 124 of its 80. The big line above already says which mode is showing — a
          clock reading 00:00.0 is the stopwatch and 04:59 counting down is the timer — so
          the word "stopwatch" was the tile spending its whole width on the thing it was

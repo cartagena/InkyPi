@@ -45,7 +45,10 @@
   font-size: var(--fs-body-lg); font-variant-numeric: tabular-nums;
 }
 .hc-hi { color: var(--temp-warm); }
-.hc-lo { color: var(--temp-cold); transform: translate(-50%, 0); }
+/* Above its point, like the peak callout — see the note in wx-hourly.js. Hanging BELOW
+   put it inside the precipitation bars, because the coldest hour is always on the floor
+   of the plot and the bars start eight units under that. */
+.hc-lo { color: var(--temp-cold); }
 .hc-ticks { position: relative; height: 3.4vh; }
 .hc-ticks span {
   position: absolute; transform: translateX(-50%);

@@ -41,11 +41,24 @@ test("the tile reports real battery, storage, uptime and network", function () {
   assert.equal(app.text("sys-sub"), "41 GB");
 });
 
-test("charging adds the bolt", function () {
-  /* Hard against the percentage, with no space: the home tile row carries seven tiles
-     across a 711 px screen now, and "74% ↯" measured two pixels wider than the box. */
+test("charging is marked on the sub-line, not welded to the per-cent sign", function () {
+  /* CHANGED. The mark used to sit hard against the percentage — "74%↯" — because "74% ↯"
+     measured two pixels wider than the 78 px value box. It fitted and it still read as a
+     garbled glyph at tile size: two symbols with no air between them resolve into one
+     shape the eye cannot name. The sub-line has 25 px spare, so the mark went there and
+     the value carries the state in colour instead. */
   var app = h.createApp({ bridge: fake.make({ charging: true }) });
-  assert.equal(app.text("sys-big"), "74%↯");
+  assert.equal(app.text("sys-big"), "74%");
+  assert.equal(app.text("sys-sub"), "↯ 41 GB");
+  assert.match(app.$("sys-big").className, /batt-chg/, "a charging battery has no tone");
+});
+
+test("a battery about to die says so in colour", function () {
+  var flat = h.createApp({ bridge: fake.make({ battery: { level: 9 } }) });
+  assert.match(flat.$("sys-big").className, /batt-low/);
+  var fine = h.createApp({ bridge: fake.make({ battery: { level: 64 } }) });
+  assert.equal(/batt-(low|chg)/.test(fine.$("sys-big").className), false,
+    "a healthy battery took an alarm colour");
 });
 
 test("the panel renders every section from one snapshot", function () {
@@ -293,7 +306,8 @@ test("a live battery change still reaches the closed tile by itself", function (
   bridge.snapshot.battery.level = 12;
   bridge.snapshot.battery.charging = true;
   app.advance(61000);                            // one idle period
-  assert.equal(app.text("sys-big"), "12%↯", "the tile stopped updating on its own");
+  assert.equal(app.text("sys-big"), "12%", "the tile stopped updating on its own");
+  assert.equal(app.text("sys-sub"), "↯ 41 GB", "the charging mark stopped updating");
 });
 
 test("an unchanged snapshot writes nothing to the tile", function () {
@@ -303,13 +317,18 @@ test("an unchanged snapshot writes nothing to the tile", function () {
   var app = h.createApp({ bridge: bridge });
   var big = app.$("sys-big"), sub = app.$("sys-sub");
   var proto = Object.getPrototypeOf(big);
-  var desc = Object.getOwnPropertyDescriptor(proto, "textContent");
   var writes = 0;
-  [big, sub].forEach(function (el) {
-    Object.defineProperty(el, "textContent", {
-      configurable: true,
-      get: function () { return desc.get.call(this); },
-      set: function (v) { writes++; desc.set.call(this, v); }
+  /* Both properties, because the value line writes markup now (the small "%") and the
+     sub-line writes text — a spy on one of them would pass by not looking. */
+  ["textContent", "innerHTML"].forEach(function (prop) {
+    var desc = Object.getOwnPropertyDescriptor(proto, prop);
+    if (!desc) return;
+    [big, sub].forEach(function (el) {
+      Object.defineProperty(el, prop, {
+        configurable: true,
+        get: function () { return desc.get.call(this); },
+        set: function (v) { writes++; desc.set.call(this, v); }
+      });
     });
   });
 

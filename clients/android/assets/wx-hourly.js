@@ -205,12 +205,19 @@
         dot = '<span class="hc-dot" style="left:' + pctX(sp[0]) + ";top:" + pctY(sp[1]) + '"></span>';
       }
 
-      /* hi / lo callouts pinned to the curve's own extremes, not an axis */
+      /* hi / lo callouts pinned to the curve's own extremes, not an axis.
+
+         BOTH sit above their point. The low one used to hang below its own, which reads
+         better on a bare curve and was structurally doomed here: the coldest hour is by
+         definition at y = B, the floor of the plot, and the rain bars start eight units
+         under it — so "60°" was painted inside the blue bars in every wet scene, digits
+         over graphic, on the panel the owner looks at most. Above the point it rests in
+         the valley of the curve it labels, which is where a callout belongs anyway. */
       var hiN = temps.indexOf(hi), loN = temps.indexOf(lo);
       var labels = '<span class="hc-hi" style="left:' + pctX(pts[hiN][0])
         + ";top:" + pctY(pts[hiN][1] - 5) + '">' + Math.round(hi) + "&#176;</span>"
         + '<span class="hc-lo" style="left:' + pctX(pts[loN][0])
-        + ";top:" + pctY(pts[loN][1] + 5) + '">' + Math.round(lo) + "&#176;</span>";
+        + ";top:" + pctY(pts[loN][1] - 6) + '">' + Math.round(lo) + "&#176;</span>";
 
       /* preserveAspectRatio="none": the plot's HEIGHT is declared in the stylesheet (.hchart)
          and its width is the panel's. Left to scale with its own aspect ratio it took its

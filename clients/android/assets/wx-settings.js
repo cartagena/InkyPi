@@ -80,7 +80,9 @@
        everywhere else and the one somebody walks up to change. The sub-line carries the
        clock format and, only when there is one, the count of switched-off widgets — which
        is the answer to "why is the moon gone", and the only reason this tile is ever
-       urgent. Eleven characters is the whole budget: the tile is 102 CSS px wide. */
+       urgent. Ten characters is the whole budget: the tile is 89 CSS px wide and 78 px of
+       that is content. The value line says which unit; the sub-line says the clock format
+       in words, because "12h" beside "°F" read as a second unit rather than a setting. */
     renderCard: function () {
       var big = $("set-big"), el = $("set-sub");
       if (!el) return;
@@ -93,7 +95,9 @@
         return !S.get("show")[w];
       }).length;
       if (big) big.textContent = S.isMetric() ? "°C" : "°F";
-      el.textContent = S.get("clockHours") + "h" + (hidden ? " · " + hidden + " off" : "");
+      el.textContent = hidden
+        ? hidden + " hidden"                       /* the urgent case takes the whole line */
+        : S.get("clockHours") + "-hour";
     },
 
     onOpen: function (panel) { this.panel = panel; this.disarmReset(); this.paintPanel(); },

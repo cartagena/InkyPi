@@ -249,7 +249,7 @@ test("a feed that is down keeps the cached agenda, marked as of when", async fun
 
 test("the settings tile does not count an unconfigured Calendar as switched off", function () {
   var a = h.createApp({});
-  assert.equal(a.text("set-sub"), "12h");
+  assert.equal(a.text("set-sub"), "12-hour");
   a.WP.settings.setShow("moon", false);
-  assert.equal(a.text("set-sub"), "12h · 1 off");
+  assert.equal(a.text("set-sub"), "1 hidden");
 });
