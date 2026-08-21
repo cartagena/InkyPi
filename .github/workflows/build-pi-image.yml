@@ -434,8 +434,19 @@ jobs:
                        s/(^| )quiet( |$)/ /g
                        s/  +/ /g
                        s/^ //; s/ $//')
-          # Appended last so the kernel gives /dev/console to the serial port.
-          CMDLINE="${CMDLINE} console=ttyAMA0,115200"
+          # Drive BOTH UARTs. qemu wires serial_hd(0) to the PL011 (ttyAMA0)
+          # and serial_hd(1) to the mini UART (ttyS0), but on a Pi 3 the PL011
+          # is dedicated to Bluetooth and bcm2710-rpi-3-b.dtb points the usable
+          # console at the mini UART — so betting on ttyAMA0 alone produced a
+          # completely silent boot. systemd-getty-generator spawns a getty on
+          # every console the kernel registers, so listing both puts a login
+          # prompt on whichever one is live.
+          #
+          # earlycon writes straight to the PL011 MMIO window before any device
+          # probing, so if a future boot goes silent again the log distinguishes
+          # "kernel never started" from "console never bound".
+          CMDLINE="${CMDLINE} earlycon=pl011,0x3f201000"
+          CMDLINE="${CMDLINE} console=ttyAMA0,115200 console=ttyS0,115200"
           echo "Boot cmdline: ${CMDLINE}"
           echo "CMDLINE=${CMDLINE}" >> "$GITHUB_ENV"
 
@@ -472,27 +483,46 @@ jobs:
           # virtio_blk as a module, so with no initrd the rootfs never mounts —
           # and it would prove nothing about the kernel we actually ship.
           #
+          # Both UARTs are captured to their own file, in qemu's serial_hd
+          # order: the first -serial is the PL011 (ttyAMA0), the second is the
+          # mini UART (ttyS0). Attaching only one of them is how the previous
+          # attempt produced a 70-byte log containing nothing but qemu's own
+          # exit message.
+          #
           # Redirect rather than pipe: with a pipeline, $! is the PID of the
           # last element (tee), so the kill below would leave qemu orphaned and
           # the liveness check would watch the wrong process.
-          timeout 240 qemu-system-aarch64 \
+          #
+          # Budget is 600s, not 240s: raspi3b has no KVM acceleration on an
+          # x86_64 runner, so every instruction is emulated and boot is far
+          # slower than on real hardware. The job timeout is 20 minutes.
+          : > uart-pl011.log
+          : > uart-mini.log
+          timeout 600 qemu-system-aarch64 \
             -M raspi3b \
             -m 1024 \
             -kernel kernel8.img \
             -dtb boot.dtb \
             -drive file=sd.img,format=raw,if=sd \
             -append "${CMDLINE}" \
-            -serial stdio \
+            -serial file:uart-pl011.log \
+            -serial file:uart-mini.log \
             -display none \
             -no-reboot \
             > qemu-boot.log 2>&1 &
           QPID=$!
 
+          dump_logs() {
+            for f in uart-pl011.log uart-mini.log qemu-boot.log; do
+              echo "----- ${f} ($(wc -c < "${f}" 2>/dev/null || echo 0) bytes) -----"
+              tail -200 "${f}" 2>/dev/null || true
+            done
+            echo "----------------------------------------"
+          }
+
           fail() {
             echo "$1"
-            echo "----- qemu serial console -----"
-            tail -200 qemu-boot.log || true
-            echo "-------------------------------"
+            dump_logs
             kill -9 "${QPID}" 2>/dev/null || true
             echo "verified=false" >> "$GITHUB_OUTPUT"
             # JTN-533 constraint: "If boot verification fails, the release asset
@@ -503,9 +533,12 @@ jobs:
             exit 1
           }
 
-          for i in $(seq 1 240); do
-            if grep -q "login:" qemu-boot.log 2>/dev/null; then
+          # Either UART satisfies the gate — the question is whether the image
+          # boots to a login prompt, not which serial port it lands on.
+          for i in $(seq 1 600); do
+            if grep -qh "login:" uart-pl011.log uart-mini.log 2>/dev/null; then
               echo "Boot verified — login prompt observed at ${i}s"
+              dump_logs
               echo "verified=true" >> "$GITHUB_OUTPUT"
               kill -9 "${QPID}" 2>/dev/null || true
               exit 0
@@ -520,14 +553,18 @@ jobs:
             sleep 1
           done
 
-          fail "Boot verification timed out after 240s — no login: prompt"
+          fail "Boot verification timed out after 600s — no login: prompt"
 
-      - name: Upload boot log on failure
+      - name: Upload boot logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: qemu-boot-log-${{ needs.build-image.outputs.version }}
-          path: build/qemu-boot.log
+          path: |
+            build/uart-pl011.log
+            build/uart-mini.log
+            build/qemu-boot.log
+            build/cmdline.txt
           if-no-files-found: ignore
 
   attach-release:

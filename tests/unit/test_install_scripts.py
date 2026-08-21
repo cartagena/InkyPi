@@ -1583,17 +1583,30 @@ class TestPiImageBuildWorkflow:
         assert "-kernel kernel8.img" in self.content
         assert "bcm2710-rpi-3-b.dtb" in self.content
 
-    def test_workflow_boot_verify_puts_serial_console_last(self):
-        # The kernel hands /dev/console to the LAST console= argument. Pi OS
-        # ships "console=serial0,... console=tty1", so the trailing tty1 must
-        # be stripped and the serial console appended after it — otherwise
-        # getty lands on the virtual terminal and the log scrape sees nothing.
+    def test_workflow_boot_verify_replaces_pi_console_args(self):
+        # Pi OS ships "console=serial0,... console=tty1". serial0 is a firmware
+        # alias the kernel cannot resolve, and the kernel hands /dev/console to
+        # the LAST console=, so a leftover tty1 would put getty on the virtual
+        # terminal where the log scrape cannot see it. Strip them all first,
+        # then append our own.
         assert "s/console=[^ ]*//g" in self.content
-        cmdline_pos = self.content.index('CMDLINE="${CMDLINE} console=ttyAMA0')
         strip_pos = self.content.index("s/console=[^ ]*//g")
+        append_pos = self.content.index('CMDLINE="${CMDLINE} console=ttyAMA0')
         assert (
-            strip_pos < cmdline_pos
-        ), "serial console must be appended after existing console= args are stripped"
+            strip_pos < append_pos
+        ), "serial consoles must be appended after existing console= args are stripped"
+
+    def test_workflow_boot_verify_captures_both_uarts(self):
+        # qemu wires serial_hd(0) to the PL011 (ttyAMA0) and serial_hd(1) to
+        # the mini UART (ttyS0). On a Pi 3 the PL011 belongs to Bluetooth and
+        # the DTB points the console at the mini UART, so attaching only one
+        # UART yielded an empty log and an unexplained timeout. Drive both,
+        # put a console on both, and accept a login prompt on either.
+        pl011 = self.content.index("-serial file:uart-pl011.log")
+        mini = self.content.index("-serial file:uart-mini.log")
+        assert pl011 < mini, "PL011 must be serial_hd(0), mini UART serial_hd(1)"
+        assert "console=ttyAMA0,115200 console=ttyS0,115200" in self.content
+        assert 'grep -qh "login:" uart-pl011.log uart-mini.log' in self.content
 
     def test_workflow_boot_verify_pads_sd_to_power_of_two(self):
         # qemu's raspi machines reject an SD image whose size is not a power
