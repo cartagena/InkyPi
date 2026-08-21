@@ -3687,6 +3687,15 @@ class TestBootVerifyScript:
                 "the UART that actually registers"
             )
 
+    def test_pins_systemd_logging_to_kmsg(self):
+        # systemd switches from kmsg to the journal as soon as journald starts.
+        # The journal is a file inside the guest that we never read, so its
+        # messages disappeared at "Started systemd-journald.service", leaving
+        # only kernel output — which stops entirely once the system goes quiet.
+        # That reads as a hang, and it means the multi-user.target marker this
+        # script waits for could never appear.
+        assert "systemd.log_target=kmsg" in self.script
+
     def test_captures_both_uarts(self):
         # qemu wires serial_hd(0) to the PL011 and serial_hd(1) to the mini
         # UART. Attaching only one of them yielded an empty log and an

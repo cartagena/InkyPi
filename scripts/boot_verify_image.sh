@@ -184,6 +184,14 @@ CMDLINE="${CMDLINE} console=ttyAMA1,115200"
 # can see arrives over printk, because /dev/console never opens under qemu
 # ("unable to open an initial console") and systemd falls back to /dev/kmsg.
 CMDLINE="${CMDLINE} keep_bootcon ignore_loglevel"
+# Pin systemd's own logging to kmsg for the whole boot. By default systemd
+# switches from kmsg to the journal the moment journald starts, and since the
+# journal is a file we never see, its messages vanished at
+# "Started systemd-journald.service" — leaving only kernel output, which stops
+# entirely once the system goes quiet. That looked like a hang at t=32s when
+# the boot was almost certainly still progressing, and it means
+# "Reached target multi-user.target" could never appear.
+CMDLINE="${CMDLINE} systemd.log_target=kmsg systemd.show_status=true"
 echo "Boot cmdline: ${CMDLINE}"
 
 # ── pad to a power of two ─────────────────────────────────────────────────────
@@ -275,8 +283,16 @@ for i in $(seq 1 "${TIMEOUT}"); do
     # If qemu is gone we will never see a login prompt, so stop now rather than
     # burning the whole budget and reporting a misleading timeout. A startup
     # failure (bad romfile, bad machine type) dies in well under a second.
+    #
+    # Distinguish the two ways qemu can disappear: `timeout` reaping it at the
+    # end of the budget is not the same event as qemu falling over on its own,
+    # and reporting the latter wording for the former sends the next reader
+    # looking for a crash that never happened.
     if ! kill -0 "${QPID}" 2>/dev/null; then
-        fail "qemu exited after ${i}s without reaching a login prompt"
+        if [ "${i}" -ge $((TIMEOUT - 5)) ]; then
+            fail "budget of ${TIMEOUT}s exhausted — no boot-completion marker"
+        fi
+        fail "qemu died on its own after ${i}s — see qemu-stderr.log"
     fi
     # Show the last console line, not just byte counts: a stalled byte count
     # looks identical whether the guest is wedged or simply slow, whereas the
