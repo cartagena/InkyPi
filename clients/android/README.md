@@ -169,9 +169,12 @@ Eleven widgets, all interactive — tap a card for its full-screen detail panel,
 left/right inside any panel** to slide between screens (wrap-around, position dots), and an
 optional **Cycle screens** switch turns the whole panel into an InkyPi-style playlist that
 slides through the content screens on a dwell timer and returns to the dashboard. The icons are
-the app's own coloured SVG (no emoji fonts), and an animated **sky layer** behind the dashboard
-draws what the weather is doing: stars on a clear night, rain, snow, fog, drifting cloud banks,
-a dim flash in a storm. Portrait and landscape both render a full, dead-space-free layout.
+the app's own layered SVG (no emoji fonts, no remote assets) — all 28 WMO codes day and night,
+with gradient shading, rim light, craters on the moon and a little slow motion on the two drawn
+at hero size — and an animated **sky layer** behind the dashboard draws what the weather is
+doing: stars on a clear night, a horizon glow at dawn and dusk, rain, snow, fog, drifting cloud
+banks, a dim flash in a storm. Portrait and landscape both render a full, dead-space-free
+layout.
 
 - **Clock** — time, seconds, full date; panel adds time zone, day of year, ISO week, world clocks
 - **Now** — temperature, conditions, feels-like, wind, humidity; panel adds pressure, dew point,
@@ -181,8 +184,10 @@ a dim flash in a storm. Portrait and landscape both render a full, dead-space-fr
 - **Home** — Home Assistant sensors: a labelled **demo simulator** by default, your own entities
   when a token is configured
 - **Device** — real battery, storage, memory, network and uptime through a JS bridge
-- **Timer** — stopwatch with laps, countdown with presets and a full-screen alarm
-- **Moon** — live phase drawn as a disc, illumination, age, next full/new; computed locally
+- **Timer** — stopwatch with laps, countdown with presets and a full-screen alarm; the
+  stopwatch's empty screen offers the four common durations one tap away
+- **Moon** — live phase drawn as a shaded disc with craters, illumination, age, the next four
+  principal phases with their dates; all computed locally
 - **Air** — US AQI in the EPA's own colour bands, pollutant breakdown, 24 h forecast
   (Open-Meteo air-quality endpoint, keyless like the weather)
 - **News** — a one-line rotating headline ticker (RSS/Atom through the app shell — feeds

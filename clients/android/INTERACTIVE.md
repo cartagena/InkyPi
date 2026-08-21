@@ -27,8 +27,9 @@ nine files rather than a directory. `index.html` pins their load order and
 No shipped source file exceeds 500 lines (enforced by a test). The seams: `app.js`
 (bridge, settings, store) → `app-view.js` (formatting, layout, drift) → `app-touch.js`
 (panels, gestures, idle, boot); `wx-sensors-demo.js` (simulator) → `wx-sensors.js`
-(state + live feed) → `wx-sensors-panel.js` (detail panel); four stylesheets
-(`style.css` tokens+base, `-home`, `-panels`, `-theme`); `MainActivity.java` +
+(state + live feed) → `wx-sensors-panel.js` (detail panel); seven stylesheets
+(`style.css` tokens+base, `-home`, `-panels`, `-widgets`, `-charts`, `-theme`, `-icons`);
+`MainActivity.java` +
 `BridgeFetch.java`.
 
 ## The eleven widgets
@@ -103,17 +104,40 @@ source and age. In a browser (no shell) the ticker explains itself instead of fa
 
 The panel used to be monochrome because Android's emoji font rendered any colour-capable
 codepoint as an uncontrollable sprite. The weather icons are now the app's own SVG
-(`wx-icons.js`), so colour is deliberate: every colour is a `--ic-*` / `--temp-*` / `--aqi-*`
-token in `style.css` (a hex literal inside the icon file is a test failure), warm things are
-warm, rain is blue, and temperature charts run a hot-to-cold gradient in user space so peaks
-literally read warm.
+(`wx-icons.js`), so colour is deliberate: every colour is a `--ic-*` / `--temp-*` / `--band-*`
+token in `style-theme.css` (a hex literal inside the icon file is a test failure), warm things
+are warm, rain is blue, and temperature charts run a hot-to-cold gradient in user space so
+peaks literally read warm.
+
+**The icon pack.** All 28 WMO codes, day and night, assembled from seven primitives so the
+set cannot drift apart. Each primitive is built the way a paid pack builds one: the cloud is
+a single silhouette path (overlapping discs vanish under a flat fill and are glaring under a
+gradient) with a vertical light-to-dark gradient, a rim light on the edge the sky catches and
+a soft shadow under its belly; the sun has a halo, a hot spot and tapered wedge rays; the moon
+carries craters clipped to its lit limb, which is the same drawing the Moon widget's hero disc
+and its phase strips use, at four sizes. Gradient ids are shared and deterministic, and an
+icon carries only the `<defs>` it actually references, so a 24-hour strip does not ship
+twenty-four copies of the bolt glow.
+
+**Motion** is in `style-icons.css`, off `--dur-wx-*` tokens, and it is deliberately small: the
+rays rock a few degrees rather than spinning (eight-fold symmetry makes a spin read as a
+pinwheel), clouds bob under a pixel, rain falls at a real rate, snow drifts, the bolt is lit
+nine tenths of the time and flickers in the last tenth. **Only the two hero-sized icons
+animate** — the Now card's glyph and a panel hero. Animating the hourly strip and daily row
+would be 31 compositor animations running for ever on art 20 CSS px tall: a battery bill for
+motion nobody in the room can resolve.
 
 Behind the dashboard, `wx-sky.js` draws the current conditions on a full-screen canvas: stars
-that twinkle on a clear night, a wandering sun/moon glow, drifting cloud banks, angled rain,
-swaying snow, sliding fog bands, and a dim (≤0.25 alpha) flash every few seconds in a storm.
-It subscribes to the same Open-Meteo payload the cards render from, runs at ~30 fps, stops
-entirely when the app is hidden or the "Weather in the background" switch in Settings is off,
-and every element moves so it cannot burn in.
+that twinkle on a clear night, a wandering sun/moon glow, a horizon glow that only exists
+while the light is low, drifting cloud banks, rain drawn as a dim tail under a bright head so
+a drop reads as falling rather than as a scratch, snow with a bloom on the nearest flakes,
+sliding fog bands, and a dim flash every few seconds in a storm. The populations it animates
+are all graded rather than uniform (star magnitudes on a power curve, drops of differing
+length at the same depth, banks of differing proportion) — a uniform field reads as sensor
+noise, which is what an early version was fairly accused of. It subscribes to the same
+Open-Meteo payload the cards render from, runs at ~30 fps, stops entirely when the app is
+hidden or the "Weather in the background" switch in Settings is off, and every element moves
+so it cannot burn in. The alpha budget is stated and defended in `wx-sky-light.js`.
 
 ### 1. Clock — real device time
 
