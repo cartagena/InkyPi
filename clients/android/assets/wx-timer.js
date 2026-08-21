@@ -406,24 +406,27 @@
              read as, drawn in more pixels. On the one screen in the build whose entire
              subject is a single number, the honest use of that space is the number, which
              is why the readout above is the largest type in the app. */
-          /* And under the hint, the thing somebody standing at this panel with no laps
-             on it is actually about to do. A kitchen wall panel is asked for a countdown
-             far more often than for a stopwatch, and the countdown was two taps away
-             behind a mode switch — so the four common durations are here, and each of
-             them switches modes and loads itself. Real controls, not filler: the region
-             was reserved for laps and reserved is not the same as blank. */
-          html += section("Laps", '<div class="laps-hint"><div class="muted">'
-            + "Tap Lap while running to split.</div>"
-            /* "Or SET a countdown", not "start": the chips switch mode and load the
-               duration, and deliberately do not start it — a label that promises to start
-               one would be describing a different button. */
-            + '<div class="quick-t">Or set a countdown</div>'
-            + '<div class="chip-row cols4">'
+          /* ABOVE the lap region, not inside it: the thing somebody standing at this panel
+             is actually about to do. A kitchen wall panel is asked for a countdown far
+             more often than for a stopwatch, and the countdown was two taps away behind a
+             mode switch — so the four common durations are here, and each of them switches
+             modes and loads itself.
+
+             ITS OWN HEADING, which is the whole change. They shipped inside the LAPS
+             section, under a sentence about splitting lap times: four countdown presets
+             filed under a heading about a different feature is the one thing on this
+             screen a reader could not make sense of. Reserving a region for laps does not
+             make everything in it a lap. The heading also says what the chips do, so the
+             line that used to say it ("Or set a countdown") is not needed twice — and
+             SET, not start: they load the duration and deliberately leave it stopped. */
+          html += section("Set a countdown", '<div class="chip-row cols4">'
             + [1, 3, 5, 10].map(function (m) {
                 return '<button class="chip tappable" data-ns="timer" data-act="quick"'
                   + ' data-arg="' + (m * 60) + '">' + m + " min</button>";
               }).join("")
-            + "</div></div>", "laps-sec laps-empty");
+            + "</div>", "quick-sec")
+            + section("Laps", '<div class="laps-hint"><div class="muted">'
+              + "Tap Lap while running to split.</div></div>", "laps-sec laps-empty");
         }
 
       } else {

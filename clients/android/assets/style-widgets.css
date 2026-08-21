@@ -51,7 +51,12 @@
   min-height: 0;
 }
 .laps-sec { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
-.laps-sec.laps-empty { flex: 0 0 auto; }
+/* Two to one. With the pinned cluster taking ALL the slack the two blocks under it were
+   pushed onto the bottom rail and the chip row ran into the bezel; with none of it, the
+   panel ends in a band of black. The readout is the subject and gets the larger share,
+   the foot of the column gets the rest, and neither is squeezed. */
+.panel[data-panel="timer"] .stick.roomy { flex: 2 1 auto; }
+.laps-sec.laps-empty { flex: 1 1 auto; }
 .laps-sec .laps { flex: 0 0 auto; }
 /* The reserved lap region, with NO frame drawn in it until there is a lap to frame.
 
@@ -63,12 +68,13 @@
    has learned to look like content. The region still RESERVES its space, so the layout does
    not jump when lap 1 arrives — that part of the diagnosis was right — and one sentence
    says what will fill it. */
-.laps-hint {
-  flex: 1 1 auto;
-  text-align: center;
-  min-height: 0;
-}
-.laps-hint .muted { margin-top: 1.4vh; }
+/* Left, not centred, and no longer stretching to fill a region. It was one sentence
+   centred in a space that was most of the panel; the lap region now sits at the foot of a
+   column that has real content above it, and a centred line under a left-aligned heading
+   in a left-aligned column is the odd one out. The surplus is shared between the readout
+   and the foot of the panel — see the flex weights above. */
+.laps-hint { flex: 0 0 auto; min-height: 0; }
+.laps-hint .muted { margin-top: 0.2vh; }
 #tmr-disp { font-size: var(--fs-display-xl); }
 /* see the tenths note in wx-timer.js: a ramp step down and a shade dimmer, because this is
    the one glyph on the wall that changes ten times a second */
@@ -403,16 +409,13 @@
 }
 .mgc.now .mgc-l { color: var(--fg); }
 
-/* The stopwatch's empty lap region carries the four common countdown durations — see the
-   note in wx-timer.js. It is a heading, not a label, so it takes the label recipe's
-   colour and the note tier rather than inventing a third. */
-.quick-t {
-  font-size: var(--fs-note);
-  color: var(--dimmer);
-  text-align: center;
-  margin: 2.4vh 0 1vh;
-}
-.laps-hint .chip-row { justify-content: center; }
+/* The four common countdown durations, under a heading of their own at the foot of the
+   stopwatch — see the note in wx-timer.js. It sits at the BOTTOM of the column: the lap
+   region above it takes the slack, so the chips land on the same rail as the controls
+   whether or not there are laps to make room for. */
+/* the chip row carries no bottom margin of its own, so the next heading would otherwise
+   sit on top of it */
+.quick-sec { flex: 0 0 auto; padding-bottom: 1.4vh; }
 
 /* ---- Conditions: the day's light ----
    Three labelled cells (SUNRISE / SUNSET / DAYLIGHT) replaced by the one thing they were
