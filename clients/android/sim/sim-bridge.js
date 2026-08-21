@@ -231,5 +231,9 @@
     }
     var sc = JSON.parse(window.localStorage.getItem("sim.scenario") || "null");
     if (sc) Object.keys(sc).forEach(function (k) { SIM.scenario[k] = sc[k]; });
+    /* ?scene=rain (any SCENES key) forces the weather from the URL, so a headless browser
+       with a fresh profile — no localStorage to seed — can still shoot every mood. */
+    var qs = /[?&]scene=([a-z-]+)/.exec(window.location.search);
+    if (qs && SCENES[qs[1]]) SIM.scenario.weather = qs[1];
   } catch (e) { /* the sim is not worth breaking the app over */ }
 })();
