@@ -1,6 +1,165 @@
 # CHANGELOG
 
 
+## v1.2.0 (2026-08-21)
+
+### Bug Fixes
+
+- Keep the source checkout — the image install symlinks into it
+  ([`ddf3eac`](https://github.com/cartagena/InkyPi/commit/ddf3eaca720d5770a9902bbdb75b0f5607216e0f))
+
+The scaffolding cleanup deleted /opt/inkypi-src as build residue. It is not residue. install.sh does
+
+ln -sf "$SRC_PATH" "$INSTALL_STAGING/src" (install/install.sh:653)
+
+so /usr/local/inkypi/src is a symlink into the checkout rather than a copy of it. Removing the clone
+  leaves that symlink dangling and the service fails on every boot:
+
+realpath: /usr/local/inkypi/src/inkypi.py: No such file or directory
+
+/usr/local/inkypi/venv_inkypi/bin/python: can't find '__main__' module
+
+Its .git is load-bearing as well: do_update.sh and rollback.sh run git against that checkout, so
+  stripping the history would break in-place updates even where the symlink survived.
+
+The published v1.0.2 image is not affected — its symlink resolves — so this was introduced by the
+  cleanup, not fixed by it.
+
+Add the check that would have caught it. The auditor now resolves /usr/local/inkypi/src and fails if
+  inkypi.py is not there, and asserts the venv interpreter, the /usr/local/bin/inkypi launcher and
+  an enabled inkypi.service. Reaching multi-user.target only proves the system came up; it says
+  nothing about whether the app can run, which is the whole point of shipping a pre-installed image.
+
+Verified against the published v1.0.2: the four new checks pass there, and pointing the resolver at
+  a path that does not exist makes it fail, so the detection is real rather than vacuous.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+- Register i2c-dev so the Inky EEPROM is readable
+  ([`0e3bf34`](https://github.com/cartagena/InkyPi/commit/0e3bf3440868c70ef3a55430cf42b3968fdfd019))
+
+The Inky driver calls inky.auto.auto(), which reads the HAT's EEPROM over I2C at 0x50 to identify
+  the panel. On a flashed image that fails with
+
+RuntimeError: No EEPROM detected! You must manually initialise your Inky board.
+
+because /dev/i2c-1 does not exist, and it does not exist because /etc/modules never gained i2c-dev.
+
+install.sh enables each bus two ways: seds on config.txt, which work in a chroot, and `raspi-config
+  nonint do_spi 0` / `do_i2c 0`, which hit the build's raspi-config stub and did nothing. Only I2C
+  is affected — spidev nodes appear from dtparam=spi=on alone, so /dev/spidev0.0 was present and SPI
+  looked healthy, which is what made this hard to see. dtparam=i2c_arm=on brings up the controller
+  but the /dev node needs the i2c-dev module, and registering it is exactly the part raspi-config
+  would have done.
+
+Add it explicitly after install.sh, since the stub has to stay in place while install.sh runs.
+
+The auditor now checks for it, and separately that device.json was provisioned — it is generated
+  from install/config_base and not tracked in git, so a checkout alone does not have one.
+
+Confirmed against the published v1.0.2: it is missing i2c-dev, which means no image built so far
+  could ever have driven a display.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+- Stop shipping build scaffolding inside the Pi image
+  ([`4045675`](https://github.com/cartagena/InkyPi/commit/40456750efb2f5324a009394ddac297bd9cac101))
+
+Inspecting the v1.0.2 artifact directly, the image contains the build's own chroot scaffolding:
+
+/usr/local/sbin/raspi-config -> echo "[chroot stub] ..."; exit 0 /usr/local/sbin/systemctl -> no-ops
+  start/stop/restart/is-active /etc/resolv.conf -> nameserver 127.0.0.53 + an Azure search domain,
+  from the runner /usr/bin/qemu-aarch64-static -> x86-side emulator, ~10 MB /opt/inkypi-src -> the
+  build clone /etc/machine-id -> populated during the chroot run
+
+The workflow comment claimed "the real binaries on the shipped image are untouched", which is true,
+  but the stubs were never removed and /usr/local/sbin comes BEFORE /usr/sbin in root's PATH. So on
+  a real Pi:
+
+* raspi-config is a permanent no-op. Pi OS sets the wifi regulatory domain through `raspi-config
+  nonint do_wifi_country`, called by init_config's set_wlan_country, and without it the radio stays
+  rfkill-blocked. The device never joins any network. * systemctl silently succeeds without doing
+  anything for start, stop, restart, is-active, is-enabled and status. * DNS resolves against
+  127.0.0.53, systemd-resolved's stub listener, which Pi OS Lite does not run — so nothing resolves
+  even when the link is up.
+
+Remove all of it before packaging, restoring the image's own resolv.conf from a copy taken before
+  the build overwrote it, and blank machine-id so each flashed card generates its own rather than
+  every device sharing one and colliding over DHCP. The emulator is removed after the final chroot,
+  since pulling it earlier breaks the build instead of the image.
+
+Also rewrite the on-image readme. It told users Pi Imager would write /boot/firmware/user-data for
+  cloud-init to apply — but Raspberry Pi OS does not ship cloud-init, and nothing reads that file.
+  It now documents the mechanism the image actually has, custom.toml via init_config, with a worked
+  example. The example sets password_encrypted = false explicitly because it defaults to true, and a
+  plaintext password read as a hash yields an account nobody can log into and a wifi PSK that never
+  associates.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+- Take stdin from /dev/null when running install.sh in the chroot
+  ([`734c488`](https://github.com/cartagena/InkyPi/commit/734c488e28bdd18a31a5f83766b90f59dcb384d5))
+
+install.sh finishes with
+
+read -r -p "Would you like to restart your Raspberry Pi now? [Y/N] "
+
+and sets no `set -e`, so at EOF `read` returns non-zero with an empty answer, install.sh falls into
+  its "Unknown input" branch and exits 0. GitHub Actions gives every step /dev/null on stdin, so CI
+  has been sailing past this prompt by accident rather than by design. Run the same build from a
+  terminal and it blocks there forever, which is what a local build hit.
+
+Redirect stdin explicitly so a local run and CI behave the same way, and for the same reason.
+  Verified both directions against a stand-in with install.sh's exact prompt and shell options: with
+  /dev/null it prints "Unknown input" and exits 0; without it, the run times out blocked.
+
+Also record that INKYPI_CI_IMAGE_BUILD is not the mechanism. The original workflow set it and this
+  script inherited it, but nothing in install/ or src/ reads it — it looks like it suppresses the
+  prompt and does not. A test now fails if install/ ever starts consuming it, so the comment cannot
+  quietly become wrong.
+
+Not fixed here: install.sh prompts unconditionally rather than checking whether it has a terminal.
+  Guarding ask_for_reboot with `[ -t 0 ]` would help every non-interactive caller, not just this
+  build, but the workflow deliberately does not modify install.sh so option 2 stays self-contained.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+### Features
+
+- Make the image build runnable locally, and audit what it produces
+  ([`49bfe1e`](https://github.com/cartagena/InkyPi/commit/49bfe1e04dd56382f75ff9e10678e31e22d8e08d))
+
+Adds scripts/build_pi_image.sh and scripts/audit_pi_image.sh, and points the workflow at both. The
+  build steps used to exist only as workflow YAML, so reproducing a problem locally meant running a
+  copy of the pipeline rather than the pipeline — which proves nothing about what CI does. This is
+  the same move already made for boot verification and install-matrix.
+
+sudo ./scripts/build_pi_image.sh --tag v1.0.2 ./scripts/audit_pi_image.sh
+  build/inkypi-1.0.2-pi-zero-2-w.img.xz
+
+build_pi_image.sh takes --fast to trade output size for iteration speed, checks for the arm64 binfmt
+  handler up front rather than failing deep in the chroot with "Exec format error", and unmounts on
+  any exit path so a failed local run does not leave the image mounted.
+
+audit_pi_image.sh reads the built image's filesystems with debugfs, so it needs neither root nor a
+  loop device and finishes in seconds. It asserts no build scaffolding survived, that resolv.conf
+  and machine-id are the image's own, and that first-boot customisation still works — cmdline.txt
+  still invoking firstboot, init_config present, python3-toml installed (firstboot silently refuses
+  custom.toml without it). Run against the published v1.0.2 it reports the six defects that shipped;
+  the workflow now runs it before the artifact can be uploaded.
+
+Two bugs found by running the auditor against a real image rather than trusting it: fdisk
+  right-aligns its Start column so the first partition row was skipped, and `dd | grep -q` exits on
+  first match, killing dd with SIGPIPE, which pipefail turned into a false "not found".
+
+Retargets the tests that asserted build behaviour against the workflow, since that behaviour now
+  lives in the script. One of them, test_workflow_has_boot_verification_job, was asserting "login:"
+  against workflow text where it only ever matched a comment — passing for the wrong reason. It now
+  checks the workflow delegates to the boot script and that the script does the checking.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+
 ## v1.1.2 (2026-08-21)
 
 ### Bug Fixes
