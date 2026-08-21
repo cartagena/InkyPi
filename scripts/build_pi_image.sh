@@ -23,9 +23,9 @@ set -euo pipefail
 # --- pins ---------------------------------------------------------------------
 # Kept in sync with the PIN POINT block in build-pi-image.yml. The workflow
 # exports these, so its values win; the defaults are for local runs.
-PI_OS_IMAGE_URL="${PI_OS_IMAGE_URL:-https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2025-05-13/2025-05-13-raspios-bookworm-arm64-lite.img.xz}"
-PI_OS_IMAGE_SHA256="${PI_OS_IMAGE_SHA256:-62d025b9bc7ca0e1facfec74ae56ac13978b6745c58177f081d39fbb8041ed45}"
-PI_OS_IMAGE_FILENAME="${PI_OS_IMAGE_FILENAME:-2025-05-13-raspios-bookworm-arm64-lite.img.xz}"
+PI_OS_IMAGE_URL="${PI_OS_IMAGE_URL:-https://downloads.raspberrypi.org/raspios_lite_arm64/images/raspios_lite_arm64-2026-06-19/2026-06-18-raspios-trixie-arm64-lite.img.xz}"
+PI_OS_IMAGE_SHA256="${PI_OS_IMAGE_SHA256:-acff736ca7945e3b305f07cda4abdb870910e12634991da69783611756e381b3}"
+PI_OS_IMAGE_FILENAME="${PI_OS_IMAGE_FILENAME:-2026-06-18-raspios-trixie-arm64-lite.img.xz}"
 PISHRINK_TAG="${PISHRINK_TAG:-v26.03.16}"
 PISHRINK_SHA256="${PISHRINK_SHA256:-71026f0c02ac099e588a3eb8f70760c1b680aa8ea3acde61a0141fbaeb68c777}"
 
