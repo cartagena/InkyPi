@@ -21,6 +21,13 @@
      already in the registry by the time this IIFE runs. */
   var weather = WP.registry.weather;
 
+  /* The chance of rain at one hourly index, rounded, and 0 when the payload does not
+     carry the field at all. Three readers wanted the same four lines. */
+  function popAt(h, k) {
+    return h && h.precipitation_probability
+      ? Math.round(h.precipitation_probability[k] || 0) : 0;
+  }
+
   var hourly = {
     name: "hourly",
     sel: 0,
@@ -150,8 +157,17 @@
        problem. Six across a day still lands on 12A / 4A / 8A / 12P / 4P / 8P. */
     TICK_EVERY: 4,
 
+    /* Two thresholds, and they answer two different questions. POP_SHOW is whether the
+       day has any rain in it worth drawing a row for — 30%, the same figure that makes a
+       chance read as `wet` in the strip and the list. POP_FLOOR is whether a given hour
+       inside such a day gets a bar at all; below it the mark is a rounding error rather
+       than a reading. See the note where the bars are built. */
+    POP_SHOW: 30,
+    POP_FLOOR: 10,
+
     chart: function (h, list, sel) {
       var TICK_EVERY = this.TICK_EVERY;
+      var POP_FLOOR = this.POP_FLOOR, POP_SHOW = this.POP_SHOW;
       var W = 320, H = 104;
       var L = 8, R = 312, T = 14, B = 68;         // temp plot area
       var barBase = 100, barMax = 24;             // precip bars
@@ -177,10 +193,20 @@
       var bars = "", ticks = "", marks = "";
       var bw = step * 0.5;
       var now = weather.nowIndex();
+      /* THE ROW IS EITHER DATA OR IT IS NOT THERE. It used to draw a bar for any non-zero
+         chance, so a dry day — 1 to 4 per cent, twenty-four hours of it — came out as a
+         row of two-pixel stubs floating between the curve and the axis: a broken dashed
+         rule that reads as a rendering fault rather than as weather. The strip above
+         already knows this rule (it drops its rain column when every hour in view is dry);
+         the chart takes the same one, twice over — the row appears only on a day that has
+         a real chance somewhere in it, and inside such a day an hour under the floor is
+         left blank rather than drawn as a stub. Three stubs are the same fault as
+         twenty-four of them. Any bar that IS drawn gets a height it can be seen at. */
+      var showBars = list.some(function (k) { return popAt(h, k) >= POP_SHOW; });
       list.forEach(function (k, n) {
-        var pop = h.precipitation_probability ? (h.precipitation_probability[k] || 0) : 0;
-        if (pop > 0) {
-          var bh = (pop / 100) * barMax;
+        var pop = popAt(h, k);
+        if (showBars && pop >= POP_FLOOR) {
+          var bh = Math.max((pop / 100) * barMax, 2.6);
           bars += '<rect x="' + (L + n * step - bw / 2).toFixed(1) + '" y="' + (barBase - bh).toFixed(1)
             + '" width="' + bw.toFixed(1) + '" height="' + bh.toFixed(1) + '" rx="1"/>';
         }
@@ -211,13 +237,20 @@
          better on a bare curve and was structurally doomed here: the coldest hour is by
          definition at y = B, the floor of the plot, and the rain bars start eight units
          under it — so "60°" was painted inside the blue bars in every wet scene, digits
-         over graphic, on the panel the owner looks at most. Above the point it rests in
-         the valley of the curve it labels, which is where a callout belongs anyway. */
+         over graphic, on the panel the owner looks at most.
+
+         Above the point is where a callout belongs, and it is NOT on its own enough. The
+         peak clears because the curve falls away on both sides of it; the valley's does
+         not, because the curve rises on both sides and in a deep valley it crosses every
+         horizontal band above the point — there is no offset that clears it. So the low
+         label is lifted further (a valley has the room; that is what makes it a valley)
+         AND both labels knock the curve out behind their own glyphs, the way a map label
+         knocks out a contour. See .hc-hi/.hc-lo in style-charts.css. */
       var hiN = temps.indexOf(hi), loN = temps.indexOf(lo);
       var labels = '<span class="hc-hi" style="left:' + pctX(pts[hiN][0])
         + ";top:" + pctY(pts[hiN][1] - 5) + '">' + Math.round(hi) + "&#176;</span>"
         + '<span class="hc-lo" style="left:' + pctX(pts[loN][0])
-        + ";top:" + pctY(pts[loN][1] - 6) + '">' + Math.round(lo) + "&#176;</span>";
+        + ";top:" + pctY(pts[loN][1] - 11) + '">' + Math.round(lo) + "&#176;</span>";
 
       /* preserveAspectRatio="none": the plot's HEIGHT is declared in the stylesheet (.hchart)
          and its width is the panel's. Left to scale with its own aspect ratio it took its

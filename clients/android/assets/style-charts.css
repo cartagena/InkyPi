@@ -43,6 +43,16 @@
 .hc-hi, .hc-lo {
   position: absolute; transform: translate(-50%, -100%);
   font-size: var(--fs-body-lg); font-variant-numeric: tabular-nums;
+  /* THE LABEL KNOCKS THE CURVE OUT BEHIND ITSELF. Both callouts are pinned to the
+     curve's own extremes, so sooner or later one of them is drawn over the line it
+     labels — and it was: in a valley the curve rises on both sides of the low point and
+     ran through the lower third of `60°` in the same blue at the same weight. Moving the
+     label cannot fix that (a deep enough valley crosses every band above the point), so
+     it is fixed the way a map fixes a place name lying on a contour: a soft plate of the
+     panel's own background under the glyphs, fading out before its edge so the curve
+     reads as passing BEHIND the number rather than as cut in half. */
+  padding: 0 1.1vw;
+  background: radial-gradient(closest-side, var(--bg) 68%, transparent 100%);
 }
 .hc-hi { color: var(--temp-warm); }
 /* Above its point, like the peak callout — see the note in wx-hourly.js. Hanging BELOW
