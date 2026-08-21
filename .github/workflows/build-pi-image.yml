@@ -85,6 +85,7 @@ jobs:
       image_sha256: ${{ steps.package.outputs.image_sha256 }}
       image_size: ${{ steps.package.outputs.image_size }}
       version: ${{ steps.tag.outputs.version }}
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout InkyPi repo (workflow + pishrink.sh)
         uses: actions/checkout@v4
@@ -412,7 +413,19 @@ jobs:
   attach-release:
     name: Attach image to GitHub release
     needs: [build-image, verify-boot]
-    if: github.event_name == 'release' && needs.verify-boot.outputs.verified == 'true'
+    # JTN-745, second half: the triggers were made reusable but this guard was
+    # not. In a reusable workflow the github context belongs to the CALLER, and
+    # release.yml is triggered by push — so github.event_name is 'push', never
+    # 'release', and this job silently skipped on the one path that matters.
+    # v1.0.2 shipped wheels and an SBOM but no image because of it.
+    #
+    # Gate on boot verification alone. Every way into this workflow
+    # (workflow_call from release.yml, release:published, workflow_dispatch by
+    # a maintainer) is a deliberate request to build an image for a tag, and
+    # there is no push/PR trigger that could reach here by accident. This is
+    # what build-wheelhouse.yml already does, which is why wheels attached and
+    # the image did not.
+    if: needs.verify-boot.outputs.verified == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Download image artifact
@@ -424,7 +437,10 @@ jobs:
       - name: Attach to release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.release.tag_name }}
+          # The resolved tag, not github.event.release.tag_name — that is empty
+          # on the workflow_call and workflow_dispatch paths, so even once the
+          # job runs it would upload against no tag at all.
+          tag_name: ${{ needs.build-image.outputs.tag }}
           files: |
             build/inkypi-*-pi-zero-2-w.img.xz
             build/inkypi-*-pi-zero-2-w.img.xz.sha256
