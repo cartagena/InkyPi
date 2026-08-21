@@ -164,36 +164,38 @@
     + '<circle cx="19.5" cy="33" r="2.3" opacity="0.24"/>'
     + '<circle cx="35" cy="46" r="2" opacity="0.2"/>';
 
-  /* The lit limb with its craters, at any size. The craters are CLIPPED to the lit path:
-     a crater on the dark side is a crater in shadow, and drawing one there is the single
-     detail that makes a phase disc look printed rather than lit. The clip id is derived
-     from the phase, so two discs of the same phase share one identical definition and two
-     different phases can never collide. */
-  function litLimb(cx, cy, r, p) {
-    var d = moonPath(cx, cy, r, p);
-    var id = "wxm" + Math.round(p * 10000);
-    var s = r / 24, tx = cx - s * 32, ty = cy - s * 32;
-    return '<clipPath id="' + id + '"><path d="' + d + '"/></clipPath>'
-      + '<path d="' + d + '" fill="url(#wxg-moon)"/>'
-      + '<g clip-path="url(#' + id + ')" fill="var(--ic-moon-dim)" transform="translate('
-      + tx.toFixed(2) + " " + ty.toFixed(2) + ") scale(" + s.toFixed(3) + ')">'
-      + CRATERS + "</g>";
-  }
-
   /* The icon moon is a fixed pleasant crescent, not the live phase — at 2.9vh nobody can
-     read a gibbous from a quarter, and the Moon tile shows the real phase. */
+     read a gibbous from a quarter, and the Moon tile shows the real phase. Its two craters
+     are placed by hand inside the lit limb of THAT phase, in units of r, so no clip path
+     is needed: a crescent this size can carry two marks and no more anyway. */
   function moon(cx, cy, r) {
-    return litLimb(cx, cy, r, 0.18);
+    function pit(dx, dy, pr, op) {
+      return '<circle cx="' + (cx + dx * r).toFixed(1) + '" cy="' + (cy + dy * r).toFixed(1)
+        + '" r="' + (pr * r).toFixed(1) + '" fill="var(--ic-moon-dim)" opacity="' + op + '"/>';
+    }
+    return '<path d="' + moonPath(cx, cy, r, 0.18) + '" fill="url(#wxg-moon)"/>'
+      + pit(0.42, -0.35, 0.14, 0.3) + pit(0.18, 0.32, 0.11, 0.26)
+      + pit(0.6, 0.26, 0.09, 0.24);
   }
 
   /* The Moon widget's disc: the whole body, with the unlit part present as earthshine
-     rather than absent. Exported so the tile, the week strip and the panel hero are one
-     drawing at three sizes. */
+     rather than absent, and the maria where the real ones are. Exported so the tile, the
+     week strip, the phase strip and the panel hero are one drawing at four sizes.
+
+     The craters are painted over the WHOLE disc and the dark side is then painted back
+     over the top, as a single evenodd path of (outer circle + lit limb). That is the same
+     picture a clipPath would give and it needs no id — and an id here would be the same
+     duplicate-reference trap the gradients were just taken out of, on an element the tile
+     replaces every hour. A crater in shadow is a crater you cannot see, which is the one
+     detail that makes a phase disc look lit rather than printed. */
+  var RING = "M 8 32 A 24 24 0 1 0 56 32 A 24 24 0 1 0 8 32 Z";
   function moonDisc(p, cls) {
     return '<svg class="' + (cls || "wxi") + '" viewBox="0 0 64 64" aria-hidden="true">'
-      + "<defs>" + GRAD["wxg-moon"] + "</defs>"
       + '<circle cx="32" cy="32" r="24" fill="var(--ic-moon-dk)"/>'
-      + litLimb(32, 32, 24, p)
+      + '<path d="' + moonPath(32, 32, 24, p) + '" fill="url(#wxg-moon)"/>'
+      + '<g fill="var(--ic-moon-dim)">' + CRATERS + "</g>"
+      + '<path fill-rule="evenodd" fill="var(--ic-moon-dk)" d="' + RING + " "
+      + moonPath(32, 32, 24, p) + '"/>'
       + '<circle cx="32" cy="32" r="24" fill="none" stroke="var(--ic-moon-dim)"'
       + ' stroke-width="0.7" opacity="0.3"/>'
       + "</svg>";
@@ -285,15 +287,27 @@
     return '<g stroke="url(#wxg-fog)" stroke-linecap="round">' + rows + "</g>";
   }
 
-  /* Only the materials an icon actually references travel with it: a 24-hour strip should
-     not carry twenty-four copies of the bolt glow. Sorted, so the same icon is always the
-     same string — the tests compare whole icons for equality. */
+  /* THE MATERIALS ARE MOUNTED ONCE, into a permanent hidden sprite in index.html, and
+     every icon references them by id.
+
+     They used to travel inside each icon, which put twenty-six identical copies of
+     <linearGradient id="wxg-cloud"> in one document. A duplicate id resolves to whichever
+     copy the browser saw first — and that copy is inside a card the app repaints. When a
+     repaint removes it, every other icon on the screen loses its fill: a capture caught
+     the Now glyph and all twenty-four hourly glyphs blank while the daily row was fine.
+     One node that nothing ever removes cannot go stale, and each icon gets ~700 bytes
+     shorter into the bargain. */
+  function mountDefs() {
+    var host = (typeof document !== "undefined" && document.getElementById)
+      ? document.getElementById("wxdefs") : null;
+    if (!host) return;                      /* the test DOM, and any page without the host */
+    host.innerHTML = '<svg aria-hidden="true" focusable="false"><defs>'
+      + Object.keys(GRAD).sort().map(function (k) { return GRAD[k]; }).join("")
+      + "</defs></svg>";
+  }
+
   function wrap(inner) {
-    var need = {}, m, re = /url\(#(wxg-[a-z]+)\)/g;
-    while ((m = re.exec(inner))) need[m[1]] = true;
-    var defs = Object.keys(need).sort().map(function (k) { return GRAD[k]; }).join("");
-    return '<svg class="wxi" viewBox="0 0 64 64" aria-hidden="true">'
-      + (defs ? "<defs>" + defs + "</defs>" : "") + inner + "</svg>";
+    return '<svg class="wxi" viewBox="0 0 64 64" aria-hidden="true">' + inner + "</svg>";
   }
 
   /* ---------------- composites per WMO group ----------------
@@ -353,4 +367,5 @@
   WP.wxIcon.moonPath = moonPath;
   WP.wxIcon.moonDisc = moonDisc;
   WP.wxIcon.codes = Object.keys(ICONS).map(Number);
+  mountDefs();
 })();

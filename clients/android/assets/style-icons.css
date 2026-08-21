@@ -26,6 +26,11 @@
 /* An icon is sized by the type ramp exactly like the glyph it replaced: 1em-ish, from
    the container's font-size. Slightly over 1em because SVG art carries its own internal
    padding where a font glyph's ink box does not. */
+/* The gradient sprite: present in the document, painting nothing. Not display:none and
+   not [hidden] — a paint server has to stay reachable, and zero-sized-and-clipped is the
+   form of "not on screen" that is guaranteed to keep it so. */
+#wxdefs { position: absolute; width: 0; height: 0; overflow: hidden; }
+
 .wxi { width: 1.18em; height: 1.18em; display: block; margin: 0 auto; }
 .big-icon .wxi, .wx-icon .wxi { width: 1.24em; height: 1.24em; }
 
