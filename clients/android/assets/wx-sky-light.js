@@ -339,20 +339,32 @@
           v: 240 + z * 470,
           /* Length varies WITHIN a depth band as well as across it. Three bands of three
              identical streak lengths is a comb; real rain has long drops next to short
-             ones at the same distance because they are at different points of their fall. */
-          l: (5 + z * 22) * (0.7 + rnd() * 0.6)
+             ones at the same distance because they are at different points of their fall.
+             The near band runs LONGER than it did (the far one is untouched), which is the
+             other half of the fix for "discrete blue dashes with gaps between them": more
+             streaks, thinner, and the near ones drawn out rather than chopped. */
+          l: (5 + z * 30) * (0.7 + rnd() * 0.6)
         });
       }
 
+      /* SNOW IS FEWER, SOFTER AND MORE UNEQUAL than it was. Ninety flakes of graded size
+         at a nearly flat alpha came out as grey dots sitting on DEMO, HUMID and NEWS —
+         read as dead pixels rather than as weather, which is the same verdict the star
+         field got two rounds ago and for the same reason: a population without a
+         distribution is noise. So the alpha now falls away with depth on a curve rather
+         than a line (the far half is a rumour, the near few are the snow), the smallest
+         flake is a dot rather than a pixel, and a quarter of them carry the out-of-focus
+         bloom instead of a tenth. Sixty-four, not ninety: the count that was buying
+         density is spent on the ones you can actually see. */
       f.flakes = [];
       for (i = 0; i < MAXFLAKE; i++) {
         z = rnd();
         f.flakes.push({
           x: rnd() * w, y: rnd() * h, z: z,
-          r: 0.7 + z * 2.6, v: 13 + z * 38,
-          /* the nearest tenth carry a soft bloom — a snowfall is not made of hard dots,
-             and a handful of out-of-focus flakes is what sells the depth */
-          soft: z > 0.9,
+          r: 1 + z * 2.5, v: 13 + z * 38,
+          /* the nearest quarter carry a soft bloom — a snowfall is not made of hard dots,
+             and out-of-focus flakes are what sells the depth */
+          soft: z > 0.76,
           sw: 0.22 + rnd() * 0.55, ph: rnd() * 6.28
         });
       }

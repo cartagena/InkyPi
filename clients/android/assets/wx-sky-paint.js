@@ -128,7 +128,7 @@
        stops rain looking like a screensaver, because a screensaver's rain is vertical. */
     paintRain: function (sc, wind, dt, w, h) {
       var x = this.ctx, thin = sc === "drizzle";
-      var n = thin ? 70 : (sc === "storm" ? this.MAXDROP : 120);
+      var n = thin ? 95 : (sc === "storm" ? this.MAXDROP : 170);
       var vk = thin ? 0.5 : 1, lk = thin ? 0.5 : 1, ak = thin ? 0.62 : 1;
       var band = [[], [], []], i, dr;
       for (i = 0; i < n; i++) {
@@ -149,7 +149,12 @@
       for (var b = 0; b < 3; b++) {
         if (!band[b].length) continue;
         for (var pass = 0; pass < 2; pass++) {
-          x.lineWidth = (0.8 + b * 0.75) * (pass ? 1.25 : 1);
+          /* THINNER AND MORE OF THEM. At 0.8-2.3 px the streaks read as discrete blue
+             dashes with gaps between them — a dotted rule falling past the cards rather
+             than rain — and the wide near band was the half that showed through text.
+             Real rain at this alpha wants a finer line and a denser field, which is also
+             the quieter of the two over anything a person is reading. */
+          x.lineWidth = (0.55 + b * 0.5) * (pass ? 1.3 : 1);
           x.globalAlpha = (pass ? 0.09 + b * 0.09 : 0.08 + b * 0.09) * ak;
           x.beginPath();
           for (i = 0; i < band[b].length; i++) {
@@ -178,7 +183,10 @@
                 + wind.east * wind.force * (14 + f.z * 30)) * dt;
         if (f.y > h) { f.y = -4; f.x = Math.random() * w; }
         if (f.x < -6) f.x = w + 5; else if (f.x > w + 6) f.x = -5;
-        x.globalAlpha = 0.14 + f.z * 0.26;           /* ceiling 0.40 — snow is WHITE */
+        /* On a CURVE, not a line: the far half of the field drops away to almost nothing
+           where a linear ramp left it at a flat grey that read as dust on the glass, and
+           the near few keep the top of the budget. Ceiling 0.44 — snow is WHITE. */
+        x.globalAlpha = 0.05 + f.z * f.z * 0.39;
         x.beginPath();
         x.arc(f.x, f.y, f.r, 0, 6.283);
         x.fill();

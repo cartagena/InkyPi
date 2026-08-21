@@ -44,7 +44,10 @@
   var L = WP.skyLight;
   var sceneFor = L.sceneFor, coverFor = L.coverFor, rgba = L.rgba;
 
-  var MAXCLOUD = 9, MAXDROP = 150, MAXFLAKE = 90;
+  /* How deep each field is. Rain went UP (a denser, finer field is what stops streaks
+     reading as dashes) and snow came DOWN (see the note over the flake population in
+     wx-sky-light.js: the flakes that were bought by count were the invisible ones). */
+  var MAXCLOUD = 9, MAXDROP = 210, MAXFLAKE = 64;
 
   var sky = {
     name: "sky",
