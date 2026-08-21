@@ -1,6 +1,39 @@
 # CHANGELOG
 
 
+## v1.1.1 (2026-08-21)
+
+### Bug Fixes
+
+- Attach the Pi image on the path that actually cuts releases
+  ([`b8d6d93`](https://github.com/cartagena/InkyPi/commit/b8d6d93fa147139bca4e055d66f779a81dc3d740))
+
+v1.0.2 shipped with wheels and an SBOM but no image. attach-release was guarded on:
+
+if: github.event_name == 'release' && ...
+
+In a reusable workflow the github context belongs to the CALLER, and release.yml is triggered by
+  push, so github.event_name is 'push' — never 'release'. The job skipped silently on the only path
+  that cuts releases. This is the second half of JTN-745: the triggers were made reusable, this
+  guard was not. build-wheelhouse.yml has no such guard, which is exactly why wheels attached and
+  the image did not.
+
+A second fault sat behind it: tag_name used github.event.release.tag_name, which is empty under both
+  workflow_call and workflow_dispatch, so even once the job ran it would have uploaded against no
+  tag. Use the tag build-image already resolved, now exported as a job output.
+
+Gate on boot verification alone. Every entry point (workflow_call from release.yml,
+  release:published, workflow_dispatch) is a deliberate request to build an image for a tag, and
+  there is no push or PR trigger that could reach here by accident.
+
+test_workflow_attach_gated_on_release_event asserted the buggy behaviour and called
+  workflow_dispatch "a dry run". JTN-745 settled the opposite — manual rebuilds attach so historical
+  gaps can be backfilled without bespoke local uploads. Replaced with tests that the guard does not
+  mention github.event_name and that the upload uses the resolved tag.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+
 ## v1.1.0 (2026-08-21)
 
 ### Bug Fixes
