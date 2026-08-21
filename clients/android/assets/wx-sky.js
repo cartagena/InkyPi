@@ -12,13 +12,11 @@
    painters can only be judged by looking at them, so the half that CAN be pinned by a
    test lives where a test can reach it.
 
-   AMOLED rules the layer lives by:
-     * everything moves — a canvas whose pixels never sit still cannot burn in, which is
-       why the bloom tracks the sun across the frame and even the stars twinkle;
-     * dim by construction — the alpha budget is defended in wx-sky-light.js, and most of
-       the frame stays true black;
-     * 30 fps, not 60 — half the GPU work, invisible for weather;
-     * it stops completely when the app is hidden or the switch in Settings is off.
+   AMOLED rules the layer lives by: everything moves, so no pixel can burn in (the bloom
+   tracks the real sun and even the stars twinkle); it is dim by construction, with the
+   alpha budget stated and defended in wx-sky-light.js and most of the frame left true
+   black; it runs at 30 fps, not 60, which is half the GPU work and invisible for weather;
+   and it stops entirely when the app is hidden or the Settings switch is off.
 
    WHY IT SHIPS ON AGAIN: it shipped off after a round of grading called the starfield
    "dust on the glass or dead pixels" — a fair verdict on 110 identical one-pixel
@@ -438,15 +436,18 @@
       x.globalAlpha = 1;
     },
 
-    /* Fog lies on the ground. The old version put four bands across the middle of the
-       frame, evenly spaced, which is not fog — it is venetian blinds. A base gradient
-       rising from the bottom edge plus bands that all live in the lower third is. */
+    /* Fog lies on the ground. The old version put four bands evenly across the middle of
+       the frame, which is not fog — it is venetian blinds. A gradient from the bottom edge
+       plus bands in the lower third is. And fog is the one scene where this layer IS the
+       weather (no clouds, no precipitation), so it takes the heaviest hand in the budget:
+       0.16 of the fog grey is RGB 25 over black, which leaves --dimmer text better than
+       5:1. At 0.10 the fog scene was a black rectangle captioned "Fog". */
     paintFog: function (dt, w, h) {
       var x = this.ctx, c = this.col.fog, i;
       var base = x.createLinearGradient(0, h * 0.5, 0, h);
       base.addColorStop(0, rgba(c, 0));
-      base.addColorStop(0.55, rgba(c, 0.035));
-      base.addColorStop(1, rgba(c, 0.10));
+      base.addColorStop(0.55, rgba(c, 0.055));
+      base.addColorStop(1, rgba(c, 0.16));
       x.fillStyle = base;
       x.fillRect(0, h * 0.5, w, h * 0.5);
       for (i = 0; i < this.bands.length; i++) {

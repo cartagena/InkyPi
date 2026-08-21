@@ -377,7 +377,7 @@
         f.bands.push({
           /* fog sits on the floor of the frame, because that is where fog sits */
           y: h * (0.58 + 0.11 * i), hh: 38 + rnd() * 44,
-          x: rnd() * w, v: 3 + rnd() * 8, a: 0.030 + rnd() * 0.024
+          x: rnd() * w, v: 3 + rnd() * 8, a: 0.045 + rnd() * 0.030
         });
       }
 
