@@ -369,9 +369,13 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
+          # ipxe-qemu ships the option ROMs qemu loads for emulated NICs
+          # (efi-virtio.rom). It is only a Recommends of qemu-system-arm, so
+          # --no-install-recommends drops it and qemu aborts at startup with
+          # 'failed to find romfile' before executing a single instruction.
           sudo apt-get install -y --no-install-recommends \
             qemu-system-arm qemu-system-aarch64 \
-            qemu-utils xz-utils
+            qemu-utils xz-utils ipxe-qemu
 
       - name: Download image artifact
         uses: actions/download-artifact@v4
@@ -379,63 +383,152 @@ jobs:
           name: inkypi-pi-image-${{ needs.build-image.outputs.version }}
           path: build
 
-      - name: Decompress + boot-verify
-        id: verify
+      - name: Decompress image
         run: |
           set -euxo pipefail
           cd build
           XZ=$(ls -1 inkypi-*-pi-zero-2-w.img.xz | head -1)
           xz -dk -T 0 "${XZ}"
-          IMG="${XZ%.xz}"
+          echo "IMG=${XZ%.xz}" >> "$GITHUB_ENV"
 
-          # Boot the image in qemu-system-aarch64 with a 4-minute budget and
-          # scrape the serial console for "login:" — that proves the kernel
-          # booted, init finished, and getty spawned. This is the single
-          # best proof that pishrink didn't shrink the rootfs so hard that
-          # systemd can't write its tmpfiles, and that install.sh didn't
-          # break /etc/fstab or /boot/firmware/cmdline.txt.
+      - name: Extract boot files and prepare SD card
+        # qemu's raspi machines do not run the Raspberry Pi firmware, so they
+        # never read config.txt/cmdline.txt off the boot partition themselves —
+        # the kernel, DTB and command line have to be handed to qemu directly.
+        # We pull all three out of the image so the boot test still exercises
+        # the image's own kernel and its own root= spec rather than substitutes.
+        run: |
+          set -euxo pipefail
+          cd build
+          LOOP=$(sudo losetup --show -Pf "${IMG}")
+          sudo mkdir -p /mnt/pi-boot
+          sudo mount "${LOOP}p1" /mnt/pi-boot
+          # Pi OS Lite arm64 boots kernel8.img; the Pi Zero 2 W is a BCM2710
+          # (same core as the Pi 3), which is what qemu's raspi3b models.
+          sudo cp /mnt/pi-boot/kernel8.img ./kernel8.img
+          sudo cp /mnt/pi-boot/bcm2710-rpi-3-b.dtb ./boot.dtb
+          sudo cp /mnt/pi-boot/cmdline.txt ./cmdline.txt
+          sudo chown "$(id -u):$(id -g)" kernel8.img boot.dtb cmdline.txt
+          sudo umount /mnt/pi-boot
+          sudo losetup -d "${LOOP}"
+          cat cmdline.txt
+
+          # Rewrite only the console arguments; root= and everything else are
+          # kept verbatim so a broken root= or fstab still fails the test.
           #
-          # We use the generic "virt" machine with a Pi OS rootfs because
-          # raspi0/raspi3b machine models in qemu-system-aarch64 are fiddly
-          # about kernel/dtb pairs. virt + direct-kernel boot is good enough
-          # for boot verification (we're not testing Pi hardware — we're
-          # testing that the rootfs boots an arm64 Linux kernel to userspace).
+          # Every console= has to go, not just console=serial0. serial0 is a Pi
+          # firmware alias the kernel does not understand (the firmware resolves
+          # it before boot, and qemu runs no firmware). And the kernel gives
+          # /dev/console to the LAST console= it is passed, so leaving Pi OS's
+          # trailing console=tty1 in place would put getty on the virtual
+          # terminal and nothing would ever reach the serial log we scrape.
+          # `quiet` goes too — on failure the kernel log is the diagnostic.
           #
-          # NOTE: if you need a hardware-faithful boot test, run arm-runner
-          # in a follow-up job.
+          # The firstboot init= goes as well: it reboots partway through to
+          # resize the rootfs, which a log scraper cannot tell from a hang.
+          # pishrink -s already disabled auto-expand for the shipped image, so
+          # this only drops a leftover reference.
+          CMDLINE=$(tr -d '\n' < cmdline.txt \
+            | sed -E 's/console=[^ ]*//g
+                       s#init=/usr/lib/raspberrypi-sys-mods/firstboot##g
+                       s/(^| )quiet( |$)/ /g
+                       s/  +/ /g
+                       s/^ //; s/ $//')
+          # Appended last so the kernel gives /dev/console to the serial port.
+          CMDLINE="${CMDLINE} console=ttyAMA0,115200"
+          echo "Boot cmdline: ${CMDLINE}"
+          echo "CMDLINE=${CMDLINE}" >> "$GITHUB_ENV"
+
+          # qemu's raspi machines emulate a real SD controller and reject any
+          # card whose size is not a power of two. pishrink deliberately leaves
+          # the image at its minimum size, so pad a copy up to the next power
+          # of two. The padded copy is test-only — the artifact already built
+          # and uploaded is untouched.
+          BYTES=$(stat -c %s "${IMG}")
+          SD_BYTES=1
+          while [ "${SD_BYTES}" -lt "${BYTES}" ]; do
+            SD_BYTES=$((SD_BYTES * 2))
+          done
+          cp --sparse=always "${IMG}" sd.img
+          truncate -s "${SD_BYTES}" sd.img
+          ls -la sd.img
+          echo "Padded $(numfmt --to=iec "${BYTES}") image to $(numfmt --to=iec "${SD_BYTES}") SD card"
+
+      - name: Boot-verify image in qemu
+        id: verify
+        run: |
+          set -euxo pipefail
+          cd build
+
+          # Boot the image and scrape the serial console for "login:" — that
+          # proves the kernel booted, init finished, and getty spawned. It is
+          # the single best proof that pishrink didn't shrink the rootfs so
+          # hard that systemd can't write its tmpfiles, and that install.sh
+          # didn't break /etc/fstab or cmdline.txt.
+          #
+          # raspi3b (not virt) so the image's own kernel8.img runs against the
+          # hardware it was built for. A generic virt boot would need a foreign
+          # distro kernel plus an initramfs — distro arm64 kernels build
+          # virtio_blk as a module, so with no initrd the rootfs never mounts —
+          # and it would prove nothing about the kernel we actually ship.
+          #
+          # Redirect rather than pipe: with a pipeline, $! is the PID of the
+          # last element (tee), so the kill below would leave qemu orphaned and
+          # the liveness check would watch the wrong process.
           timeout 240 qemu-system-aarch64 \
-            -M virt -cpu cortex-a72 -m 1024 \
-            -smp 2 \
-            -nographic \
-            -kernel /usr/lib/linux-image-*-cloud-arm64/vmlinuz 2>&1 \
-            -drive file="${IMG}",format=raw,if=none,id=hd0 \
-            -device virtio-blk-device,drive=hd0 \
-            -append "root=/dev/vda2 rootfstype=ext4 rw console=ttyAMA0" \
-            | tee qemu-boot.log &
+            -M raspi3b \
+            -m 1024 \
+            -kernel kernel8.img \
+            -dtb boot.dtb \
+            -drive file=sd.img,format=raw,if=sd \
+            -append "${CMDLINE}" \
+            -serial stdio \
+            -display none \
+            -no-reboot \
+            > qemu-boot.log 2>&1 &
           QPID=$!
 
-          # Poll the log for login prompt for up to 4 minutes.
+          fail() {
+            echo "$1"
+            echo "----- qemu serial console -----"
+            tail -200 qemu-boot.log || true
+            echo "-------------------------------"
+            kill -9 "${QPID}" 2>/dev/null || true
+            echo "verified=false" >> "$GITHUB_OUTPUT"
+            # JTN-533 constraint: "If boot verification fails, the release asset
+            # MUST NOT be uploaded. The build job should fail loud."
+            # We surface this by failing the step; the release-attach job below
+            # has `needs: verify-boot` + an `if` guard, so a failure here blocks
+            # upload without a silent skip.
+            exit 1
+          }
+
           for i in $(seq 1 240); do
             if grep -q "login:" qemu-boot.log 2>/dev/null; then
-              echo "Boot verified — login prompt observed at $i seconds"
+              echo "Boot verified — login prompt observed at ${i}s"
               echo "verified=true" >> "$GITHUB_OUTPUT"
-              kill -9 $QPID 2>/dev/null || true
+              kill -9 "${QPID}" 2>/dev/null || true
               exit 0
+            fi
+            # If qemu is gone we will never see a login prompt, so stop now
+            # instead of burning the full budget and reporting a misleading
+            # timeout. A startup failure (bad romfile, bad machine type) dies
+            # in well under a second.
+            if ! kill -0 "${QPID}" 2>/dev/null; then
+              fail "qemu exited after ${i}s without reaching a login prompt"
             fi
             sleep 1
           done
 
-          # Timed out. Print what we got so CI has a diagnostic trail.
-          echo "Boot verification timed out after 240s — no login: prompt"
-          tail -200 qemu-boot.log || true
-          kill -9 $QPID 2>/dev/null || true
-          echo "verified=false" >> "$GITHUB_OUTPUT"
-          # JTN-533 constraint: "If boot verification fails, the release asset
-          # MUST NOT be uploaded. The build job should fail loud."
-          # We surface this by failing the step; the release-attach job below
-          # has `needs: verify-boot` + an `if` guard, so a failure here blocks
-          # upload without a silent skip.
-          exit 1
+          fail "Boot verification timed out after 240s — no login: prompt"
+
+      - name: Upload boot log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qemu-boot-log-${{ needs.build-image.outputs.version }}
+          path: build/qemu-boot.log
+          if-no-files-found: ignore
 
   attach-release:
     name: Attach image to GitHub release
