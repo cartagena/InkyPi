@@ -287,17 +287,33 @@
      hand is a screen that stops being looked at. */
   var want = /[?&]open=([a-z0-9]+)/.exec(window.location.search);
   if (want) {
-    setTimeout(function () {
+    /* Land the panel rather than leaving it mid-fade: headless Chrome's virtual clock
+       does not run CSS transitions, so a screenshot otherwise catches the dashboard
+       showing through the panel at about half opacity.
+
+       KEEP TRYING. This ran once, 250 ms after boot, and read `.panel.is-open` in the
+       same tick as open() — but the open class is applied after a forced reflow, so on a
+       slow load the query found nothing, the panel was left at opacity 0 with the
+       dashboard hidden behind it, and the capture came out as an empty sky. Others came
+       out as the dashboard, because the harness had not run at all yet. Both are the same
+       bug: one shot at a moving target. It now retries for four seconds and stops the
+       moment the panel it was asked for is really open. */
+    var tries = 0;
+    var settle = function () {
+      var el = document.querySelector('.panel[data-panel="' + want[1] + '"]');
+      if (el && el.className.indexOf("is-open") !== -1) {
+        el.style.transition = "none";
+        el.style.opacity = "1";
+        el.style.transform = "none";
+        return;
+      }
+      if (++tries > 40) return;              /* not a screen, or the app never booted */
       try {
-        WP.panels.closeAll();
-        WP.panels.open(want[1]);
-        /* and land it, rather than leaving it mid-fade: headless Chrome's virtual clock
-           does not run CSS transitions, so every screenshot came out with the dashboard
-           showing through the panel at about half opacity. */
-        var el = document.querySelector(".panel.is-open");
-        if (el) { el.style.transition = "none"; el.style.opacity = "1"; el.style.transform = "none"; }
+        if (window.WP && WP.panels) { WP.panels.closeAll(); WP.panels.open(want[1]); }
       } catch (e) { /* not a screen */ }
-    }, 250);
+      setTimeout(settle, 100);
+    };
+    setTimeout(settle, 250);
   }
 
   console.log("[sim] harness ready — SIM.sweep(), SIM.tap(), SIM.swipe(), SIM.set()");

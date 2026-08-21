@@ -156,3 +156,15 @@
   0%, 100% { opacity: 0.5; transform: scale(0.85); }
   50%      { opacity: 1;   transform: scale(1.1); }
 }
+
+/* ---- and a way to turn it all off ----
+   Android's "Remove animations" accessibility setting reaches the WebView as
+   prefers-reduced-motion, and every shape below is authored to look right STILL — the
+   motion is a garnish on a static drawing, never the thing that makes it legible. So the
+   whole pack simply stops, and nothing about the icon changes but its stillness.
+   (The sky canvas is not covered here: it is a rAF loop rather than a CSS animation, and
+   it already has a switch of its own in Settings — "Weather behind the cards".) */
+@media (prefers-reduced-motion: reduce) {
+  .wx-icon .wxi [class^="wxi-"],
+  .big-icon .wxi [class^="wxi-"] { animation: none; will-change: auto; }
+}
