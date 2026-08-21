@@ -94,13 +94,17 @@
   /* The page fetches weather and air quality directly (they are CORS-clean); intercept so
      the scenarios reach them too. Everything else passes straight through. */
   var realFetch = window.fetch.bind(window);
+  function hostOf(u) {
+    try { return new URL(u, location.href).hostname; } catch (e) { return ""; }
+  }
   window.fetch = function (url, init) {
     var u = String(url);
     if (SIM.scenario.net === "offline") {
       SIM.log.push("offline: blocked " + u.slice(0, 60));
       return Promise.reject(new TypeError("Failed to fetch (sim offline)"));
     }
-    if (u.indexOf("//air-quality-api.open-meteo.com") !== -1) {
+    var host = hostOf(u);
+    if (host === "air-quality-api.open-meteo.com") {
       return realFetch("/__proxy?u=" + encodeURIComponent(u), init).then(function (r) {
         var forced = parseFloat(SIM.scenario.aqi);
         if (isNaN(forced)) return r;
@@ -130,7 +134,7 @@
        substring test here swallowed every air-quality request and handed it to the
        WEATHER rewriter. Forced AQI readings came back as the real one, and the panel
        could not be reviewed at the top of its scale at all. */
-    if (u.indexOf("//api.open-meteo.com") !== -1) {
+    if (host === "api.open-meteo.com") {
       return realFetch("/__proxy?u=" + encodeURIComponent(u), init).then(function (r) {
         return r.json().then(function (j) {
           var body = JSON.stringify(applyScene(j));

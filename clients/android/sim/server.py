@@ -23,6 +23,31 @@ import urllib.request
 SIM = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(os.path.dirname(SIM), "assets")
 
+# The only two sim files served by name — a fixed map, never a path built from the URL.
+SIM_FILES = {"/sim-bridge.js": "sim-bridge.js", "/sim-harness.js": "sim-harness.js"}
+
+# Outbound proxy allowlist: the hosts the widgets actually talk to. The server binds to
+# loopback, but a page in another tab could still POST to it, so do not let it be a
+# general-purpose fetcher. Add your Home Assistant host (or anything else) with
+#   SIM_ALLOW_HOSTS=homeassistant.local,10.0.0.5 python sim/server.py
+ALLOWED_HOSTS = {
+    "api.open-meteo.com", "air-quality-api.open-meteo.com",
+    "feeds.bbci.co.uk", "feeds.npr.org",
+    "cdn.freedomforum.org",
+    "xkcd.com", "imgs.xkcd.com",
+    "commons.wikimedia.org", "upload.wikimedia.org",
+    "api.nasa.gov", "apod.nasa.gov",
+}
+ALLOWED_HOSTS |= {h.strip().lower() for h in os.environ.get("SIM_ALLOW_HOSTS", "").split(",") if h.strip()}
+
+
+def _allowed(url):
+    try:
+        p = urllib.parse.urlsplit(url)
+    except ValueError:
+        return False
+    return p.scheme in ("http", "https") and (p.hostname or "").lower() in ALLOWED_HOSTS
+
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *a, **kw):
@@ -47,9 +72,9 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.send_index()
         if self.path.startswith("/cockpit"):
             return self.send_file(os.path.join(SIM, "cockpit.html"), "text/html; charset=utf-8")
-        if self.path.split("?")[0] in ("/sim-bridge.js", "/sim-harness.js"):
-            return self.send_file(os.path.join(SIM, self.path.split("?")[0].lstrip("/")),
-                                  "text/javascript")
+        sim_file = SIM_FILES.get(self.path.split("?")[0])
+        if sim_file:
+            return self.send_file(os.path.join(SIM, sim_file), "text/javascript")
         return super().do_GET()
 
     def do_POST(self):
@@ -90,8 +115,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def proxy(self, method):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         url = (q.get("u") or [None])[0]
-        if not url or not url.startswith(("http://", "https://")):
-            return self.send_error(400)
+        if not url or not _allowed(url):
+            return self.send_error(400, "proxy target not in SIM_ALLOW_HOSTS")
         body = None
         if method == "POST":
             body = self.rfile.read(int(self.headers.get("Content-Length", "0") or 0))

@@ -39,15 +39,24 @@
 
   /* ---------------- parsing ---------------- */
 
+  function stripTags(t) {
+    /* To a fixed point: a single pass leaves "<scr<script>ipt>" as "<script". The
+       result is escaped again before it reaches innerHTML, so this is belt-and-braces. */
+    var prev;
+    do { prev = t; t = t.replace(/<[^>]*>/g, ""); } while (t !== prev);
+    return t;
+  }
+
   function decodeEntities(t) {
-    return String(t || "")
-      .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    var s = String(t || "").replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
+    s = stripTags(s);                  // any markup left inside a title is decoration
+    s = s
       .replace(/&#x([0-9a-f]+);/gi, function (_, h) { return String.fromCodePoint(parseInt(h, 16)); })
       .replace(/&#(\d+);/g, function (_, d) { return String.fromCodePoint(parseInt(d, 10)); })
-      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+      .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
       .replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&nbsp;/g, " ")
-      .replace(/<[^>]*>/g, "")         // any markup left inside a title is decoration
-      .replace(/\s+/g, " ").trim();
+      .replace(/&amp;/g, "&");         // last, so "&amp;lt;" decodes once, not twice
+    return s.replace(/\s+/g, " ").trim();
   }
 
   function firstTag(block, names) {

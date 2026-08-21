@@ -21,6 +21,12 @@
 (function () {
   "use strict";
 
+  function stripTags(t) {
+    var prev;                           // to a fixed point: one pass leaves "<scr<script>ipt>"
+    do { prev = t; t = t.replace(/<[^>]*>/g, ""); } while (t !== prev);
+    return t;
+  }
+
   var C = WP.C;
   var $ = WP.$, esc = WP.esc;
 
@@ -191,7 +197,7 @@
           var meta = ii.extmetadata || {};
           var t = (meta.ObjectName && meta.ObjectName.value) || pages[k].title || "";
           best = { thumb: ii.thumburl,
-                   title: String(t).replace(/<[^>]*>/g, "").replace(/^File:/, "")
+                   title: stripTags(String(t)).replace(/^File:/, "")
                      .replace(/\.[a-z]+$/i, "") };
         }
       });
