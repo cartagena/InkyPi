@@ -119,6 +119,24 @@ and its phase strips use, at four sizes. Gradient ids are shared and determinist
 icon carries only the `<defs>` it actually references, so a 24-hour strip does not ship
 twenty-four copies of the bolt glow.
 
+**Optical mass is the rule that makes it a pack.** Every hero subject carries roughly the
+same AREA OF INK in the 64-unit space, not the same bounding box — the eye weighs an icon by
+how much of it is filled, so a sun of thin spikes and a cloud of solid fill at the same width
+look like two different sizes. The cumulus silhouette is `0.39·w²` units of fill, which makes
+the w=45 rain cloud ~790; the clear-day sun runs r=14.5 for ~800 with its rays a fixed
+fraction of its radius (so scaling the sun scales the whole silhouette rather than leaving
+the spikes behind), and the clear-night moon is a whole disc at r=16.75. A light source that
+sits BEHIND a bank is a supporting shape and runs at about half that.
+
+**The night moon is the real moon.** It used to be a fixed pleasant crescent at p=0.18, on
+the reasoning that nobody reads a gibbous from a quarter at 2.9vh. But the Moon tile sits
+three inches away on the same dashboard reporting the live phase, so a clear night showed a
+thin crescent in the Now card and a half-lit disc in the tile. `wx-moon.js` hands its own
+`calc()` to `wxIcon.usePhase()` at load, and the glyph draws the whole body with the unlit
+part present as earthshine — one moon, constant silhouette, and the same path the tile draws.
+The phase is clamped off the ends so the four nights a month around new still leave a moon on
+the screen rather than a dark disc.
+
 **Motion** is in `style-icons.css`, off `--dur-wx-*` tokens, and it is deliberately small: the
 rays rock a few degrees rather than spinning (eight-fold symmetry makes a spin read as a
 pinwheel), clouds bob under a pixel, rain falls at a real rate, snow drifts, the bolt is lit
@@ -127,11 +145,27 @@ animate** — the Now card's glyph and a panel hero. Animating the hourly strip 
 would be 31 compositor animations running for ever on art 20 CSS px tall: a battery bill for
 motion nobody in the room can resolve.
 
-Behind the dashboard, `wx-sky.js` draws the current conditions on a full-screen canvas: stars
+Behind the dashboard, the sky layer draws the current conditions on a full-screen canvas.
+It is three files: `wx-sky-light.js` is the pure half (the sun-phase light model, the
+WMO→scene map, the populations), `wx-sky-paint.js` holds the painters that draw WEATHER, and
+`wx-sky.js` is the lifecycle plus the three painters that draw LIGHT — the halves change at
+completely different rates, and the whole thing was two lines under the 500-line ceiling. The
+painters are mixed into the layer object at load, so each still reads `this.ctx` exactly as it
+did when the file was one file.
+
+What it draws: stars
 that twinkle on a clear night, a wandering sun/moon glow, a horizon glow that only exists
 while the light is low, drifting cloud banks, rain drawn as a dim tail under a bright head so
 a drop reads as falling rather than as a scratch, snow with a bloom on the nearest flakes,
-sliding fog bands, and a dim flash every few seconds in a storm. The populations it animates
+fog in seven drifting banks, and a dim flash every few seconds in a storm.
+
+**Fog took three attempts.** Four evenly spaced full-width bands is venetian blinds; five
+full-width bands over a floor gradient is a flat wash however many you stack, and brightened
+four times over for inspection that is exactly what it was. What was missing is variation
+ALONG the layer: it now stamps a lumpy sprite at seven depths — near banks low, tall, slow and
+stronger; far ones thin, quick and faint — each breathing on a slow rate of its own, over the
+floor gradient. `sky-light.test.js` pins the depth spread, because this is the part that has
+been wrong twice. The populations it animates
 are all graded rather than uniform (star magnitudes on a power curve, drops of differing
 length at the same depth, banks of differing proportion) — a uniform field reads as sensor
 noise, which is what an early version was fairly accused of. It subscribes to the same
@@ -494,6 +528,21 @@ Before this there were **30 distinct font sizes** across the eight panels, five 
 0.2vh of each other (1.5 / 1.6 / 1.65 / 1.7 / 1.75), which is a difference of 5 device px: four
 "different" sizes that are really one, and no hierarchy anywhere. Landscape restates the same
 ten tokens at ~1.75x rather than overriding nine elements at nine different multipliers.
+
+**A void is not an empty state.** A sentence in `--dim` floating in 900 device px of black
+is, at three metres, indistinguishable from a screen that failed to draw — which is what the
+Picture panel and then the Calendar panel each were. `WP.ui.emptyState(art, title, sub)` is
+the shared layout: a picture of the thing that is missing, big enough to be the subject
+rather than an apology beside the text, then the state in words, then what to do about it.
+The art is the caller's (a framed landscape, a month page) but is drawn against the icon
+pack's own gradient sprite, so an empty state and a weather glyph are one drawing language.
+
+**Every chart is annotated the same way.** `WP.ui.plot(svg, hi, lo, from, to)` puts the two
+ends of the y-domain down the left and the two ends of the x-domain underneath — without them
+a line's height means nothing and whatever the shape does reads as what happened. The y
+labels live in a GUTTER, measured in ems of their own step, not painted over the picture: the
+Sensors trace used to run straight through "72.8 °F", which is text over graphic on a shipped
+screen.
 
 **One idiom per concept.** A *segmented control* is reserved for a genuine either/or between
 two named values — °F/°C, 12-hour/24-hour. Anything that is merely on or off is a *switch row*
