@@ -1600,10 +1600,30 @@ class TestPiImageBuildWorkflow:
     def test_workflow_uploads_release_asset(self):
         assert "softprops/action-gh-release" in self.content
 
-    def test_workflow_attach_gated_on_release_event(self):
-        # attach-release step must only fire on `release` events, never on
-        # workflow_dispatch (which is a dry run).
-        assert "github.event_name == 'release'" in self.content
+    def test_workflow_attach_not_gated_on_event_name(self):
+        # This asserted the opposite until v1.0.2 shipped with no image.
+        #
+        # In a reusable workflow the github context belongs to the CALLER, and
+        # release.yml is triggered by push, so github.event_name is 'push' —
+        # never 'release'. Gating attach-release on it skipped the job on the
+        # only path that actually cuts releases. JTN-745 also settled that
+        # manual rebuilds should attach (see build-wheelhouse.yml), so
+        # workflow_dispatch is not a dry run either.
+        attach = yaml.safe_load(self.content)["jobs"]["attach-release"]
+        assert "github.event_name" not in attach["if"], (
+            "attach-release must not gate on github.event_name — under "
+            "workflow_call that is the caller's event, not 'release'"
+        )
+        assert "needs.verify-boot.outputs.verified == 'true'" in attach["if"]
+
+    def test_workflow_attach_uses_resolved_tag(self):
+        # github.event.release.tag_name is empty on the workflow_call and
+        # workflow_dispatch paths, so the upload would target no tag at all.
+        attach = yaml.safe_load(self.content)["jobs"]["attach-release"]
+        tag_name = attach["steps"][-1]["with"]["tag_name"]
+        assert (
+            "needs.build-image.outputs.tag" in tag_name
+        ), f"attach-release must upload against the resolved tag, got {tag_name!r}"
 
 
 class TestReleaseWorkflow:
