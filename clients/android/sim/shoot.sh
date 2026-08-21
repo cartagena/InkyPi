@@ -21,8 +21,12 @@ for sc in "${SCENES[@]}"; do
     if [ "$scr" = "home" ]; then p="$URL/?$q"; else p="$URL/?open=$scr&$q"; fi
     # panels other than weather ones look the same in every scene: shoot them once
     if [ "$sc" != "real" ] && [[ ! "$scr" =~ ^(home|weather|hourly|daily)$ ]]; then continue; fi
+    # 20s of virtual time, not 9: the icon set carries always-on CSS animations, and every
+    # frame they ask for advances headless Chrome's virtual clock — so a page could burn
+    # the whole budget during boot and be captured before its scripts had finished. The
+    # symptom was a panel shot that came out as the dashboard, or as an empty sky.
     "$CH" --headless=new --disable-gpu --hide-scrollbars --window-size=711,1138 \
-      --virtual-time-budget=9000 --screenshot="$OUT/$sc-$scr.png" "$p" >/dev/null 2>&1 || echo "failed: $sc $scr"
+      --virtual-time-budget=20000 --screenshot="$OUT/$sc-$scr.png" "$p" >/dev/null 2>&1 || echo "failed: $sc $scr"
   done
 done
 echo "shots in $OUT: $(ls "$OUT" | wc -l | tr -d ' ')"
