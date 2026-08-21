@@ -1,6 +1,177 @@
 # CHANGELOG
 
 
+## v1.1.0 (2026-08-21)
+
+### Bug Fixes
+
+- Bind the boot console to ttyAMA1 and budget for emulation speed
+  ([`a56d681`](https://github.com/cartagena/InkyPi/commit/a56d681762a89364566cf1e6e7610035eecf3318))
+
+A local run got the image booting properly — root mounted from the real PARTUUID, ext4 clean,
+  systemd up — but still never reached a login prompt, and uart-mini.log stayed empty. The serial
+  log says why:
+
+3f201000.serial: ttyAMA1 at MMIO 0x3f201000 ... is a PL011 rev2 serial serial0: tty port ttyAMA1
+  registered bcm2835-aux-uart 3f215040.serial: unable to register 8250 port Warning: unable to open
+  an initial console.
+
+Pi OS's DTB aliases serial1 = &uart0, so the PL011 enumerates as ttyAMA1, not ttyAMA0; and the mini
+  UART never probes under qemu, so ttyS0 does not exist either. Both consoles we named were absent,
+  so none was registered, no getty spawned, and the only output we ever saw was earlycon — which
+  kept printing precisely because no real console took over.
+
+Name all three and put ttyAMA1 last. The kernel ignores a console= for a device that is not there,
+  registers the ones that are, and gives /dev/console to the last it registered, so this stays
+  correct if a future DTB numbers the port differently.
+
+Raise the budget 600s -> 1800s. The boot was not stuck, just slow: at 598s of wall clock the guest
+  was only at kernel t=15s, a ~40x emulation factor, and a login prompt lands near t=30s. Job
+  timeout goes to 50 minutes to leave room around the script's own budget.
+
+The progress heartbeat now prints the last console line rather than only byte counts — a frozen byte
+  count reads the same whether the guest is wedged or merely slow, while the kernel timestamp shows
+  real progress.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+- Capture both Pi UARTs during boot-verify and widen the budget
+  ([`1e05189`](https://github.com/cartagena/InkyPi/commit/1e05189db94845b167c2963f25d7ffe7e6422ac7))
+
+The raspi3b boot produced a 70-byte log containing nothing but qemu's own "terminating on signal 15"
+  — no kernel output at all.
+
+qemu wires serial_hd(0) to the PL011 and serial_hd(1) to the mini UART (bcm2835_peripherals.c), so
+  -serial stdio did reach ttyAMA0 as intended. But on a Pi 3 the PL011 is dedicated to Bluetooth,
+  and bcm2710-rpi-3-b.dtb points the usable console at the mini UART — whose chardev was never
+  attached, so that output went nowhere.
+
+Attach both UARTs to their own log, put a console on both, and accept a login prompt on either: the
+  gate asks whether the image boots, not which serial port it lands on. systemd-getty-generator
+  spawns a getty on every console the kernel registers, so both are live.
+
+Also add earlycon on the PL011 MMIO window. It writes before any device probing, so a future silent
+  boot can be told apart from a console that never bound.
+
+Raise the budget from 240s to 600s. raspi3b gets no KVM acceleration on an x86_64 runner, so every
+  instruction is emulated; 240s was plausibly short for a full Pi OS boot to getty regardless of the
+  console problem. The job timeout stays at 20 minutes.
+
+On failure both UART logs, qemu's stderr and the extracted cmdline.txt are dumped inline and
+  uploaded.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+- Keep console output alive past systemd-sysctl, accept boot completion
+  ([`738fb98`](https://github.com/cartagena/InkyPi/commit/738fb98e370b0cda2ce9466e90dd4f3f2a8002b3))
+
+The previous run was not a slow boot, it was a stall in our visibility. The log froze at kernel
+  t=13.3s and never moved again: byte counts were identical at 30s and at 1770s. The run before it
+  behaved the same way (26514 bytes at both 30s and 570s), so the earlier "roughly 40x slower than
+  real time" reading was wrong — the guest reaches t=13s inside 30s of wall clock, making emulation
+  about 2x slower, not 40x.
+
+Output stops immediately after:
+
+systemd[1]: Starting systemd-sysctl.service - Apply Kernel Variables...
+
+Everything we can see arrives over printk, because /dev/console never opens under qemu ("unable to
+  open an initial console") and systemd falls back to /dev/kmsg. systemd-sysctl applies Pi OS's
+  kernel.printk, the console loglevel drops, and we go blind while the guest keeps booting.
+
+Add keep_bootcon so the kernel does not unregister earlycon, and ignore_loglevel so printk
+  disregards the loglevel sysctl just applied.
+
+Also stop requiring "login:" on its own. That needs a getty bound to a UART we can see, which the
+  missing /dev/console makes unreliable however healthy the image is. Reaching multi-user.target
+  proves what this gate exists to check — rootfs mounted, fstab sane, systemd brought userspace up —
+  and it arrives over printk. Accept either, and print which matched.
+
+Revert the timeout inflation the bad reading caused: 1800s back to 600s, job timeout 50 minutes back
+  to 25.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+- Pin systemd logging to kmsg so the boot stays observable
+  ([`1bc316c`](https://github.com/cartagena/InkyPi/commit/1bc316c5b85edc24a530c7d746dcf1b640622be1))
+
+keep_bootcon + ignore_loglevel worked: the log now runs to kernel t=32.6s instead of dying at
+  t=13.3s, through systemd-sysctl, journald start, the root remount r/w and swap setup, with no
+  errors along the way.
+
+It then goes quiet again, for a different reason. systemd switches its log target from kmsg to the
+  journal the moment journald starts, and the journal is a file inside the guest we never read.
+  Every "systemd[1]: ..." line stops at:
+
+[13.480724] systemd[1]: Started systemd-journald.service [14.286055] systemd-journald[144]: Received
+  client request to flush ...
+
+Everything after that is pure kernel output — module probes, Bluetooth, zram — and once the system
+  settles the kernel has nothing left to say. So the silence is not a hang, and "Reached target
+  multi-user.target" could never have matched: systemd stopped talking to the only output path we
+  have.
+
+Pass systemd.log_target=kmsg (plus show_status) to keep PID 1 logging to kmsg for the whole boot,
+  where earlycon still picks it up.
+
+Also split the two ways qemu can vanish. `timeout` reaping it at the end of the budget was being
+  reported as "qemu exited after 598s", which reads like a crash and sends the next person looking
+  for one; a genuine early exit now says so and points at qemu-stderr.log.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+### Features
+
+- Surface failed units and capture service output in boot-verify
+  ([`6afda3a`](https://github.com/cartagena/InkyPi/commit/6afda3accd54bd33ce1ce52577d0712639700ed2))
+
+The gate now passes: multi-user.target at guest t=111.9s, ~119s wall. Root mounted from the real
+  PARTUUID, /boot/firmware fsck'd and mounted, local-fs.target and getty.target reached,
+  qemu-stderr.log empty.
+
+That same run also showed the gate is too generous:
+
+systemd[1]: inkypi.service: Main process exited, code=exited, status=1 systemd[1]: Failed to start
+  inkypi.service - InkyPi App.
+
+Reaching multi-user.target proves the system came up; it says nothing about whether the units
+  sitting on it started. Print any "Failed to start" lines alongside a passing result so a green run
+  cannot bury them. Left as a warning rather than a failure: whether inkypi.service can legitimately
+  start with no e-ink hardware attached is a separate call, and turning it into a hard gate now
+  could block every release.
+
+Also forward the journal to kmsg. Units ship StandardError=journal, so a failure currently reaches
+  us as "Failed to start ..." with no reason attached — the actual traceback stays in a journal file
+  inside the guest that nothing reads. printk.devkmsg=on lifts the kmsg rate limit that would
+  otherwise drop messages under the added volume, which could silently swallow the boot-completion
+  line this script waits for.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+### Refactoring
+
+- Move boot-verify into a script CI and humans both run
+  ([`a46d93d`](https://github.com/cartagena/InkyPi/commit/a46d93d4a0c02f820b76fa402f7cbe9166e0303d))
+
+Three silent-boot bugs in a row cost a ~25 minute CI round trip each, because the qemu invocation
+  only existed inside workflow YAML and could not be run anywhere else. Move it to
+  scripts/boot_verify_image.sh and have the workflow call that, matching how install-matrix.yml
+  already delegates to scripts/ci_install_matrix_verify.sh.
+
+./scripts/boot_verify_image.sh path/to/inkypi-1.0.2-pi-zero-2-w.img.xz
+
+Same flags, same cmdline rewriting, same dual-UART capture in CI and locally, so a fix can be
+  confirmed before it is merged. The script takes a .img or .img.xz, prints progress every 30s, and
+  still writes verified=true|false to $GITHUB_OUTPUT when one is set, which is what attach-release
+  gates on. --keep leaves qemu up for manual poking.
+
+Test assertions move with the logic: TestBootVerifyScript now covers the machine type, console
+  rewriting, dual-UART capture, SD padding, liveness check and the GITHUB_OUTPUT contract, while the
+  workflow keeps one test asserting it delegates to the script.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+
 ## v1.0.2 (2026-08-21)
 
 ### Bug Fixes
