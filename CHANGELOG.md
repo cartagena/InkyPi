@@ -1,6 +1,17 @@
 # CHANGELOG
 
 
+## v1.4.0 (2026-08-22)
+
+### Features
+
+- Add Android panel client (Inky OLED) under clients/android
+  ([#635](https://github.com/jtn0123/InkyPi/pull/635),
+  [`0de3118`](https://github.com/jtn0123/InkyPi/commit/0de3118799e2f20a825cccd50b5eabc506134f04))
+
+feat: add Android panel client (Inky OLED) under clients/android
+
+
 ## v1.3.2 (2026-08-22)
 
 ### Bug Fixes
@@ -22,6 +33,826 @@ Security: the inbound X-Request-Id was echoed into every json_* response body un
 DevEx: macOS can get a green local run (the pixel snapshots honour SKIP_VISUAL and skip off Linux,
   while CI still enforces them); scripts/test-fast.sh runs the suite in ~6m30s; corrected lockfile
   instructions that would have dropped the Linux-only packages.
+
+- **clients/android**: A daytime sky with blue in it, and a moon with seas
+  ([`5c7ce66`](https://github.com/jtn0123/InkyPi/commit/5c7ce660bee2e9e9d644635752630d2d36bf3841))
+
+Three things a round of grading caught, and all three were the same mistake in different materials:
+  a decision made once and then applied to the whole surface.
+
+THE SKY. The wash was one colour ramped over the frame, so at golden hour every pixel on the panel
+  was some strength of orange — and a five-o'clock August capture came back a uniform tobacco brown
+  that visibly warmed the white type. The model carries a ZENITH colour now as well as a horizon one
+  and the painter runs the gradient between them: every daytime zenith is cool, the hand-over sits
+  at 0.72, and the warm end owns the bottom fifth of the frame and nothing else. The afternoon also
+  stops turning golden five and a half hours before sunset — the turn is stated as a ramp long
+  enough not to be caught moving (130 minutes, every season) rather than as a multiple of a seasonal
+  lead. The blooms come down a step and shrink, and a low one is squashed onto the horizon instead
+  of standing a frame tall.
+
+THE MOON. It had a hairline round its whole circumference, including the unlit limb, where a probe
+  caught it forty levels brighter than the night side it edged — a rim light on the dark side, which
+  is the one thing a moon cannot have. Gone; the limb gradient is the only edge treatment left and
+  it only ever darkens. The face was a dead plateau of round crater bowls: the seas are back, seven
+  irregular basalt plains where the real ones are, built from a fixed harmonic coastline so the same
+  moon is on every one of the twenty-odd discs a dashboard shows at once, with the craters demoted
+  to a garnish in the highlands. The lit face walks down toward the terminator now instead of
+  holding one value and stepping off a cliff.
+
+THE CARDS. In a storm, three hundred rain streaks were ruled across the Details border, "Wind 2 mph"
+  and "NEXT 24 HOURS". A card is a thing on a windowsill, not a thing in the sky, so it gets a black
+  backdrop at 0.42 — the one fill that can only darken, so nothing static gets brighter and the
+  gutters keep the weather.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: A moon with bowls in it, and a terminator that is not four steps
+  ([`e712ff9`](https://github.com/jtn0123/InkyPi/commit/e712ff9e0acfca703697276f465f17a0e63b4477))
+
+The shadow was painted four times at four phases a few thousandths apart, on the theory that
+  stepping the geometry lays a soft band down for free. What it lays down is four countable steps
+  with a pale ribbon between the shadow and the face — and that ribbon is backwards, because the
+  ground nearest the terminator is the ground the sun is grazing and should be the dimmest lit tone
+  on the disc. One small static blur does the job the four steps were approximating; a hard copy
+  stepped a hair toward full goes down with it so the limb stays opaque and the blur only softens
+  the edge that wants softening. The blur is attached by the stylesheet, not the markup: a clear
+  night draws this disc thirty-one times and the band is two pixels wide on thirty of them.
+
+Craters were an arc pair — a dark wall and a "lit" wall struck in a tone the face was already
+  wearing — so only the shadow registered and every one of them came out an open horseshoe. Each is
+  a closed bowl now, one fill with the light running across it and a raised rim on the far side. And
+  the sunward shoulder's specular highlight is gone: regolith back-scatters, which is why a full
+  moon reads as a disc, and a hot spot on it made the hero a pearl button.
+
+Both the face and the bowls now mirror at full moon, because the sun changes sides — a face shaded
+  from the right all month has its dimmest ground on the LIT limb for two weeks out of four, which
+  is the same mistake the stepped terminator was failed for, only slower to notice.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: Build proxy target from allowlisted host constant (CodeQL py/full-ssrf)
+  ([`0e83a9c`](https://github.com/jtn0123/InkyPi/commit/0e83a9cfad4a072882462fd82e3194c345845944))
+
+- **clients/android**: Countdown presets are not laps
+  ([`674f764`](https://github.com/jtn0123/InkyPi/commit/674f7649b96f49222a789e40d433e34099bd9caa))
+
+The four preset chips shipped inside the LAPS section, under a sentence about splitting lap times —
+  countdown presets filed under a heading about a different feature, which was the one thing on this
+  screen a reader could not make sense of. Reserving a region for laps does not make everything in
+  it a lap. They have their own heading now, SET A COUNTDOWN, and sit directly under the controls
+  where a hand already is; the lap region keeps its heading and its one line at the foot of the
+  column.
+
+The slack is split two to one between the readout and the foot of the panel. With the pinned cluster
+  taking all of it the chip row was pushed into the bezel; with none of it the panel ends in a band
+  of black.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: Light that leaves the sun, and folds that are not scored lines
+  ([`1edcd2e`](https://github.com/jtn0123/InkyPi/commit/1edcd2e4bd1c9175fbf8d8cc29fb2a956f36faf2))
+
+Two leftovers from the same grading, both of them edges that were too crisp for what they were
+  drawing.
+
+THE SUN read as a cut-paper starburst: eight solid wedges with hard sides on a soft collar, their
+  interiors duller than the field around them because --ic-ray was an amber two shades under the
+  disc it was supposed to be leaving. A beam of light has no outline and is never darker than its
+  source, so the token is lighter now and the ray rings are wrapped in an inner group the stylesheet
+  blurs — hero sizes only, the same deal the cloud texture and the moon's terminator take, with the
+  rock and the turn living on the group ABOVE the filter so the raster is made once.
+
+THE FOLDS on the cloud decks probed as a 26-level dip with a hard side on each of it, which is a
+  line scored across the sky rather than one layer of cloud passing in front of the next — the
+  crease a review found where the overcast crown meets its deck. Each fold is two passes now, a wide
+  faint one for the shoulder and a narrow one for the core: the same darkness in the middle, almost
+  nothing at the edges, and no second raster anywhere.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: One gradient sprite, not twenty-six duplicate ids
+  ([`adbc221`](https://github.com/jtn0123/InkyPi/commit/adbc221264ee97f7b60682543e1d6b14040e20ce))
+
+Every icon carried its own <defs>, which put twenty-six identical <linearGradient id="wxg-cloud">
+  nodes in one document. A duplicate id resolves to whichever copy the browser saw first — and that
+  copy was inside the Now card, which the app repaints. A headless capture caught the consequence:
+  the Now glyph and all twenty-four hourly glyphs blank while the daily row, whose icons resolved
+  elsewhere, was fine.
+
+The materials are mounted once into a permanent hidden sprite (#wxdefs in index.html, filled by
+  wx-icons.js at parse) that nothing ever repaints, so a reference cannot go stale. Each icon is
+  ~700 bytes shorter for it, which is 17 KB off an hourly strip.
+
+The Moon widget's disc had the same trap in a second form — a clipPath id on an element the tile
+  replaces every hour. The craters are painted over the whole disc now and the dark side painted
+  back over them as one evenodd path of (outer circle + lit limb): the same picture, no id. The
+  small icon moon drops its clip too and carries three craters placed by hand inside the lit limb of
+  the one phase it ever draws.
+
+- **clients/android**: Resolve CodeQL findings in widgets and simulator
+  ([`164f31b`](https://github.com/jtn0123/InkyPi/commit/164f31b7bf4e9735142c314a4c84942c8eb48e2c))
+
+- wx-news/wx-gallery: strip markup to a fixed point, decode &amp; last - sim-bridge: match
+  Open-Meteo hosts by parsed hostname, not substring - sim/server.py: fixed file map for sim assets;
+  outbound proxy host allowlist (SIM_ALLOW_HOSTS to extend, e.g. Home Assistant)
+
+- **clients/android**: Sim/shoot.sh needs more virtual time now the icons animate
+  ([`792780c`](https://github.com/jtn0123/InkyPi/commit/792780cb61eedcdf70a01e5f49e850733d04add0))
+
+Headless Chrome's virtual clock advances on every frame the page asks for, and the icon set now asks
+  for frames continuously — so a page could burn the whole 9 s budget during boot and be captured
+  before its scripts had finished. The symptom was a panel shot that came out as the dashboard, or
+  as an empty sky with nothing on it. 20 s, and the whole contact sheet comes back consistent.
+
+- **clients/android**: Size the night moon from its lit area, not its total
+  ([`8247ba5`](https://github.com/jtn0123/InkyPi/commit/8247ba50eceddc91d36e19c0e94791a23ee19005))
+
+Matching the cloud on TOTAL ink was the right rule applied to the wrong number. The unlit half of
+  the disc is earthshine on a true-black panel: it registers as almost none of what the eye weighs,
+  so at r=16.75 the clear-night glyph still measured optically narrow beside a cumulus. r=19 puts
+  the LIT part alone in the cloud's league at a typical phase, and --ic-moon-dk comes up four points
+  so the dark limb reads as the far side of a sphere rather than as a hole the crescent is floating
+  in.
+
+The radius is exported as wxIcon.moonR so the "one sky, one moon" test compares the icon and the
+  tile through the number rather than through a copy of it.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: The AQI ramp reads as a scale, and keeps its caption
+  ([`c0784a0`](https://github.com/jtn0123/InkyPi/commit/c0784a00c7120369ed2d2cbb8a97ec0388aa6cba))
+
+At a fifth strength on black the six EPA hues past yellow came out brown, dim maroon and desaturated
+  purple: six smudges rather than a scale, which defeats the reason it is a ramp and not a number.
+  Half strength keeps every step recognisably its own colour, and today's band is marked by being
+  full AND by standing taller than the rest — a difference that survives being looked at from the
+  far side of a kitchen.
+
+And the ramp and the line that says what the lit band covers are one object, so they are one element
+  now. As two children of a body that spaces its children evenly down the column they were pushed 65
+  px apart: a legend with a hole in it, and a caption that read as belonging to the chart below.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: The Calendar empty state fills the panel it is drawn for
+  ([`2279626`](https://github.com/jtn0123/InkyPi/commit/227962606f44d164d6041c35b3bc2450b264fcb9))
+
+Its body is an ordinary block, so an empty state with `flex: 1 1 auto` had nothing to grow into and
+  sat in the top two thirds with ~350 px of black under it — the void it replaced, moved up the
+  screen. A flex column costs nothing when the body holds a real agenda and gives the illustration
+  the room it was drawn for when it does not.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: The failure states truncated too, and Front Page had no empty state
+  ([`3bbea9e`](https://github.com/jtn0123/InkyPi/commit/3bbea9e8267b612c72c97e98a1de1101d04e03ee))
+
+The tile-row fit was checked against the happy path. With no bridge attached the same row shipped
+  "no devic…" and "needs th…" — a state nobody can read is a state told badly. Every Device and
+  Front Page sub-line is now inside the 78 px box: "no link", "no reading", "tablet only",
+  "offline", "not up yet".
+
+And Front Page's no-page body was the third copy of the void the Picture and Calendar panels were
+  just fixed for: a sentence in the middle of a black screen. It gets a drawing of a front page —
+  masthead, headline, picture well, two columns — from the same shared builder and the same gradient
+  sprite, and its body becomes a flex column so the state sits in the middle of the panel rather
+  than in the top two thirds of it.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: The fog scene was a black rectangle captioned "Fog"
+  ([`383f79f`](https://github.com/jtn0123/InkyPi/commit/383f79f1b428092129d0f5945e257b27f1423f21))
+
+Fog is the one scene where the sky layer IS the weather: there are no clouds to draw and nothing
+  falling, so at a 0.10 ceiling the whole frame came out black with a word on it. The ground
+  gradient goes to 0.16 of the fog grey — RGB 25 over black, which still leaves --dimmer text better
+  than 5:1 — and the bands with it. Verified against a capture at the shoot geometry: perceptible,
+  and still calm.
+
+- **clients/android**: The hourly plot pays for the caption's line
+  ([`eec317a`](https://github.com/jtn0123/InkyPi/commit/eec317a7c453214f385aba4e931d427cc8a13a83))
+
+Every panel in this build is sized to fit its box rather than scrolled, so the 1.8vh the "% chance
+  of rain" key took when it moved above the frame had to come from somewhere — it comes off the
+  plot's own height, which leaves the block a hair under its old total and the last of the five hour
+  rows with the same air under it as before.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: The low callout and the dashed rule of rain stubs
+  ([`d771ef8`](https://github.com/jtn0123/InkyPi/commit/d771ef83ec446009cbc2dc4c4be4ef87b765cd71))
+
+The hourly chart's two remaining collisions with itself.
+
+The "60°" callout sits on the curve's own minimum, and moving it above the point traded one
+  collision for another: in a valley the curve rises on both sides and ran straight through the
+  lower third of both digits, same blue, same weight. No offset fixes that — a deep enough valley
+  crosses every band above the point — so the label is lifted further AND knocks the curve out
+  behind its own glyphs, the way a map label knocks out a contour.
+
+And the rain row drew a bar for any non-zero chance, so a dry day came out as twenty-four two-pixel
+  stubs floating under the curve: a broken dashed rule that reads as a rendering fault. The row now
+  appears only on a day with a real chance in it (30%, the figure the strip and the list already
+  call wet), an hour under 10% inside such a day is left blank rather than stubbed, and any bar that
+  is drawn gets a height it can be seen at.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: The sim's ?open= took one shot at a moving target
+  ([`18fe22d`](https://github.com/jtn0123/InkyPi/commit/18fe22d20cc31d50b7c92abdd19492cbc694859b))
+
+sim-harness.js opened the panel 250 ms after boot and read .panel.is-open in the same tick as open()
+  — but the open class lands after a forced reflow, so on a slow load the query found nothing, the
+  panel sat at opacity 0 with the dashboard hidden behind it, and the capture came out as an empty
+  sky. Other captures came out as the dashboard, because the harness had not run at all yet. Same
+  bug twice. It retries for four seconds now and stops the moment the panel it was asked for is
+  open.
+
+Also: the icon pack stops entirely under prefers-reduced-motion (Android's "Remove animations"
+  reaches the WebView as exactly that). Every shape is authored to read correctly still — the motion
+  is a garnish on a static drawing, never what makes an icon legible — so nothing changes but its
+  stillness.
+
+- **clients/android**: The sky's rain stops wearing the UI's accent blue
+  ([`005471b`](https://github.com/jtn0123/InkyPi/commit/005471bb7bf6d0cf324819ec0c212c27d822ea27))
+
+--ic-rain (#5aa9ff) marks the wet numbers in the hourly strip; it is meant to be picked out at a
+  glance. Three hundred streaks of it ruled across the clock, three card headers, the Details
+  buttons and the tile values is the same colour doing the opposite job, and a storm capture came
+  back as blue tally marks over the UI — the one thing the brief forbids, since a person in the
+  kitchen noticed it without looking for it.
+
+Weather seen through glass is desaturated by the air in front of it, so the canvas takes a cool grey
+  of its own (--ic-rain-sky) and the near band comes down in width. The alphas are the budget's and
+  have not moved.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: The sun had a dark ring round it and a compass rose on top
+  ([`1447331`](https://github.com/jtn0123/InkyPi/commit/14473316179acfea4768574a23641d69fc83e662))
+
+The corona could only start outside the limb, because it was painted under the disc — so between the
+  sun's edge and the first bright thing outside it there was nothing but the wide halo at a fifth of
+  an alpha, which is the dark annulus three captures picked out. It is closed from above now: the
+  collar is drawn last, reaching back inside the limb, and the disc's ramp no longer finishes on an
+  amber two shades darker than the air around it. The rays start UNDER the disc for the same reason
+  — based just outside it they left a ring of bare collar six per cent of the radius wide.
+
+The wedges themselves are flames rather than triangles, at two fifths opacity: straight sides
+  meeting at a bevelled point, eight of them, at full strength, is cut paper.
+
+Also here: the overcast deck met its own crown with two square corners, which is the step a review
+  found on real-weather, real-daily and the Now card — every join on that shoulder is
+  tangent-continuous now, and the two full-width creases ruled across the belly are four short
+  offset segments that reach neither edge. The thunder anvil takes a third material rather than the
+  deck's, so a still frame of a storm is heavier than a still frame of an overcast day whether or
+  not the bolt is lit. The bolt's glow follows its outline instead of sitting behind it as an
+  ellipse, and the underglow moved up into the belly it is supposed to be lighting. Fog is drawn as
+  soft lenses of air, six lobes on three levels: a stroke with a round cap at 0.8 is a capsule,
+  however soft the gradient over it, and three of those over a cloud read as UI pills. Stars are
+  round point-lights; a four-armed sparkle is a lens artefact, not a star.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: The sun had lost its rays to a dropped argument
+  ([`c88d122`](https://github.com/jtn0123/InkyPi/commit/c88d12266429c2060380b5a875cc16812bbc713d))
+
+rayRing() was called with five arguments and declared with six, so every wedge came out as "M NaN
+  NaN L x y L NaN NaN Z" — which SVG does not reject, it just drops what it cannot parse and draws
+  the rest. The icon rendered as a plain glowing ball and passed every test in the suite, because
+  nothing in it looks at the geometry. It does now: the pack is generated arithmetic end to end, so
+  'no NaN, no undefined, in any of the 28 codes day and night' is a test.
+
+The corona also stopped painting its bright collar INSIDE the disc, where it was covering solid sun
+  and doing nothing outside; and the ramp now clears the limb, so the disc no longer carries a
+  desaturated rim where the two met.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: The sun section at night, and a chart caption inside its own plot
+  ([`8f2cacc`](https://github.com/jtn0123/InkyPi/commit/8f2cacce795733daee04d01ec9c0befadfa2ac9f))
+
+With the sun down, SUN drew a hairline grey arc with no gold on it and two gold clock times printed
+  underneath, as if something up there were pointing at them — a chart with a legend and no plot.
+  Below the horizon is a POSITION: the marker stays, unlit, under the line at whichever end of the
+  day it is nearest, and the caption says where the sun is rather than quoting a daylight total for
+  a day that is either over or has not begun.
+
+And the hourly chart's "% chance of rain" key hangs above the frame now. Inside the plot area it
+  read as something the chart was saying about a point, and on a warm afternoon it grazed the
+  temperature line on its way past.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: The three text-over-graphic and truncation defects
+  ([`fc4b590`](https://github.com/jtn0123/InkyPi/commit/fc4b59090d3217a6c39bf56d2ea0881ab3659894))
+
+The tile row still shipped visible truncation after last round's fit: PAPER read "today's …" (93 px
+  of copy in a 78 px box) and IMAGE read "nothing t…" (99 px). Both are now inside the box —
+  "today", "not today", "offline", "tablet only", "tap to see" — and every comment quoting the old
+  102 px tile geometry is corrected to the 89 px tile and 78 px content box the row has had since
+  the seventh tile arrived.
+
+DEVICE read "83%↯". That fitted and still read as a garbled glyph at tile size, because two symbols
+  with no air between them resolve into one shape the eye cannot name. The mark moves to the
+  sub-line, which has 25 px spare, and the value carries its state in colour instead — charging is
+  --ok, nearly flat is --danger, which is the same colour language the Air tile beside it already
+  speaks. The per-cent sign takes the Moon tile's small-unit treatment on the way past.
+
+Hourly's low callout was painted inside the precipitation bars in every wet scene. Hanging it below
+  its point was structurally doomed: the coldest hour is by definition on the floor of the plot and
+  the bars start eight units under that. It sits above its point now, in the valley of the curve it
+  labels, which is where a callout belongs.
+
+Sensors' y-axis labels were painted straight over the trace, so the blue line ran through "72.8 °F".
+  Every plot in the app now gets a y gutter measured in ems of the label's own step, and the time
+  row is indented to match so the two axes start on one line.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: The tile row is seven equal tiles, and the clock's day fits one line
+  ([`c044736`](https://github.com/jtn0123/InkyPi/commit/c044736e0c73880bd824a76a019032c9dc4c10a5))
+
+Two defects visible in any 711 px capture.
+
+THE TILE ROW. The two .row3 wrappers share one wrapped line and were each given half of it, so the
+  three tools came out 102 px wide and the four content tiles 74 — on a strip the eye reads straight
+  across as one row of seven. The narrow four ellipsised their own heads ("MO…", "PA…", "PIC…") and
+  the Moon tile's disc-plus-percentage measured 111 px inside a 74 px box and printed through the
+  Air tile beside it.
+
+Each row now takes the share of the line its tile count is worth (row-3 / row-4 in the markup, three
+  sevenths and four sevenths in style.css), so all seven come out 89 px whatever row they are in.
+  Not flex-basis:auto — a flex row's auto basis is its items' max-content, which wrapped the two
+  rows onto separate lines and cost the column 68 px it has not got.
+
+That alone was not enough at 89 px, so three more things gave: - .mini-head takes the exception
+  .sensor-label already has, and for the same reason with the same compensation: --fs-caption, but
+  --dim rather than --dimmer (caption AND dimmer together is THE BAN in style.css). - the tile row's
+  value drops to --fs-body-lg. Its LINE BOX stays on --fs-title-sm so the three lines keep one
+  baseline across all nine tiles; only the ink comes down. "00:00" is 3.1 em of tabular digits and
+  does not fit 78 px at the title step. - "Picture" -> "Image" (seven tracked capitals do not fit;
+  five do, and "Image" covers a comic as well as a photograph), the Moon tile's "%" takes the shared
+  small-unit treatment, and the Device tile's charging mark loses the space in front of it.
+
+.sensor-unit is renamed .unit: the Moon tile's per-cent sign is the same object as a sensor's °F and
+  a class named after one widget would have been copied rather than reused. Measured after: seven
+  tiles at 89 px, every head whole, every value inside its box, overflow=0 overflowX=0, slack 41 px.
+
+THE CLOCK PANEL. "233 of 365" — ten glyphs with two spaces in them — wrapped in a third of a 711 px
+  panel and dropped its value onto a different baseline from UTC's and WEEK's, which is the exact
+  fault the label above it was shortened to fix. A solidus says "of" in one glyph and has nothing in
+  it that can wrap.
+
+- **clients/android**: Three lines that were written for the build, not the room
+  ([`8691f74`](https://github.com/jtn0123/InkyPi/commit/8691f74c1cd717aa80877a2f292212337387cc4f))
+
+The Clock hero's rule — a clock wears the light of its own hour — has "no tone" as its working-day
+  case, so at two in the afternoon the one number that panel is about rendered in the same flat
+  white as every other number in the app, on a screen the colour pass had named. Daylight is not the
+  absence of a tone; it is the warm white of a room with the sun in it. The six world clocks keep
+  plain white: six warm cells is a panel with a tint on it, where one is a panel with a light
+  source.
+
+The news ticker's browser fallback said "Feeds are fetched through the app shell, which a browser
+  tab does not have" — in the headline slot, at the headline's weight, attributed to "News · now".
+  It never reaches the tablet and it is in every screenshot anybody reviews. It is a note now:
+  dimmed, captioned "preview" rather than with an age, and it says "on the wall" instead of naming a
+  thing only this build knows about. Same for the Picture and Front Page empty states.
+
+And the storm fixture printed "RIGHT NOW 6.2 in" beside "TODAY 0 in" — an hourly rate many times the
+  continental record, next to a day total of nothing. Real rates, and the day is derived from the
+  hour so the two cannot contradict each other in a reference shot again.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **deps**: Bump pip to 26.2 in dev lockfile (PYSEC-2026-3721)
+  ([`d549da9`](https://github.com/jtn0123/InkyPi/commit/d549da9d2ecfe52d1802020c99b906013580fa7b))
+
+pip-audit started failing the Security and SBOM job on every branch once PYSEC-2026-3721 was
+  published against pip 26.1.2. Hash-pinned bump only; regenerating on macOS drops the Linux-only
+  dev packages, so this was edited by hand with the sha256 digests from PyPI.
+
+### Chores
+
+- **clients/android**: Ignore build output and the local debug keystore
+  ([`8873ed1`](https://github.com/jtn0123/InkyPi/commit/8873ed187a0ea14a081c56dba06c1c5b11a808b2))
+
+A local build drops debug.keystore, inkyoled.apk and its .idsig in the client root. The keystore is
+  per-machine and this repo is public, so none of it should ever be staged.
+
+- **clients/android**: Sim ?scene= URL switch and sim/shoot.sh contact-sheet script for headless
+  review
+  ([`8039f95`](https://github.com/jtn0123/InkyPi/commit/8039f95d5ab1a1c7e401b389c968a80206f89777))
+
+### Documentation
+
+- **clients/android**: Optical mass, one moon, the fog's third attempt, and the plot gutter
+  ([`6070d94`](https://github.com/jtn0123/InkyPi/commit/6070d9438888a574022febd2e32f60626aa7c846))
+
+The four decisions from this round that a reader of the code would otherwise have to reconstruct:
+  why every hero subject in the icon pack carries the same area of ink rather than the same bounding
+  box, why the night glyph asks wx-moon.js for the phase instead of drawing a pleasant crescent,
+  what was wrong with the first two fogs and what the seven graded banks fix, and the two shared
+  builders that came out of the empty-state and axis-collision work.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: Standalone by design — port plugins, not pixels; drop server-mode roadmap
+  ([`e0ce667`](https://github.com/jtn0123/InkyPi/commit/e0ce66776c62ba2bb359b84453997da94372fb0e))
+
+- **clients/android**: The icon pack, its motion budget, and the sky's second pass
+  ([`f1dfdf8`](https://github.com/jtn0123/InkyPi/commit/f1dfdf846b48da75c36b38a1242df71726f9c494))
+
+INTERACTIVE.md's colour section described a set that no longer exists (flat fills, four stylesheets)
+  and README's one-line summary undersold what is now on the screen. Both now say what the pack is
+  built from, why only the two hero-sized icons animate, and what the sky layer gained.
+
+### Features
+
+- Add Inky OLED Android panel client under clients/android
+  ([`30c968b`](https://github.com/jtn0123/InkyPi/commit/30c968b98901437c4846257b8fe66d5f747146f1))
+
+Imported from jtn0123/tab-s6-kiosk inky-oled/ (split tip f467af3be9bd; the 21-commit history stays
+  in that repo). Added as a plain commit rather than a subtree merge so the PR has no root commit —
+  gitleaks-action cannot range-scan a PR whose oldest commit is a root.
+
+- **clients/android**: A real second tier where four panels were black
+  ([`33d409d`](https://github.com/jtn0123/InkyPi/commit/33d409dca4cecb9efdf2fc487af95cf206658cd0))
+
+Four screens reserved most of their body for content that was not there, and at 2-4 m a reserved
+  band of black is indistinguishable from a screen that failed to draw.
+
+Year twelve columns that fill from the bottom: the months behind are lit, the month you are in is
+  lit as far as today, the rest are the empty track. Two bars said "64% of the year and 65% of the
+  month", which is the same sentence twice and neither says WHICH part is gone. Month initials come
+  from the runtime locale, because a grid that spells the months in English on a French tablet is
+  worse than none. Moon the four principal phases with the date each lands on, drawn as discs from
+  the same moonPath() the hero uses. CYCLE named two of them as stat cells and left the quarters
+  unnamed under ~300 px of black; its two cells now carry the two facts nothing else on the screen
+  has - the moon's age, and where this cycle began, which is the only thing here that looks
+  backwards. Timer the stopwatch's empty lap region carries the four common countdown durations. A
+  kitchen wall panel is asked for a countdown far more often than for a stopwatch and the countdown
+  was two taps away behind a mode switch; one tap now switches mode and loads the duration - loads,
+  not starts, so a mis-tap cannot become a ringing alarm in one minute's time. Picture a void is not
+  an empty state. Every no-picture case (not only the failed one - "Fetching" alone on a line was
+  the same void with fewer words) now draws the shape of the thing that is missing: a frame with a
+  landscape in it, in the fog grey and sun yellow the weather icons use.
+
+The two charts move to their own stylesheet. The hourly curve and the daily bars are one subject -
+  same axis tier, same three --temp-* tokens through the same tempTone() - and they lived in two
+  different sheets, which is how their axes came to disagree about their own type size for two
+  rounds. It also buys style-widgets.css back under the 500-line budget, which is the honest second
+  reason.
+
+- **clients/android**: A real weather icon pack, and a richer sky
+  ([`fd3edae`](https://github.com/jtn0123/InkyPi/commit/fd3edaeae9cddb46f47e6aee323b0b6b1c140f7b))
+
+The icons were flat: three circles and a slab for a cloud, eight straight lines for a sun, four
+  crossed strokes for a flake. Flat fill is what makes art read as a placeholder — the eye gets a
+  silhouette and no object.
+
+Every primitive is rebuilt the way a paid pack builds one: a single silhouette path per cloud
+  (overlapping discs are invisible under a flat fill and glaring under a gradient), a vertical
+  light-to-dark gradient across it, a rim light on the edge the sky catches, a soft shadow under the
+  belly. The sun gains a halo, a hot spot and tapered wedge rays; the moon gains craters clipped to
+  its lit limb, so the Moon widget's disc, its week strip and the tile are now literally one drawing
+  at three sizes. Rain streaks vary in length, weight and alpha; snow is a six-armed flake with
+  branch ticks; the bolt has a glow and a hot core; fog is three bands of different length that fade
+  out at both ends rather than four identical rules. All 28 WMO codes, day and night, out of the
+  same seven primitives.
+
+Motion is new and deliberately small (style-icons.css, off new --dur-wx-* tokens): rays rock a few
+  degrees rather than spinning — eight-fold symmetry makes a spin read as a pinwheel — clouds bob
+  under a pixel, rain falls at a real rate, snow drifts, the bolt is lit nine tenths of the time and
+  flickers in the last tenth. Only the two hero-sized icons animate: 31 compositor animations for 20
+  px art is a battery bill for motion nobody can resolve.
+
+The sky layer behind the cards gets the same pass: a horizon glow that only exists while the light
+  is low (arithmetic in wx-sky-light, so it is testable), softer seven-lobe cloud puffs, banks half
+  again as large and no two the same proportion, rain drawn as a dim tail under a bright head so a
+  drop reads as falling instead of as a scratch, and a bloom on the nearest flakes. The alpha budget
+  is unchanged.
+
+Palette gains a lit/body/shadow trio per material in style-theme.css.
+
+- **clients/android**: A sun with rays, a moon with air around it, and depth that is not a coin toss
+  ([`9a3befe`](https://github.com/jtn0123/InkyPi/commit/9a3befeece0fe530b7009a48dfe0245764246c04))
+
+The sun's two ray rings were drawn under the corona — painted and then painted over — so the icon
+  was a glowing ball. Air first, then the light through it, and the corona's collar now sits outside
+  the limb instead of inside it.
+
+The Moon panel's hero gets the halo the night icon already had, and the eleven thumbnails in the
+  week and phase strips stop paying for crater rim strokes they are far too small to show: every
+  disc is authored at r=24 and shrunk by the stylesheet, so the body could not tell a 300px hero
+  from a 30px chip. It is told now.
+
+The fog icon is bands rather than rules: the soft band carries the weight and the core is a hint
+  inside it. Three hard strokes under a cloud is a legend.
+
+And the populations stratify their depth instead of sampling it. Seven fog banks from seven
+  independent uniform draws can all land in the middle of the range — no near member, no far one, no
+  parallax — which is a smear about one night in twenty. That was also a test failing one run in
+  eight, and the flake was the bug rather than the test being fussy. Each member takes its own slice
+  of the range and jitters inside it: the spread is now a property of the field, the fields draw in
+  painter's order (near flakes over far ones), and the test is deterministic.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: An illustrated empty state for Calendar, and copy that says what happens
+  ([`28782dc`](https://github.com/jtn0123/InkyPi/commit/28782dc83326ca58ae8103834dd7fb1bad21abc7))
+
+Calendar was the worst screen in the product: three lines of grey type over ~900 device px of black,
+  which at three metres is indistinguishable from a screen that failed to draw. The Picture panel
+  had the identical void for the identical reason and got a drawing of the missing thing a round
+  earlier — so the layout moves to WP.ui.emptyState, Calendar gets a month page (rings, head band,
+  three weeks of cells with one lit), and all three of its no-agenda states use it rather than only
+  the unconfigured one.
+
+Both illustrations are now drawn against the icon pack's own gradient sprite. The Picture frame was
+  three flat triangles and a flat disc next to shaded, rim-lit clouds — two drawing languages in one
+  product; its ridges take the cloud gradients and a rim light on the sunlit slope.
+
+Copy, in three places where the words described the plumbing rather than the panel: Timer's chips
+  said "Or start a countdown" and deliberately do not start one ("Or set"); Year's empty countdown
+  list explained how config works instead of what a countdown looks like; and the Daily and
+  Conditions precipitation sections were headed RAIN in every scene, so the snow scene put a Snow
+  hero over a section captioned RAIN saying none of it was expected to fall. The heading now follows
+  the WMO code.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: Calendar widget — InkyPi calendar plugin on glass
+  ([`9a8abfd`](https://github.com/jtn0123/InkyPi/commit/9a8abfdc7bb246d6e5a7458d6acf7d67a535a7ec))
+
+Read-only ICS feeds from config.calendar.urls, fetched through the shell like the news. New ics.js:
+  pure parser + recurrence expander (folded lines, DATE/UTC/ TZID/floating via Intl, DURATION, RRULE
+  daily/weekly/monthly/yearly with COUNT/ UNTIL/BYDAY ordinals, EXDATE, RECURRENCE-ID overrides,
+  bounded walk). The Next tile shows the next event (time + name + day) on the clock line beside
+  Year; the panel is the agenda for N days grouped by day. Hidden by default until a feed is
+  configured; the Setup tile does not count that as 'off'. Cached so a down feed keeps the last
+  agenda marked 'as of'. Sim proxy now allows hosts named in config.js. 20 new tests (parser,
+  recurrence incl. DST in a zone, widget states, bridge fetch, cache). Verified against Google's
+  public US-holidays feed in the sim (317 VEVENTs).
+
+- **clients/android**: Choose the location on the tablet, and a second home screen
+  ([`18b62cb`](https://github.com/jtn0123/InkyPi/commit/18b62cbdc9224d7f331b02d31b30cbe4c948753d))
+
+Two changes that between them stop the wall panel needing a PC.
+
+LOCATION. The place was config.js and only config.js: moving the panel meant editing a file,
+  rebuilding the APK and sideloading it. Settings now opens with a Location section — type a town,
+  tap a result. geo.js is the pure half (Open-Meteo's geocoder, no key; region kept so two towns of
+  the same name are told apart, near duplicates collapsed, a result with no coordinates dropped
+  rather than offered as a point in the Gulf of Guinea); wx-settings.js is the screen. WP.place()
+  resolves the chosen place over the config fallback and every weather widget reads it, so Now,
+  Hourly, Next days, Air and the sky follow; the old town's cached payload is dropped rather than
+  relabelled. It is deliberately not a setting: reset must not relocate a wall panel to wherever the
+  APK was built. A panel that booted with no location at all now comes alive when one is chosen,
+  which is the case the search exists for.
+
+SECOND SCREEN. Seven mini tiles shared one line at 711 CSS px, which ellipsised four of their heads
+  (DEVI…, PA…, PIC…). They and the news line moved to #home2, a swipe away: two columns, tiles about
+  four times the area, full names. The dashboard keeps what a glance is for and has room to breathe.
+  Screens do not wrap — unlike the panel ring, one of these is the dashboard — and screen two
+  unwinds to it after three minutes on the existing idle machinery.
+
+Also: wx-weather.js was over the 500-line budget with the place wiring in it, so the Conditions
+  panel's two drawn sections moved to wx-weather-panel.js, the way the sensors panel already splits.
+  Manifest gains adjustResize so the soft keyboard cannot cover the app's one text field, and the
+  carousel now tracks touchmove — on the tablet Chrome claimed a horizontal drag and cancelled the
+  pointer stream before delivering a single move, so the first build of this paged nothing at all.
+
+Verified on the tablet: search, pick, and the whole dashboard following to the new town; swipes both
+  ways; the keyboard behaving. 407 tests.
+
+- **clients/android**: Clouds with a light on them, and a sky with a back to it
+  ([`daded64`](https://github.com/jtn0123/InkyPi/commit/daded642f0d113d36212779b14dfd6b63777d986))
+
+Round B, first half. The pack was a professional DRAWN weather product and the verdict was that it
+  is not yet a REAL one; everything here is realism, done the illustrated way, because raster art is
+  ruled out by burn-in and by size.
+
+The clouds. Overcast was two cloud() calls stacked — invisible under a flat fill and, under a
+  gradient, a seam through the middle of the largest drawing in the product. There is one silhouette
+  per mass now (a new wider, flatter DECK for overcast and the storm anvil), the fills are radial
+  gradients placed where the light is rather than top-to-bottom ramps (a vertical ramp is a
+  cylinder, and a cylinder is what clip-art looks like at hero size), and a static feTurbulence +
+  feDisplacementMap takes the compass off the outline. The filter is attached from the stylesheet to
+  the two hero-sized icons only: twenty-four rasterised filters in the hourly strip would buy detail
+  nobody could resolve, on a 2019 Snapdragon that runs this panel around the clock.
+
+The sky. Two cloud sprites instead of one scaled twice, with the far banks detail-less and the scale
+  contrast on a curve — parallax the flat version had none of. Rain streaks BOW, and the near/far
+  bands are now far enough apart to read as depth rather than as one hatch pattern. Snow is two
+  populations, the near one out of focus against a pre-rendered bokeh sprite, because the depth cue
+  has to survive a still frame. A storm gets a heavier, darker deck off the top edge and a warm
+  underglow when the flash fires, so storm-home and rain-home stop being the same picture.
+
+Fog, fourth attempt and the first one anybody can see. It was drawn on the floor of the frame, where
+  fog lies — and where four opaque cards cover it completely. The floor gradient stays for the
+  gutters and a veil now lies over the whole frame, densest across the upper third, which is the
+  only sky this layout leaves open. Four banks drift up there too.
+
+Night. Star brightness on a curve so a few are genuinely bright and most are nothing, a faint Milky
+  Way band from one stamped sprite, and a halo on the moon.
+
+The moon is a sphere. The lit limb took the gradient, so its bright stop was squeezed into a band
+  that slid across the face over the month — the bright rim line that made the disc read as two flat
+  shapes butted together. The whole disc takes it now and the phase is a shadow cast on top,
+  feathered over four steps, with limb darkening and craters whose two inner walls disagree.
+
+And the light of the hour reaches the icons: the sky layer stamps its mood on <html> and the
+  stylesheet warms the highlight tokens at golden hour and cools them at night. Base greys never
+  move.
+
+Also: the hourly chart's precipitation row finally says what it is measuring.
+
+sim: a night scene is now night for the sky as well as for the glyph. Every night capture this
+  project has ever filed was a moon over a midday sky.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: Colour on the last monochrome panel, and a hero that is one object
+  ([`cd2164d`](https://github.com/jtn0123/InkyPi/commit/cd2164d40fcbbbc4353692be5c0f1600a07f851e))
+
+Device was the last fully monochrome screen in the build — white hero, grey bars, three-column
+  label/value blocks — on a dashboard where seven other panels now say something in colour. Nothing
+  new was invented for it: the battery's two states (charging, nearly flat) move out of the tile's
+  stylesheet into shared classes and are worn by the tile, the panel hero and the drawn battery
+  glyph together; the storage and memory bars take the accent every other bar in the app uses,
+  stepping to amber and red as the room runs out; and the internet cell takes the severity ramp.
+
+Conditions' hero glyph sat on --fs-hero beside a number on --fs-display, i.e. at 68% of the
+  numeral's step — and because SVG art carries internal padding a font glyph does not, the cloud
+  measured optically half the height of the 79° beside it. Same step now, and the row reads as one
+  object.
+
+Clock's hero was the one clock on that panel printed in flat white, under a subtitle naming its
+  zone, above six cells that each took the light of their own hour. It takes the same rule. The
+  ~90px of black between TODAY and WORLD CLOCKS is now the day's own progress bar — the same accent
+  the Year panel measures a year with, one zoom level in — with what is left of today under it.
+
+And Settings' two segmented groups were separated by 2vw where the chips inside them were separated
+  by 1.2vw, so four chips in two pairs read as one row of four.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: Conditions stops being a spec sheet
+  ([`fe44c4c`](https://github.com/jtn0123/InkyPi/commit/fe44c4c7be5894f2292fe25a1662af5ebacd554d))
+
+SUN was SUNRISE / SUNSET / DAYLIGHT — three grey caps over three white figures, the same shape as
+  WIND above it and AIR above that, which is what kept this panel reading as a labelled table
+  however much colour went on it. The three facts are one fact, the shape of the day, and a shape is
+  a thing to draw: the sun's path from horizon to horizon, the part already flown picked out in the
+  same warm the two times wear, and the sun itself sitting at the hour it actually is. The times
+  keep their places at the two ends; the length of the day is the caption under the apex.
+
+The lit arc is the same quadratic split at t with de Casteljau rather than a dash pattern
+  approximating it, so the marker and the end of the lit arc are one point by construction and
+  cannot drift apart at either end of the day.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: Finish the cloud's silhouette, and soften the terminator
+  ([`7d1311f`](https://github.com/jtn0123/InkyPi/commit/7d1311fe5a95f8b9f769b71b2e9acae77ed535a4))
+
+The icon pack's last two tells that it was drawn rather than lit.
+
+THE CLOUD. Its rim light was a single narrow arc on the top-left lobe that stopped square — a
+  detached bright hook — while the right lobe had none at all, so the silhouette read as lit on one
+  side and unfinished on the other. The rim is now stroked with a gradient that fades to nothing at
+  both ends (object-bounding-box units, so one def tapers any arc along its own length), and the
+  right lobe carries the same edge at a third of the strength, which is what a sphere catches at a
+  glancing angle. Its base was a straight cut at y=45 softened by one belly ellipse: it is now three
+  shallow scallops — the undersides of the lobes above them — under a second, wider and fainter
+  belly shadow. A flat-bottomed cumulus sits on an invisible shelf.
+
+THE MOON. The terminator was one evenodd path: mathematically exact and, at hero size, the tell of a
+  mask. It is drawn three times now at phases a few thousandths apart, stepping toward new, so the
+  shadow lands as a band a couple of degrees wide rather than a cut — no filter, no second id, the
+  same geometry that was already there. One more mare, mid-left, so the shadow has something to
+  bisect through the half of the month it spends over there.
+
+The moon body moves to wx-icons-moon.js: wx-icons.js was at the 500-line ceiling, and the seam is
+  the natural one — bodies there, weather here.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: Normalise the icon pack's optical mass, and give fog a floor
+  ([`6a38e03`](https://github.com/jtn0123/InkyPi/commit/6a38e030fde2dbfd508ea64b3dfcbed85e954abe))
+
+The pack's loudest "not a pack yet" tell was scale: the clear-day sun measured 44px against the
+  cloud family's 67 in the daily hero, and the clear-night crescent 32 against 106 in the Conditions
+  hero. Both were bounding-box decisions in a set the eye weighs by ink. The sun's rays are now a
+  fixed fraction of its radius rather than a fixed length, so it scales as one object, and it runs
+  at r=14.5 for ~800 units of fill against the rain cloud's ~790.
+
+The night moon was worse than small: it was a fixed crescent at p=0.18 while the Moon tile three
+  inches away on the same dashboard reported the real phase, so clear-night-home shipped two
+  different moons in one glance. It is now the whole disc with the unlit part present as earthshine,
+  at whatever phase wx-moon.js says it is — constant silhouette, one moon, and the same path the
+  tile draws.
+
+Also in the pack: the cloud's rim light narrows from a haze to an edge and picks up two soft folds
+  where the lobes meet (a single gradient over a single silhouette read as a grey bean at four
+  metres); every rain streak takes one rake angle and one gap below the belly, because three streaks
+  starting at three heights read as three mistakes; the bolt hangs from the cloud's centre of mass
+  with its tip inside the frame instead of off the left shoulder and through the floor; and the
+  night stars drop to two small ones so the moon carries the glyph.
+
+Fog was the sky layer's failure: brightened four times over for inspection it was a flat uniform
+  wash, because a full-width rect at a constant alpha is a flat uniform wash however many you stack.
+  It is now seven banks graded by depth — near ones low, tall, slow and stronger — each stamped from
+  a lumpy sprite so density varies ALONG the layer, each breathing on a rate of its own. wx-sky.js
+  was two lines under the 500-line ceiling, so the weather painters moved to wx-sky-paint.js first
+  and the fog was rewritten there.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: Rain that is rain, and snow that is not dust on the glass
+  ([`2cf4485`](https://github.com/jtn0123/InkyPi/commit/2cf44850fcaabd3fb004d776056c17373b48c192))
+
+Two populations on the sky layer were read as faults rather than weather.
+
+The rain streaks were 0.8-2.3 px dashes with visible gaps between them — a dotted rule falling past
+  the cards. They are finer now (0.55-1.55), there are half again as many of them, and the near band
+  is drawn longer; a denser, thinner field reads as rain AND is the quieter of the two over anything
+  a person is trying to read.
+
+The snow was ninety round dots on a nearly flat alpha ramp, and they landed on DEMO, HUMID and NEWS
+  as grey specks — the same verdict the star field got two rounds ago, for the same reason: a
+  population without a distribution is noise. The alpha now falls away with depth on a curve, so the
+  far half is a rumour and the near few carry the budget; the smallest flake is a dot rather than a
+  pixel; a quarter of them wear the out-of-focus bloom instead of a tenth; and there are sixty-four,
+  because the twenty-six that went were the ones nobody could see.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
+
+- **clients/android**: The five monochrome panels join the colour language
+  ([`40c40e3`](https://github.com/jtn0123/InkyPi/commit/40c40e322940bd17d31caf12a3e535d526fd5477))
+
+Conditions, Clock, News, Timer and Year were plain white on black while Hourly, Daily and Air two
+  taps away spoke in temperature tones, accent blue and a warm amber. Same tokens, spent the same
+  way — colour marks DATA, never decoration — and no hue is introduced.
+
+Conditions the hero temperature takes its tone from the SAME range the hourly curve and the daily
+  bars use (today's low to today's high), so 78 degrees is the same orange here as on the chart one
+  tap away. Sunrise and sunset go amber, because on this wall sun things are warm. The Rain
+  section's figures wear rain's colour once they mean something, exactly as the hourly strip's
+  chance figures already did. Clock a world clock's time takes the light of its own hour: cool while
+  the city is dark, warm through its dawn and dusk, white through its civil day. Nine cities in six
+  identical white columns never answered the one question a world clock is for. The 7-to-19 day is
+  the same nominal one wx-sky-light.js falls back to; a kitchen panel has no business fetching nine
+  sunrise tables. Timer the countdown wears the colour of its own bar — a running countdown is a
+  live line of data, which is what --accent is reserved for here — and goes warm in the last minute,
+  the one point where a glance across a room should change what you do. The class is kept in step on
+  the tick, not on the rebuild: "59 seconds left" is not a state change. Year the hero is its own
+  bar's number, so it is its own bar's colour, and the month bar takes the same accent at half
+  strength rather than a fourth grey. News one colour per feed. The source is the only field in a
+  merged row that distinguishes it from the row above and it was set in the same grey as the age;
+  four steps, all tokens the palette already carries.
+
+The three temperature tokens are promoted to colour classes (.t-hot / .t-warm / .t-cold) the way the
+  six band classes already work, so a widget picks a tone and never a colour. .daybar opts out — it
+  wears the same three classes to tint a bar rather than text.
+
+.sensor-unit is now .unit, joining the .unit the panels already used: the Moon tile's per-cent sign
+  and a sensor's degree unit are the same object, and wx-year.js was already emitting class="unit"
+  against a rule that only existed inside .stat-v.
+
+The hourly chart's CSS moves next to the daily chart's in style-widgets.css. They were a stylesheet
+  apart, which is how the two axes came to disagree about their own type size for two rounds — and
+  it buys style-theme.css back under the 500-line budget.
+
+- **clients/android**: Year widget — InkyPi year_progress + countdown on glass
+  ([`e079345`](https://github.com/jtn0123/InkyPi/commit/e0793457a4e1e6a6be7492fe483f71442dec24d2))
+
+Year share gone on the tile, days left or the nearest configured countdown on its sub-line; panel
+  with year / quarter / month bars and every countdown from config.countdowns (same title+date
+  fields as the server plugin). Pure calc() and countdowns() with 11 tests (New Year edges, leap
+  years, DST days, month ends, local-date parsing, junk rows). Sits on the clock's line — zero added
+  height; the content tile row was already ellipsizing at four tiles.
+
+### Testing
+
+- **clients/android**: Exact-match the allowlist origin (CodeQL
+  js/incomplete-url-substring-sanitization)
+  ([`18a7a78`](https://github.com/jtn0123/InkyPi/commit/18a7a78afa93def90812000f80af568aaa1cc56a))
+
+- **clients/android**: Pin the rule that the top of the sky is cold
+  ([`6788039`](https://github.com/jtn0123/InkyPi/commit/6788039b093792b6ed818a9ddc798ed40a6f60f6))
+
+The fault the last round shipped could not have been caught by any assertion in the file: the wash
+  was one colour, and one colour ramped over a frame is a legal model that renders as a
+  tobacco-brown photograph at five in the afternoon. Now that the gradient has two ends, the rule
+  worth pinning is which end may be warm — every zenith in the table is blue by at least forty
+  levels of red-minus-blue, no minute of an interpolated day sneaks a warm one in between two cool
+  ones, and the low-sun moods still have a horizon at least sixty levels warmer than their own
+  zenith, so the second colour is buying something rather than costing a lerp.
+
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 
 ## v1.3.1 (2026-08-21)
