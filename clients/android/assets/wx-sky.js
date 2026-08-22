@@ -144,11 +144,17 @@
     readPalette: function () {
       var cs = (typeof getComputedStyle === "function")
         ? getComputedStyle(document.documentElement) : null;
-      var fb = { rain: "#5aa9ff", snow: "#d6efff", star: "#cfd4ff", fog: "#9aa8b8" };
+      /* THE SKY'S RAIN IS NOT THE UI'S RAIN. --ic-rain (#5aa9ff) is an accent: it marks
+         the wet numbers in the hourly strip and it is meant to be picked out at a glance.
+         Three hundred streaks of it ruled across the clock, the card headers and the tile
+         values is the same colour doing the opposite job, and a storm capture came back
+         as "blue tally marks over the UI". Weather seen through glass is desaturated by
+         the air in front of it, so the canvas takes a cool grey of its own. */
+      var fb = { rain: "#93b3cf", snow: "#d6efff", star: "#cfd4ff", fog: "#9aa8b8" };
       if (!cs) { this.col = fb; return; }
       function v(name, d) { return (cs.getPropertyValue(name) || d).trim() || d; }
       this.col = {
-        rain: v("--ic-rain", fb.rain), snow: v("--ic-snow", fb.snow),
+        rain: v("--ic-rain-sky", fb.rain), snow: v("--ic-snow", fb.snow),
         star: v("--ic-star", fb.star), fog: v("--ic-fog", fb.fog)
       };
     },

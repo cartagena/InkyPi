@@ -101,8 +101,7 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
   --ic-moon:      #e9e5ff;
   --ic-moon-lit:  #fbfaff;
   --ic-moon-dim:  #b0aacf;   /* maria, and the limb turning away from the sun */
-  /* The unlit part of the moon disc. Earthshine, not absence: on a true-black panel this
-     is the difference between a sphere with a dark side and a crescent in a hole. */
+  /* Earthshine, not absence: a sphere with a dark side, not a crescent in a hole. */
   --ic-moon-dk:   #262f42;
   --ic-star:      #cfd4ff;
   --ic-cloud:     #aebfd4;
@@ -112,6 +111,7 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
   --ic-cloud-dkr: #47536b;   /* the belly of a storm anvil */
   --ic-rain:      #5aa9ff;
   --ic-rain-lit:  #a9d5ff;   /* the head of a falling drop */
+  --ic-rain-sky:  #93b3cf;   /* rain on the canvas: weather, not the accent that marks it */
   --ic-snow:      #d6efff;
   --ic-bolt:      #ffd75a;
   --ic-bolt-hi:   #fff6c9;

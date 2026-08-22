@@ -209,12 +209,14 @@
       for (var b = 0; b < 3; b++) {
         if (!band[b].length) continue;
         for (var pass = 0; pass < 2; pass++) {
-          /* THINNER AND MORE OF THEM. At 0.8-2.3 px the streaks read as discrete blue
-             dashes with gaps between them — a dotted rule falling past the cards rather
-             than rain — and the wide near band was the half that showed through text.
-             Real rain at this alpha wants a finer line and a denser field, which is also
-             the quieter of the two over anything a person is reading. */
-          x.lineWidth = (0.4 + b * 0.62) * (pass ? 1.35 : 1);
+          /* THINNER AND MORE OF THEM, and the near band thinnest of all relative to what
+             it was. At 0.8-2.3 px the streaks read as discrete dashes with gaps between
+             them — a dotted rule falling past the cards rather than rain — and the near
+             band, drawn widest and brightest, was the half that showed through text. Real
+             rain at this alpha wants a finer line and a denser field, which is also the
+             quieter of the two over anything a person is reading. The alphas are the
+             budget's and stay where they are; what came off is the width. */
+          x.lineWidth = (0.36 + b * 0.46) * (pass ? 1.3 : 1);
           x.globalAlpha = (pass ? 0.05 + b * 0.135 : 0.04 + b * 0.125) * ak;
           x.beginPath();
           for (i = 0; i < band[b].length; i++) {
