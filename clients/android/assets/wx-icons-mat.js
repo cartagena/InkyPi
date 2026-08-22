@@ -255,7 +255,16 @@
        band nobody can resolve at 30 px is the trade the icon texture already refuses. */
     "wxf-term": '<filter id="wxf-term" x="-6%" y="-6%" width="112%" height="112%"'
       + ' color-interpolation-filters="sRGB">'
-      + '<feGaussianBlur stdDeviation="0.9"/></filter>'
+      + '<feGaussianBlur stdDeviation="0.9"/></filter>',
+    /* And the sun's rays take it a third time. Eight solid wedges with crisp sides on a
+       soft collar is a starburst decal, whatever the wedges are shaped like; what makes
+       glare glare is that it has no edge. The blur is attached by the stylesheet to an
+       inner group, so the ROTATION lives above the filter and the raster is made once —
+       an animated geometry under a filter is a repaint a frame, which is the one thing
+       the 855 cannot afford. Wide margins because a ray reaches two radii out. */
+    "wxf-glare": '<filter id="wxf-glare" x="-20%" y="-20%" width="140%" height="140%"'
+      + ' color-interpolation-filters="sRGB">'
+      + '<feGaussianBlur stdDeviation="0.85"/></filter>'
   };
 
   /* THE MATERIALS ARE MOUNTED ONCE, into a permanent hidden sprite in index.html, and

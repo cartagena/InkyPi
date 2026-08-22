@@ -96,6 +96,10 @@
    breathes on the same clock, a quarter cycle behind, so the two never peak together. */
 .wx-icon .wxi .wxi-rays,
 .big-icon .wxi .wxi-rays { animation: wxi-rock var(--dur-wx-slow) ease-in-out infinite; }
+/* The rays' own edge, softened at hero size only — see wxf-glare. The filter is on the
+   INNER group so the rock and the turn happen above it and never re-rasterise it. */
+.wx-icon .wxi .wxi-glare,
+.big-icon .wxi .wxi-glare { filter: url(#wxf-glare); }
 .wx-icon .wxi .wxi-halo,
 .big-icon .wxi .wxi-halo {
   animation: wxi-breathe var(--dur-wx-slow) ease-in-out infinite;

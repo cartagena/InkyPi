@@ -110,6 +110,11 @@
      texture filter on .wxi-mass, so the filtered raster is produced once and then
      composited by the transform above it — an animated geometry under a filter is a
      repaint every frame, which is exactly what the 855 cannot afford. */
+  function fold(art, wid, k) {
+    return '<path d="' + art.FOLD + '" fill="none" stroke="var(--ic-' + art.FTOK + ')"'
+      + ' stroke-width="' + wid + '" stroke-linecap="round" opacity="'
+      + (art.FOP * k).toFixed(3) + '"/>';
+  }
   function body(art, cx, base, w, mat) {
     var dark = mat !== "cloud";
     var s = w / art.W;
@@ -126,8 +131,12 @@
       + (art.W * 0.47).toFixed(1) + '" ry="5" fill="url(#wxg-belly)" opacity="0.42"/>'
       + '<ellipse cx="' + (art.BX + 1.5) + '" cy="' + (art.BASE - 5).toFixed(1) + '" rx="'
       + (art.W * 0.38).toFixed(1) + '" ry="4.2" fill="url(#wxg-belly)"/>'
-      + '<path d="' + art.FOLD + '" fill="none" stroke="var(--ic-' + art.FTOK + ')"'
-      + ' stroke-width="1.7" stroke-linecap="round" opacity="' + art.FOP + '"/>'
+      /* A FOLD IS FEATHERED. One 1.7-wide stroke at three tenths of the belly colour
+         probed as a 26-level dip with a hard side on each of it — a line SCORED across the
+         deck rather than one layer passing in front of another, which is the crease a
+         review found at the crown/deck junction. Two passes: a wide faint one for the
+         shoulder, a narrow one for the core. Cheaper than a blur by a whole raster. */
+      + fold(art, 3.7, 0.42) + fold(art, 1.7, 0.62)
       + '<path d="' + art.RIM + '" fill="none" stroke="url(#wxg-rim)"'
       + ' stroke-width="1.25" stroke-linecap="round" opacity="'
       + (mat === "cloud" ? 0.9 : mat === "cloudd" ? 0.5 : 0.26) + '"/>'
@@ -172,7 +181,17 @@
      shipped sun came back with. Two changes take it off the page and neither costs a node:
      the sides are pulled INWARD by a quadratic, so the wedge loses most of its width in
      the first third and finishes as a needle; and the ring is drawn at half strength, so
-     what is left of the tip dissolves into the corona instead of ending somewhere. */
+     what is left of the tip dissolves into the corona instead of ending somewhere.
+
+     AND NEITHER WAS ENOUGH, because the remaining fault was not the shape — it was the
+     EDGE. A beam of light has no outline, and eight solid shapes with crisp sides sitting
+     on a soft collar is a decal however you cut them: a review read the wedge interiors as
+     darker than the field they lay on, which is what a flat amber does over a bright white
+     corona. Two things fix it and both are cheap. The ring is wrapped in an inner group
+     the stylesheet blurs (hero sizes only, the same deal the cloud texture and the moon's
+     terminator take — the rotation stays on the group ABOVE, so the raster is produced
+     once and merely composited). And --ic-ray is lighter than the disc it leaves now: a
+     sunbeam is never darker than the sun. */
   function rayRing(cx, cy, i0, o0, hw) {
     var out = "";
     for (var i = 0; i < 8; i++) {
@@ -206,10 +225,10 @@
     return '<circle class="wxi-halo" cx="' + cx + '" cy="' + cy + '" r="'
       + (r * 1.85).toFixed(1) + '" fill="url(#wxg-halo)"/>'
       + '<g class="wxi-rays2" fill="var(--ic-ray)" opacity="0.18" transform="rotate(22.5 '
-      + cx + " " + cy + ')">'
-      + rayRing(cx, cy, r * 1.26, r * 2.02, r * 0.07) + "</g>"
-      + '<g class="wxi-rays" fill="var(--ic-ray)" opacity="0.4">'
-      + rayRing(cx, cy, r * 0.94, r * 1.66, r * 0.24) + "</g>"
+      + cx + " " + cy + ')"><g class="wxi-glare">'
+      + rayRing(cx, cy, r * 1.26, r * 2.02, r * 0.07) + "</g></g>"
+      + '<g class="wxi-rays" fill="var(--ic-ray)" opacity="0.4"><g class="wxi-glare">'
+      + rayRing(cx, cy, r * 0.94, r * 1.66, r * 0.24) + "</g></g>"
       + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="url(#wxg-sun)"/>'
       + '<circle class="wxi-halo-in" cx="' + cx + '" cy="' + cy + '" r="'
       + (r * 1.5).toFixed(1) + '" fill="url(#wxg-corona)"/>';

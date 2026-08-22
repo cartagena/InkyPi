@@ -97,7 +97,7 @@ body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
      falls. Adding a fourth cloud grey is how a palette sprawls, so: three per material. */
   --ic-sun:       #ffcf54;
   --ic-sun-lit:   #fff3c4;   /* the hot centre of the disc, and the halo's core */
-  --ic-ray:       #ffb347;
+  --ic-ray:       #ffdc8e;   /* light LEAVING the sun — never darker than the disc */
   --ic-moon:      #e9e5ff;
   --ic-moon-lit:  #fbfaff;
   --ic-moon-dim:  #b0aacf;   /* maria, and the limb turning away from the sun */
