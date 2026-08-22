@@ -264,17 +264,30 @@
     paintWash: function (light, d, w, h) {
       var a = light.wash * d.wash;
       if (a < 0.004) return;
-      var c = light.sky.join(",");
-      /* The first curve kept the colour in the bottom tenth of the frame, which is why
-         golden hour read as black with a warm rumour: two thirds of the screen never got
-         a single tinted pixel. A real sky's gradient owns the whole height — faint at the
-         zenith, full at the horizon. */
+      /* TWO COLOURS, and which is where is the whole fix for "the sky reads as sepia".
+
+         The wash used to be one colour — the mood's own — ramped from the top of the
+         frame to the bottom, so at golden hour every pixel on the panel was some strength
+         of orange and a five-o'clock capture came back a uniform tobacco brown with no
+         blue anywhere in it. That is not what a window looks like at any hour: the zenith
+         stays cold all day, and the warm light is a band low down, under the height a
+         person's eye rests at. So the model carries a zenith colour as well as a horizon
+         one and the gradient runs BETWEEN them — colour and alpha both.
+
+         The hand-over sits at 0.72 rather than half way, which is what keeps the warmth
+         off the type: everything above it is the cool end, the blend happens across the
+         hourly and daily strips, and only the last fifth of the frame is the horizon's
+         own colour at the horizon's own strength. */
+      var top = light.top.join(","), bot = light.sky.join(",");
+      var mid = [0, 1, 2].map(function (i) {
+        return Math.round(light.top[i] + (light.sky[i] - light.top[i]) * 0.5);
+      }).join(",");
       var g = this.ctx.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, "rgba(" + c + "," + (a * 0.10).toFixed(4) + ")");
-      g.addColorStop(0.40, "rgba(" + c + "," + (a * 0.28).toFixed(4) + ")");
-      g.addColorStop(0.70, "rgba(" + c + "," + (a * 0.55).toFixed(4) + ")");
-      g.addColorStop(0.90, "rgba(" + c + "," + (a * 0.85).toFixed(4) + ")");
-      g.addColorStop(1, "rgba(" + c + "," + a.toFixed(4) + ")");
+      function s(p, c, k) {
+        g.addColorStop(p, "rgba(" + c + "," + (a * k).toFixed(4) + ")");
+      }
+      s(0, top, 0.14); s(0.36, top, 0.30); s(0.72, top, 0.54);
+      s(0.86, mid, 0.74); s(0.96, bot, 0.93); s(1, bot, 1);
       this.ctx.fillStyle = g;
       this.ctx.fillRect(0, 0, w, h);
     },
@@ -313,10 +326,18 @@
       g.addColorStop(1, "rgba(" + c + ",0)");
       /* Low light spreads ALONG the horizon rather than sitting in a circle on it — a
          sunrise is a band, not a spotlight. The stretch is a function of how low the bloom
-         is, so it grows in through dawn and flattens back out by noon. */
-      var sx = 1 + Math.max(0, light.glowY - 0.45) * 1.7;
+         is, so it grows in through dawn and flattens back out by noon.
+
+         AND IT IS SQUASHED as well as stretched, which the first version was not. A circle
+         widened but not flattened still reaches as far UP as it ever did, so a golden-hour
+         bloom two thirds of a frame across also stood two thirds of a frame tall and put
+         warm light on the clock at the top of the screen. Flattening it is both the honest
+         picture — a low sun lights the air near the ground, not the zenith — and the thing
+         that keeps the warmth under the type. */
+      var low = Math.min(Math.max(light.glowY - 0.45, 0) / 0.45, 1);
+      var sx = 1 + low * 1.75, sy = 1 - low * 0.55;
       x.save();
-      x.translate(gx, gy); x.scale(sx, 1); x.translate(-gx, -gy);
+      x.translate(gx, gy); x.scale(sx, sy); x.translate(-gx, -gy);
       x.fillStyle = g;
       x.fillRect(gx - gr, gy - gr, gr * 2, gr * 2);
       x.restore();

@@ -125,9 +125,12 @@
        a hot little highlight on the sunward shoulder turned the hero into a pearl button.
        So the bright stop is small and the middle of the ramp holds one value for most of
        the face; all the modelling that is left is the fall toward the terminator, which is
-       the side the light is failing on and therefore the side that should be dimmest. */
+       the side the light is failing on and therefore the side that should be dimmest.
+       Flat is not the same as FEATURELESS, though: the plateau ends at 0.56 rather than
+       0.72, so nearly half the ramp is spent walking down toward the terminator instead of
+       holding one value and then stepping off a cliff at the end. */
     "wxg-moon": vol("wxg-moon", 0.62, 0.42, 1.02,
-      stop(0, "moon-lit") + stop(0.26, "moon") + stop(0.72, "moon")
+      stop(0, "moon-lit") + stop(0.28, "moon") + stop(0.56, "moon")
       + stop(1, "moon-dim")),
     /* A CRATER IS A BOWL, and a bowl is one fill with the light running across it. Drawn
        as an arc pair it came out an open dark horseshoe — the lit inner wall was struck in
@@ -143,17 +146,20 @@
        which is the same "backwards" the stepped terminator was failed for, just slower to
        notice. Two extra defs and a branch is the whole cost of getting it right. */
     "wxg-moonw": vol("wxg-moonw", 0.38, 0.42, 1.02,
-      stop(0, "moon-lit") + stop(0.26, "moon") + stop(0.72, "moon")
+      stop(0, "moon-lit") + stop(0.28, "moon") + stop(0.56, "moon")
       + stop(1, "moon-dim")),
     "wxg-craterw": '<linearGradient id="wxg-craterw" x1="0.14" y1="0.14" x2="0.8" y2="0.86">'
       + stop(0, "moon-dk", 0.55) + stop(0.45, "moon-dim", 0.5)
       + stop(1, "moon-lit", 0.5) + "</linearGradient>",
-    /* Limb darkening. A sphere does not end at a bright line; it turns away, and the last
-       few per cent of the disc is the part turning fastest. Transparent until 0.72 of the
-       radius so it costs the face nothing and only bites at the edge. */
+    /* Limb darkening, and it reaches FURTHER IN than it did. Held off until 0.72 of the
+       radius it bit only in the outermost eight per cent, which at hero size is a few
+       pixels of edge on an otherwise dead plateau — a probe across the lit face came back
+       240..246 the whole way over, which is a paper disc, not a sphere. It starts turning
+       at half the radius now and most of the fall is still in the last tenth, which is
+       what limb darkening actually looks like. */
     "wxg-limb": '<radialGradient id="wxg-limb">'
-      + stop(0, "moon-dk", 0) + stop(0.72, "moon-dk", 0)
-      + stop(0.92, "moon-dk", 0.3) + stop(1, "moon-dk", 0.62) + "</radialGradient>",
+      + stop(0, "moon-dk", 0) + stop(0.52, "moon-dk", 0) + stop(0.74, "moon-dk", 0.08)
+      + stop(0.90, "moon-dk", 0.24) + stop(1, "moon-dk", 0.58) + "</radialGradient>",
     /* the air around a moon on a clear night */
     "wxg-moonhalo": '<radialGradient id="wxg-moonhalo">'
       + stop(0, "moon", 0.3) + stop(0.42, "moon", 0.12) + stop(1, "moon", 0)

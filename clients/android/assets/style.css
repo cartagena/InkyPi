@@ -320,6 +320,18 @@ button {
 }
 /* Direct children only — .card.mini lives inside .row3 and is laid out on the other axis. */
 #home > .card { flex: 1 1 100%; flex-shrink: 0; }
+/* THE CARDS SIT IN FRONT OF THE WEATHER, and until now nothing said so.
+
+   The sky layer paints the whole viewport, so in a storm three hundred rain streaks were
+   ruled straight across the Details button's border, "Wind 2 mph" and "NEXT 24 HOURS" —
+   the type was legible but it was sharing its box with the weather, which is the wrong way
+   round. A card is a thing on a windowsill, not a thing in the sky.
+
+   Black at 0.42, which is the one backdrop that costs the AMOLED nothing: it can only
+   DARKEN what is behind it, so the panel's static bright area does not grow by a pixel and
+   the true-black look is if anything blacker. The sky still shows in the gutters, above
+   the clock and between the tiles, which is where a person actually looks at it. */
+#home > .card, #home .row3 > .card.mini { background: rgba(0, 0, 0, 0.42); }
 /* The two tile rows share ONE wrapped line, and they held half of it each — which is how
    three tiles came out 102 px wide and the four beside them 74 px, on a row the eye reads
    straight across as one strip of seven. The four narrow ones ellipsised their own heads

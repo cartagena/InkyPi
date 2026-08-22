@@ -42,11 +42,19 @@
 
   /* The six moods a day walks through, and every number the painters need to draw one.
 
-       sky/wash    a vertical gradient, transparent at the top of the frame and `wash` at
-                   the bottom — light pools at the horizon, which is where the sky is
-                   bright at every hour except noon.
+       top/sky     the two ends of the vertical gradient: `top` is the ZENITH and `sky` is
+                   the horizon. They are separate because a sky is not one colour — at
+                   golden hour the bottom of the window is on fire and the top of it is
+                   still blue, and a single-colour wash could only ever paint the whole
+                   frame one of those two things. It painted the warm one, which is how a
+                   five-o'clock August capture came back reading as sepia dust with no
+                   blue in it anywhere. Every daytime zenith below is COOL; warmth is a
+                   horizon property and the painter keeps it in the bottom fifth.
+       wash        how strong that gradient is at the horizon.
        glow/glowA  the sun or the moon: one soft radial bloom, no disc. A disc would be a
-                   sticker; a bloom is weather.
+                   sticker; a bloom is weather. The DAYTIME bloom is a cool white — the
+                   sky next to a high sun is glare, not amber; the warm blooms belong to
+                   the hours when the sun is genuinely low.
        glowX/glowY where that bloom sits, 0..1 of the frame. These interpolate, so over a
                    day the light rises in the east (0.17), passes overhead at noon (0.50,
                    high), and sets in the west (0.86) — the arc is real, and it is also
@@ -58,18 +66,24 @@
      and almost invisible wash at midday, a long amber through golden hour, violet at dusk,
      cold blue at night. Nothing here is a hue you would call digital. */
   var MOODS = {
-    night:   { sky: [ 64, 100, 200], wash: 0.200, glow: [158, 176, 238], glowA: 0.280,
+    night:   { sky: [ 64, 100, 200], top: [ 34,  54, 150], wash: 0.200,
+               glow: [158, 176, 238], glowA: 0.280,
                glowX: 0.66, glowY: 0.30, glowR: 0.42, stars: 1.00 },
-    predawn: { sky: [ 74,  76, 210], wash: 0.240, glow: [104, 120, 220], glowA: 0.320,
-               glowX: 0.20, glowY: 0.94, glowR: 0.66, stars: 0.55 },
-    dawn:    { sky: [255, 138,  92], wash: 0.280, glow: [255, 156,  96], glowA: 0.520,
-               glowX: 0.17, glowY: 0.89, glowR: 0.64, stars: 0.06 },
-    midday:  { sky: [150, 192, 232], wash: 0.095, glow: [255, 236, 204], glowA: 0.150,
+    predawn: { sky: [ 74,  76, 210], top: [ 44,  52, 168], wash: 0.240,
+               glow: [104, 120, 220], glowA: 0.320,
+               glowX: 0.20, glowY: 0.94, glowR: 0.58, stars: 0.55 },
+    dawn:    { sky: [255, 138,  92], top: [ 86, 124, 214], wash: 0.280,
+               glow: [255, 156,  96], glowA: 0.480,
+               glowX: 0.17, glowY: 0.89, glowR: 0.46, stars: 0.06 },
+    midday:  { sky: [150, 192, 232], top: [ 74, 140, 236], wash: 0.130,
+               glow: [214, 232, 255], glowA: 0.170,
                glowX: 0.50, glowY: 0.08, glowR: 0.55, stars: 0.00 },
-    golden:  { sky: [255, 152,  62], wash: 0.280, glow: [255, 168,  76], glowA: 0.520,
-               glowX: 0.83, glowY: 0.78, glowR: 0.66, stars: 0.00 },
-    dusk:    { sky: [176,  98, 214], wash: 0.260, glow: [188,  98, 178], glowA: 0.440,
-               glowX: 0.86, glowY: 0.92, glowR: 0.68, stars: 0.35 }
+    golden:  { sky: [255, 152,  62], top: [ 78, 120, 204], wash: 0.280,
+               glow: [255, 168,  76], glowA: 0.420,
+               glowX: 0.83, glowY: 0.78, glowR: 0.44, stars: 0.00 },
+    dusk:    { sky: [176,  98, 214], top: [ 70,  72, 178], wash: 0.260,
+               glow: [188,  98, 178], glowA: 0.400,
+               glowX: 0.86, glowY: 0.92, glowR: 0.50, stars: 0.35 }
   };
 
   /* The ceiling this file promises. Exported so a test can assert the table against it
@@ -89,7 +103,12 @@
      over the wash horizon, one corner, dawn/golden) reaches ~0.8 of a warm hue; the
      midday frame stays close to black; white text keeps >10:1 against the worst of it,
      labels >4.5:1. */
-  var MAX_WASH = 0.28, MAX_GLOW = 0.52;
+  /* And DOWN a step again, which is the third recalibration's own logic run backwards: a
+     bloom at 0.52 across two thirds of the frame is not ambience you have to look for, it
+     is a warm field over three quarters of the screen — a clear-August capture proved it
+     by tinting the white type. That light is spent instead on being in the right PLACE:
+     smaller radii, and the painter flattens the low ones onto the horizon. */
+  var MAX_WASH = 0.28, MAX_GLOW = 0.48;
 
   /* No payload yet — first boot, or offline, or a location with no forecast. A civil
      12-hour day centred on local noon. It is wrong by up to two hours in midwinter and
@@ -144,7 +163,18 @@
       { t: rise - dawnLead, k: "predawn" },
       { t: rise + dawnTail, k: "dawn" },
       { t: rise + dayLen * 0.30, k: "midday" },    /* morning is over */
-      { t: set - goldLead * 4, k: "midday" },      /* the afternoon starts to turn */
+      /* WHEN THE AFTERNOON STARTS TO TURN, and this is the line that made a five-o'clock
+         August panel look like a sepia photograph. It used to be `set - goldLead * 4`,
+         which on a fourteen-hour day is five and a half hours before sunset: the sky was
+         already two thirds of the way into golden at three in the afternoon, when a real
+         one is still flatly blue. Golden hour is not the afternoon.
+
+         It is a RAMP LENGTH backwards from the golden stop now, not a multiple of the
+         lead: the ramp only has to be long enough that nothing in it is caught moving
+         (no channel may step more than a couple of levels a minute, and the bloom's alpha
+         swings furthest here), and 130 minutes clears that in every season — where a
+         multiple of a seasonal lead gave December ninety minutes and June four hours. */
+      { t: set - goldLead * 0.45 - clamp(dayLen * 0.16, 130 * MIN, 200 * MIN), k: "midday" },
       { t: set - goldLead * 0.45, k: "golden" },   /* golden hour peaks before sunset */
       { t: set + duskTail, k: "dusk" },
       { t: set + duskTail * 2.5, k: "night" },     /* dark again */
@@ -182,6 +212,7 @@
       /* the mood it READS as — whichever end of the blend is winning */
       phase: e < 0.5 ? a.k : b.k,
       sky: lerp3(A.sky, B.sky, e),
+      top: lerp3(A.top, B.top, e),
       wash: lerp(A.wash, B.wash, e),
       glow: lerp3(A.glow, B.glow, e),
       glowA: lerp(A.glowA, B.glowA, e),

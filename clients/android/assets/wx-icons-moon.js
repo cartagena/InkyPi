@@ -45,16 +45,107 @@
       + " A " + r + " " + r + " 0 1 0 " + (cx - r) + " " + cy + " Z";
   }
 
-  /* Maria and craters, in the 64-space of a full disc. Placed where the real ones are,
-     roughly, so a full moon reads as a face rather than as a plate: x, y, radius, weight.
+  /* THE SEAS COME BACK, and this is the correction to a round that took them out.
 
-     Spread across the middle of the disc rather than clustered right of it — the
-     terminator sweeps the face over a month, and a face with a bare mid-left has nothing
-     for it to cut across for half of that. A crater the shadow bisects is the single
-     detail that says the disc is LIT rather than printed. */
-  var MARIA = [[25, 21.5, 4.4, 0.30], [38.5, 26, 2.6, 0.26], [30, 37, 5.6, 0.22],
-               [43, 40.5, 3, 0.26], [19.5, 33, 2.3, 0.24], [16.5, 27, 2.7, 0.22],
-               [35, 46, 2, 0.20]];
+     An earlier pass replaced every dark feature on the face with a circular crater bowl,
+     on the reasoning that a bowl is a lit depression and a flat grey patch is not. Both
+     halves of that are true and the conclusion was still wrong: what a person actually
+     recognises a moon by, at any size, is the MARIA — the big irregular basalt plains,
+     Imbrium and Serenitatis and Tranquillitatis and the rest — and a disc carrying only
+     round pits reads as a golf ball. Craters are the detail; the seas are the face.
+
+     So both, in the 64-space of a full disc: seas first as large irregular shapes, then
+     craters as small bowls over them. Placed roughly where the real ones are, north up,
+     spread across the middle rather than clustered on one side — the terminator sweeps
+     the face over a month, and a feature the shadow bisects is the single detail that
+     says the disc is LIT rather than printed. */
+  /* Three roughness rings, shared out so no two neighbouring seas wear the same coast.
+
+     Built from three low harmonics rather than typed out as twelve numbers, because a
+     hand-typed ring alternates high and low from one point to the next and an alternating
+     ring is a STAR — the first version of these came out a row of pentagons. A coastline
+     is low-frequency: one big lobe, a smaller one across it, a third smaller still. */
+  function ringOf(p1, p2, p3) {
+    var r = [], i, a;
+    for (i = 0; i < 16; i++) {
+      a = i / 16 * Math.PI * 2;
+      r.push(1 + 0.17 * Math.sin(a + p1) + 0.14 * Math.sin(2 * a + p2)
+        + 0.10 * Math.sin(3 * a + p3) + 0.05 * Math.sin(5 * a + p1 + p2));
+    }
+    return r;
+  }
+  var R1 = ringOf(0.4, 1.9, 3.3), R2 = ringOf(2.2, 0.6, 4.7), R3 = ringOf(4.1, 3.0, 1.2);
+  /*  cx     cy    rx    ry   tilt   ring  opacity */
+  var SEAS = [
+    [21.5, 20.5, 9.4, 7.0, -0.35, R1, 0.40],   /* Imbrium — the big one, upper left */
+    [33.5, 19.5, 5.2, 4.6,  0.20, R2, 0.34],   /* Serenitatis */
+    [40.5, 27.5, 5.8, 6.4, -0.50, R3, 0.36],   /* Tranquillitatis, down into Nectaris */
+    [48.5, 19.5, 3.0, 2.5,  0.40, R2, 0.30],   /* Crisium, on its own near the limb */
+    [13.5, 32.0, 4.8, 8.6,  0.15, R3, 0.28],   /* Procellarum, hugging the western limb */
+    [44.5, 36.5, 3.6, 4.4,  0.30, R1, 0.26],   /* Fecunditatis */
+    [22.5, 41.5, 5.6, 3.8, -0.20, R2, 0.24]    /* Nubium and Humorum, low and soft */
+  ];
+
+  /* A closed blob through a ring of jittered radii, smoothed with Catmull-Rom, then
+     squashed and tilted. A mare is a flooded impact basin with a ragged coast, so it
+     cannot be a circle; and it cannot be random either, because the same seas have to be
+     in the same places on every render and on every one of the twenty-odd discs a
+     dashboard shows at once. A fixed radius ring gives an irregular shape that is
+     nonetheless the SAME irregular shape every time, and sixteen points around it is the
+     number where the outline stops reading as a rounded polygon. The jitter is held to
+     about a fifth of the radius: a Catmull-Rom through widely-spread radii OVERSHOOTS at
+     the peaks, and the first attempt at this came out a ring of star-shaped patches.
+
+     Deliberately no arc commands: the icon tests read the first `A rx ry 0 0 f … Z` in the
+     markup as the terminator, and a sea drawn with arcs would be found first. */
+  function blob(cx, cy, rx, ry, rot, rr) {
+    var n = rr.length, p = [], i, a, d = "";
+    var co = Math.cos(rot), si = Math.sin(rot);
+    for (i = 0; i < n; i++) {
+      a = i / n * Math.PI * 2;
+      var u = Math.cos(a) * rx * rr[i], v = Math.sin(a) * ry * rr[i];
+      var px = cx + u * co - v * si, py = cy + u * si + v * co;
+      /* HELD INSIDE THE LIMB. Procellarum sits on the western edge of the visible face and
+         its coast, jittered outward, put a lump of sea outside the disc — a clipPath would
+         fix it and would also put an id on an element the tile replaces every hour, which
+         is the duplicate-reference trap the gradients were taken out of. Pulling the stray
+         points back onto a circle just inside the limb costs two lines and looks right for
+         the same reason it is needed: a mare near the edge IS foreshortened flat against
+         the limb. */
+      var dx = px - 32, dy = py - 32, dd = Math.sqrt(dx * dx + dy * dy);
+      if (dd > 22.6) { px = 32 + dx * 22.6 / dd; py = 32 + dy * 22.6 / dd; }
+      p.push([px, py]);
+    }
+    function f(v2) { return v2.toFixed(2); }
+    for (i = 0; i < n; i++) {
+      var p0 = p[(i + n - 1) % n], p1 = p[i], p2 = p[(i + 1) % n], p3 = p[(i + 2) % n];
+      if (!i) d = "M " + f(p1[0]) + " " + f(p1[1]);
+      d += " C " + f(p1[0] + (p2[0] - p0[0]) / 6) + " " + f(p1[1] + (p2[1] - p0[1]) / 6)
+        + " " + f(p2[0] - (p3[0] - p1[0]) / 6) + " " + f(p2[1] - (p3[1] - p1[1]) / 6)
+        + " " + f(p2[0]) + " " + f(p2[1]);
+    }
+    return d + " Z";
+  }
+
+  /* The seas, in the limb-turning tone rather than in the shadow tone: a mare is darker
+     ground, not a hole, and on a photograph it is a blue-grey wash over the highlands
+     with no edge you could put a pencil on. Hence one flat fill at a low alpha and no
+     stroke anywhere — the softness has to come from the alpha, because a blur per sea is
+     eight rasters on a disc the strip draws eleven of. */
+  function seas() {
+    return SEAS.map(function (m) {
+      return '<path d="' + blob(m[0], m[1], m[2], m[3], m[4], m[5])
+        + '" fill="var(--ic-moon-dim)" opacity="' + m[6] + '"/>';
+    }).join("");
+  }
+
+  /* The craters: small, round, and now a garnish on the seas rather than the whole face.
+     Fewer and smaller than the set they replaced, and placed in the bright highlands
+     between the seas where the real conspicuous ones (Copernicus, Kepler, Tycho and its
+     rays) actually are. x, y, radius, weight. */
+  var CRATERS = [[27.5, 31.5, 2.4, 0.30], [20.5, 35.5, 1.7, 0.26], [30.5, 49.5, 2.2, 0.30],
+               [41.5, 44.5, 1.5, 0.24], [17.5, 22.5, 1.6, 0.22], [36.5, 15.0, 1.4, 0.20],
+               [46.5, 40.0, 1.5, 0.22]];
 
   /* An arc of a circle, by angle — the lit rim on the far side of a crater, and nothing
      else now. It used to strike the near wall too, in a dark tone, and that pair rendered
@@ -80,7 +171,7 @@
   function craters(deep, wane) {
     /* the far wall is opposite the sun, and the sun swaps sides at full moon */
     var a0 = wane ? -0.53 : 1.05, a1 = wane ? 2.09 : 3.67;
-    return MARIA.map(function (c) {
+    return CRATERS.map(function (c) {
       var x = c[0], y = c[1], r = c[2], o = c[3];
       var s = '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="url(#wxg-crater'
         + (wane ? "w" : "") + ')" opacity="' + (o * 2.15).toFixed(2) + '"/>';
@@ -168,12 +259,22 @@
       + (wane ? "w" : "") + ')"/>'
       + '<g transform="translate(' + (cx - 32 * s).toFixed(2)
       + " " + (cy - 32 * s).toFixed(2) + ") scale(" + s.toFixed(3) + ')">'
-      + craters(lush, wane) + "</g>"
+      + seas() + craters(lush, wane) + "</g>"
       + night
-      /* the limb, and then the hairline that keeps a new moon from vanishing entirely */
+      /* Limb darkening, over everything — the sphere turning away, and it turns away on
+         the night side too.
+
+         AND NO HAIRLINE ROUND THE OUTSIDE ANY MORE. There used to be one, in the maria
+         tone at a third of an alpha, on the argument that a new moon would otherwise
+         vanish. It did two things instead: a new moon does not vanish (the whole disc is
+         already painted as earthshine, several levels off black and perfectly legible),
+         and the stroke ran the WHOLE circumference — including the dark limb, where a
+         probe caught it forty levels brighter than the night side it edged. A rim light
+         on the unlit limb is the one thing a moon cannot have: there is nothing out there
+         to light it. The limb gradient below is the only edge treatment left, and it only
+         ever darkens. */
       + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="url(#wxg-limb)"/>'
-      + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none"'
-      + ' stroke="var(--ic-moon-dim)" stroke-width="0.6" opacity="0.35"/></g>';
+      + "</g>";
   }
 
   /* The Moon widget's disc: the whole body, with the unlit part present as earthshine
