@@ -1,0 +1,58 @@
+/* Wall panel dashboard — THE LOCATION SEARCH.
+
+   The Settings panel's first section, and the app's only text field. It is small enough to
+   have lived at the bottom of style-panels.css; it is here instead because that file is
+   within thirty lines of the 500-line budget and this is a self-contained block.
+
+   The sizes are the panel ramp, not new ones: the current town is a panel VALUE
+   (--fs-title-lg), the field and the result rows are things a finger aims at
+   (--fs-body-lg), and the note under them is prose (--fs-note). */
+
+/* ---------- where the panel is now ---------- */
+.place-now {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1.2vh;
+}
+.place-cur { font-size: var(--fs-title-lg); font-weight: 300; }
+.place-now .muted { font-size: var(--fs-note); }
+
+/* ---------- the field ---------- */
+.place-find { display: flex; gap: 1.4vw; align-items: stretch; }
+/* The field has to be a real target on a wall — a person is standing, at arm's length, and
+   the soft keyboard only appears if the tap lands. Same height as the button beside it. */
+.tinput {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--pad-control) 1.4vw;
+  font-size: var(--fs-body-lg);
+  font-family: inherit;
+  font-weight: 300;
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-line2);
+  border-radius: 1.3vh;
+}
+.tinput::placeholder { color: var(--dimmer); }
+/* A focused field must be obvious from across the room: this is the one control in the app
+   whose state ("I am the one the keyboard is typing into") is not visible from its content. */
+.tinput:focus { outline: none; border-color: var(--accent); }
+.place-find .btn { flex: 0 0 auto; min-width: 20vw; }
+
+/* ---------- what came back ---------- */
+.place-note { margin-top: 1.2vh; font-size: var(--fs-note); }
+.place-list { margin-top: 0.6vh; }
+/* Rows, not chips: the answer to "which Portland" is the region, and a region does not fit
+   beside a name on a chip at this size. The divider is the list idiom used on the news and
+   agenda screens — same weight, same reason. */
+.place-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2vw;
+  padding: var(--pad-row) 0;
+  border-top: 1px solid var(--card-line);
+}
+.place-row:first-child { border-top: none; }
+.place-name { font-size: var(--fs-body-lg); }
+.place-where { font-size: var(--fs-note); color: var(--dim); text-align: right; }

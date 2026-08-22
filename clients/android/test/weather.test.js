@@ -286,11 +286,15 @@ test("with no data at all the card says so instead of going blank", function () 
 });
 
 test("no location configured disables weather with an explicit message", function () {
+  /* The card now points at the fix rather than at the file: a location can be searched for
+     on the tablet (Settings -> Location), so "edit config.js and rebuild" is no longer the
+     only way out and no longer what the wall should say. */
   var cfg = h.defaultConfig();
   cfg.location = { name: "", latitude: null, longitude: null };
   var app = h.createApp({ config: cfg });
   assert.equal(app.text("wx-desc"), "No location set");
-  assert.match(app.text("status"), /no location set/);
+  assert.match(app.text("wx-meta"), /Open Setup/);
+  assert.match(app.text("status"), /Weather is off/);
   assert.equal(app.fetches.length, 0, "must not call Open-Meteo without coordinates");
 });
 

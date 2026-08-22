@@ -12,7 +12,11 @@ var assert = require("node:assert/strict");
 var h = require("./lib/harness.js");
 
 var CARD_H = 150;
-var VIEW_H = 1300;   // 8 home LINES x 150 + 100 slack (the Year tile shares the clock line)
+/* 5 home LINES x 150 + 100 slack. Five, not eight: the two tile rows and the news line
+   moved to the second screen (#home2) when the dashboard split in two, so the column the
+   budget is about is clock (with Year and Next on its line), Now, Hourly, Next days and
+   Home. Screen two is a plain flex column with no growth cap and nothing to measure. */
+var VIEW_H = 850;
 
 var VIEW_W = 800;
 
@@ -85,7 +89,7 @@ test("the layout report is logged once the cards have their content", function (
   app.advance(12500);                       // the deferred boot measurement
   var line = app.logs.log.filter(function (l) { return l.indexOf("[inky] layout:") === 0; })[0];
   assert.ok(line, "no layout line was logged");
-  assert.match(line, /home overflow=0 overflowX=0 slack=100px cards=10/);
+  assert.match(line, /home overflow=0 overflowX=0 slack=100px cards=7/);
 });
 
 test("overflow is escalated to a warning, not logged as if it were fine", function () {
@@ -231,9 +235,10 @@ test("no cap is applied before the first payload lands", function () {
 });
 
 test("with no headroom to hand out, the cap is dropped entirely", function () {
-  /* All eight widgets on leaves ~34 device px: the cap can only be a liability there. */
+  /* Every widget on leaves ~34 device px: the cap can only be a liability there. Five
+     lines now (see VIEW_H) — the divisor follows the column, not a historical eight. */
   var app = h.createApp({});
-  var kids = layout(app, { cardHeight: Math.ceil(VIEW_H / 8) + 10 });   // fills the column
+  var kids = layout(app, { cardHeight: Math.ceil(VIEW_H / 5) + 10 });   // fills the column
   app.WP.relayoutHome();
   kids.forEach(function (n) {
     assert.equal(n.style.maxHeight, "", "a cap was kept with no slack to distribute");

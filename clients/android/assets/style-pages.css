@@ -1,0 +1,87 @@
+/* Wall panel dashboard — THE TWO HOME SCREENS.
+
+   #pages is a track two screens wide inside #drift; a swipe slides it. The dashboard is
+   screen one and is unchanged. Screen two holds what used to be the crowded bottom of the
+   column — the three tool tiles, the four reading tiles and the news line — at four times
+   the area each, which is what lets a tile print DEVICE and PICTURE instead of DEVI… and
+   PIC…, and lets the moon disc sit clear of the number beside it.
+
+   Nothing here changes what a card IS: the same [data-widget] sections, so Settings'
+   switches, the swipe order and applyVisibility() are untouched. */
+
+/* The track is a window, and each screen is absolutely positioned inside it at exactly the
+   window's size. A two-screens-wide flex row was the obvious way to build this and it was
+   wrong by a hair: the width resolves against #drift's CONTENT box while overflow clips at
+   the padding box, so a 3vw ribbon of the dashboard stayed visible down the left edge of
+   screen two. inset:0 cannot drift — each screen is the window, and the only number in the
+   layout is the 100% each one slides by. */
+#pages {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+#pages > main {
+  position: absolute;
+  inset: 0;
+  /* The vertical axis is the browser's (the column has a scroll valve); the horizontal one
+     is ours. Without this Chrome claims a sideways drag as a pan attempt and cancels the
+     pointer stream before a single move is delivered, which is a page turn that never
+     happens. */
+  touch-action: pan-y;
+  transition: transform var(--dur-ui) ease-in-out;
+}
+#home { transform: translateX(0); }
+#home2 { transform: translateX(100%); }
+#pages.p2 > #home { transform: translateX(-100%); }
+#pages.p2 > #home2 { transform: translateX(0); }
+
+/* ---------- screen two ----------
+   Two columns, not the three-and-four rows the tiles arrived in. Given a whole screen,
+   three-across and four-across left every tile a 500 px column with three lines of type
+   floating in the middle of it — the "card that failed to load" look the growth cap on
+   screen one exists to prevent. Two columns fills the screen instead: each tile is about
+   four times the area it had on the old crowded line, which is what lets it print DEVICE
+   and PICTURE in full, and the proportions stay near square.
+
+   Each .row3 becomes its own two-column grid rather than the whole screen becoming one:
+   that keeps the tools (Device / Timer / Setup) grouped as a block and the readings
+   (Moon / Air / Paper / Image) as another, which is the grouping the two rows always
+   meant, and it leaves the news line free to hug its one line of type at the bottom
+   instead of being stretched to a fifth of the screen. */
+#home2 {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  overflow-y: auto;
+}
+#home2 > .row3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gap) 2vw;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+/* The tools row keeps its three across: 83%, 00:00 and °F are short values, so a third of
+   the width is plenty for them, and two columns made the odd one out span the screen —
+   a half-empty banner for the smallest setting on it. The readings row is the one that
+   needed the room, and four tiles divide by two exactly. */
+#home2 > .row-3 { grid-template-columns: repeat(3, 1fr); }
+/* One grid row against two, so the height is split in the same proportion and every tile
+   on the screen comes out the same height. Equal flex shares made the three tools twice as
+   tall as the four readings for no reason a reader could see. */
+#home2 > .row-3 { flex: 1 1 0; }
+#home2 > .row-4 { flex: 2 1 0; }
+/* Whatever the row, an odd tile out takes the width rather than leaving a hole beside it,
+   which would read as a card that went missing. Only bites when a widget is switched off. */
+#home2 > .row3 > .card.mini:last-child:nth-child(odd) { grid-column: 1 / -1; }
+#home2 > .row-3 > .card.mini:last-child:nth-child(odd) { grid-column: auto; }
+#home2 > .news-card { flex: 0 0 auto; }
+#home2 .card.mini { justify-content: center; }
+/* The tiles kept their small-card type because they used to be 90 CSS px wide. With half a
+   screen each, the number they exist to show can be read from the doorway, and the heading
+   no longer has to be shortened to fit. */
+#home2 .row3 .mini-big { font-size: var(--fs-title); }
+#home2 .mini-head { font-size: var(--fs-label); }
+#home2 .mini-sub { font-size: var(--fs-body); }
+#home2 .card { background: rgba(0, 0, 0, 0.42); }

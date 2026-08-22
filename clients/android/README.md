@@ -29,7 +29,14 @@ Open **Inky OLED** from the app drawer.
 
 Edit **`assets/config.js`**, then rebuild and reinstall.
 
-**Location is currently a placeholder (Seattle).** Change it or you will get Seattle's weather:
+**The location is now set on the tablet**, not here: open **Settings → Location**, type a town
+and tap a result. The search is Open-Meteo's geocoder (no key, same host family as the forecast),
+the choice is kept across restarts, and every weather widget — Now, Hourly, Next days, Air and the
+sky layer — follows it. `settings → Reset to defaults` deliberately does NOT move the panel back.
+
+The block below is the fallback a fresh install boots with, before anybody has chosen anything.
+**It is currently a placeholder (Seattle).** Change it if you would rather not see Seattle on
+first boot:
 
 ```js
 location: {
@@ -39,7 +46,8 @@ location: {
 },
 ```
 
-Set both to `null` to show a "set your location" notice instead.
+Set both to `null` to boot with a "set your location" notice instead — the panel comes alive as
+soon as a town is chosen on the glass, with no rebuild.
 
 Also configurable: `units` (fahrenheit/celsius), `clockHours` (12/24), `weatherRefreshMinutes`,
 `burnInProtection` (`enabled`, `intervalSeconds`, `maxShiftPx`), and `countdowns` — a list of
@@ -164,6 +172,13 @@ tickers forever, so the page never reaches the idle state such tools wait for, a
 automated click times out. The harness dispatches the pointer events itself.
 
 ## What it shows
+
+**Two home screens.** The dashboard is screen one — clock, Now, the hourly strip, the daily row
+and the Home readings. **Swipe left/right anywhere on the wall** for screen two, which holds the
+tools and the small readings (Device, Timer, Setup, Moon, Air, Paper, Image) and the news line,
+each tile about four times the area it had when all seven shared one line at the bottom of the
+column. The two screens do not wrap — the dashboard is the edge — and screen two takes itself
+back to the dashboard after three minutes unattended.
 
 Eleven widgets, all interactive — tap a card for its full-screen detail panel, **swipe
 left/right inside any panel** to slide between screens (wrap-around, position dots), and an

@@ -45,6 +45,8 @@
 <link rel="stylesheet" href="style-charts.css">
 <link rel="stylesheet" href="style-theme.css">
 <link rel="stylesheet" href="style-icons.css">
+<link rel="stylesheet" href="style-place.css">
+<link rel="stylesheet" href="style-pages.css">
 </head>
 <body>
 
@@ -78,6 +80,17 @@
     <span id="status" class="status" role="status" aria-live="polite">Starting&hellip;</span>
     <button class="icon-btn tappable" data-open="settings" aria-label="Settings">&#9881;</button>
   </header>
+
+  <!-- TWO SCREENS, side by side on one track.
+       The dashboard used to be one column and the bottom of it was the crowded end: seven
+       mini tiles shared a single line at 711 CSS px, which ellipsised four of their heads
+       ("DEVI…", "PA…", "PIC…") and left the moon disc touching the number beside it.
+       They are not less important than the forecast — they are just not what the panel is
+       for at a glance — so they moved to a second screen a swipe away, where each tile has
+       four times the area and can say its whole name.
+       #pages is the track; each <main> is one screen of it. Swiping is wx-carousel.js,
+       which already owned every other left/right gesture in the app. -->
+  <div id="pages">
 
   <main id="home">
 
@@ -186,6 +199,23 @@
       <div id="sensors" class="sensors"></div>
     </section>
 
+    <!-- Shown only when every widget is switched off, so an all-hidden dashboard reads as
+         a deliberate state instead of a crashed app. Toggled by WP applyVisibility(). -->
+    <div id="empty" class="empty" hidden>
+      <div class="empty-icon" aria-hidden="true">&#9881;</div>
+      <div class="empty-t">Every widget is hidden</div>
+      <div class="empty-s">Nothing is switched on to display. Open Settings &rarr; Widgets
+        and turn back on whatever this panel should show.</div>
+      <button class="wide-btn tappable" data-open="settings">Open settings</button>
+    </div>
+
+  </main>
+
+  <!-- SCREEN TWO: the tools and the small readings, with room to be read.
+       Same cards, same plugins, same data-widget names — only the box they sit in changed,
+       so Settings' switches, the carousel's screen list and applyVisibility() all still
+       find them. -->
+  <main id="home2" aria-label="Tools and readings">
     <!-- ---- 7 / 2 / 8. device, timer, settings ---- -->
     <div class="row3 row-3">
       <section class="card mini tappable" data-widget="system" data-open="system"
@@ -266,17 +296,9 @@
       <div id="news-line" class="news-line"><span class="news-t muted">waiting for headlines&hellip;</span></div>
     </section>
 
-    <!-- Shown only when every widget is switched off, so an all-hidden dashboard reads as
-         a deliberate state instead of a crashed app. Toggled by WP applyVisibility(). -->
-    <div id="empty" class="empty" hidden>
-      <div class="empty-icon" aria-hidden="true">&#9881;</div>
-      <div class="empty-t">Every widget is hidden</div>
-      <div class="empty-s">Nothing is switched on to display. Open Settings &rarr; Widgets
-        and turn back on whatever this panel should show.</div>
-      <button class="wide-btn tappable" data-open="settings">Open settings</button>
-    </div>
-
   </main>
+
+  </div>
 </div>
 
 <!-- ============================================================================
@@ -472,6 +494,7 @@
 <script src="wx-icons.js"></script>
 <script src="wx-clock.js"></script>
 <script src="wx-timer.js"></script>
+<script src="wx-weather-panel.js"></script>
 <script src="wx-weather.js"></script>
 <script src="wx-hourly.js"></script>
 <script src="wx-daily.js"></script>
@@ -487,6 +510,7 @@
 <script src="wx-paper.js"></script>
 <script src="wx-gallery.js"></script>
 <script src="wx-news.js"></script>
+<script src="geo.js"></script>
 <script src="wx-settings.js"></script>
 <script src="wx-carousel.js"></script>
 <script src="wx-sky-light.js"></script>

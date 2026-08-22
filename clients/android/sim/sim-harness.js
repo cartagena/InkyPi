@@ -325,5 +325,24 @@
     setTimeout(settle, 250);
   }
 
+  /* ?page=2 lands the second home screen, for the same reason ?open= exists: it is reached
+     by a swipe, and a headless screenshot cannot swipe. The transition is killed rather
+     than waited out — the virtual clock does not run CSS transitions. */
+  if (/[?&]page=2\b/.test(window.location.search)) {
+    var pageTries = 0;
+    var landPage = function () {
+      var track = document.getElementById("pages");
+      if (track) {
+        track.style.transition = "none";
+        if (window.WP && WP.carousel && WP.carousel.pages) WP.carousel.pages.go(1);
+        else track.className = "p2";
+        if (track.className.indexOf("p2") !== -1) return;
+      }
+      if (++pageTries > 600) return;
+      setTimeout(landPage, 100);
+    };
+    setTimeout(landPage, 250);
+  }
+
   console.log("[sim] harness ready — SIM.sweep(), SIM.tap(), SIM.swipe(), SIM.set()");
 })();

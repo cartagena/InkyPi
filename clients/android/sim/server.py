@@ -32,6 +32,7 @@ SIM_FILES = {"/sim-bridge.js": "sim-bridge.js", "/sim-harness.js": "sim-harness.
 #   SIM_ALLOW_HOSTS=homeassistant.local,10.0.0.5 python sim/server.py
 ALLOWED_HOSTS = {
     "api.open-meteo.com", "air-quality-api.open-meteo.com",
+    "geocoding-api.open-meteo.com",          # the Location search
     "feeds.bbci.co.uk", "feeds.npr.org",
     "cdn.freedomforum.org",
     "xkcd.com", "imgs.xkcd.com",

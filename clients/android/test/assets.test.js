@@ -144,12 +144,15 @@ test("index.html loads exactly the scripts that exist, in the order they need", 
     "config.js", "app.js", "app-view.js", "app-touch.js", "wx-ui.js",
     /* materials first, then the moon (a body), then the pack that draws night with it */
     "wx-icons-mat.js", "wx-icons-moon.js", "wx-icons.js",
-    "wx-clock.js", "wx-timer.js", "wx-weather.js", "wx-hourly.js",
+    "wx-clock.js", "wx-timer.js",
+    /* the Conditions panel's drawn sections, read at parse time by wx-weather.js */
+    "wx-weather-panel.js", "wx-weather.js", "wx-hourly.js",
     "wx-daily.js", "wx-sensors-demo.js", "wx-sensors.js", "wx-sensors-panel.js",
     "wx-system.js",
     "wx-moon.js", "wx-air.js", "wx-year.js", "ics.js", "wx-calendar.js",
     "wx-paper.js", "wx-gallery.js", "wx-news.js",
-    "wx-settings.js", "wx-carousel.js",
+    /* geo.js turns a typed town into coordinates for the Location search below it */
+    "geo.js", "wx-settings.js", "wx-carousel.js",
     "wx-sky-light.js", "wx-sky-paint.js", "wx-sky.js"
   ]);
   srcs.forEach(function (s) {

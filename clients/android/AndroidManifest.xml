@@ -26,11 +26,16 @@
         android:usesCleartextTraffic="true"
         android:enableOnBackInvokedCallback="false">
 
+        <!-- windowSoftInputMode: the Location search is the app's only text field, and a
+             fullscreen immersive activity would otherwise let the soft keyboard cover the
+             thing being typed into. Resizing the window keeps the field above the keys —
+             the layout is vh-based, so it simply gets shorter while the keyboard is up. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="fullUser"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+            android:windowSoftInputMode="adjustResize"
             android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

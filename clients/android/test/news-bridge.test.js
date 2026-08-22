@@ -248,9 +248,11 @@ test("headlines rotate, and a title full of markup renders inert", function () {
   assert.match(app.text("news-line"), /first/, "rotation does not wrap");
 });
 
-test("the news card is in the home column and hides with its widget switch", function () {
+test("the news card is on the home view and hides with its widget switch", function () {
+  /* Second screen since the dashboard split in two (#home2) — still a home card, still one
+     line, still hidden by its own switch. */
   var app = h.createApp({});
-  var card = app.qs('#home > .card[data-widget="news"]');
+  var card = app.qs('#home2 > .card[data-widget="news"]');
   assert.ok(card, "no news card on the home view");
   app.WP.settings.setShow("news", false);
   assert.equal(card.style.display, "none");

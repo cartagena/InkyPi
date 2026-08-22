@@ -594,7 +594,7 @@ test("the copy sweep can actually see a panel body", function () {
 
 test("the three home tiles are one object repeated", function () {
   var app = h.createApp({});
-  var tiles = app.qsa("#home .row3 .card.mini");
+  var tiles = app.qsa("#home2 .row3 .card.mini");
   assert.equal(tiles.length, 7);   // device/timer/setup + moon/air/paper/picture
   /* the Year tile sits on the clock's line, not in a row — same object, same three lines */
   tiles.push(app.qs('#home > .card.mini[data-widget="year"]'));

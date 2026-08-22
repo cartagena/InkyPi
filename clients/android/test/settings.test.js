@@ -133,13 +133,14 @@ test("hiding every widget shows the empty state and drops the tile row", functio
   var app = boot();
   WIDGETS.forEach(function (w) { app.WP.settings.setShow(w, false); });
   assert.equal(app.$("empty").hidden, false, "empty state must appear");
-  app.qsa("#home > .row3").forEach(function (r) {
+  /* The tile rows live on the second screen now (#home2) — same rule, same reason. */
+  app.qsa(".row3").forEach(function (r) {
     assert.equal(r.style.display, "none", "empty tile row must not stay");
   });
 
   app.WP.settings.setShow("timer", true);
   assert.equal(app.$("empty").hidden, true);
-  assert.equal(app.qs("#home > .row3").style.display, "", "tile row returns with one tile on");
+  assert.equal(app.qs(".row3").style.display, "", "tile row returns with one tile on");
 });
 
 test("reset restores every default and persists them", function () {

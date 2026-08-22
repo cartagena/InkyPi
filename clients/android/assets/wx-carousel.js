@@ -29,8 +29,47 @@
      to, not things that come to you. Manual swipes still reach all of them. */
   var TOOLS = { settings: true, system: true, timer: true };
 
+  /* ---------------- the two home screens ----------------
+     The dashboard is screen one and the tools/readings tiles are screen two (see
+     style-pages.css for why they moved). This is the whole mechanism: an index, a class on
+     the track, and the same dots the panel carousel uses so the two gestures feel like one
+     thing rather than two.
+
+     It does NOT wrap. Wrapping is right for the panel ring, where every screen is a peer
+     and there is no "first"; here screen one is the dashboard the wall exists to show, and
+     a swipe left from it that landed on the tools would make the wall feel like it had
+     drifted off its home. Two screens, an edge at each end. */
+  var pages = {
+    idx: 0,
+    COUNT: 2,
+
+    el: function () { return document.getElementById("pages"); },
+
+    go: function (i) {
+      var track = this.el();
+      if (!track) return;
+      i = Math.max(0, Math.min(this.COUNT - 1, i));
+      if (i === this.idx) return;
+      this.idx = i;
+      if (i) track.classList.add("p2");
+      else track.classList.remove("p2");
+      carousel.showDots(i, this.COUNT);
+      WP.armIdle();
+    },
+
+    nav: function (dir) { this.go(this.idx + dir); },
+
+    /* Walked away from mid-swipe, the wall must come back to the dashboard by itself — the
+       same rule every other layer that can cover it already follows, so it is registered
+       with the same idle machinery rather than growing a timer of its own. It is given
+       longer than a panel gets (a panel is a thing you opened; screen two is somewhere you
+       are standing) and it goes quietly, with no toast: nothing was dismissed. */
+    IDLE_MS: 180000
+  };
+
   var carousel = {
     name: "carousel",
+    pages: pages,
     lastTouch: 0,
     lastAdvance: 0,
     dotsTimer: 0,
@@ -38,12 +77,15 @@
 
     init: function () {
       var self = this;
+      /* Every gesture is recorded now, not only the ones that begin inside a panel: with
+         the dashboard split across two screens, a swipe on the wall itself is navigation
+         too. Which one it was is decided on release, from the panel that was open when the
+         finger landed. */
       document.addEventListener("pointerdown", function (ev) {
         self.lastTouch = Date.now();
-        self.start = WP.panels.top()
-          ? { x: ev.clientX, y: ev.clientY, id: ev.pointerId,
-              scroller: self.inSideScroller(ev.target) }
-          : null;
+        self.start = { x: ev.clientX, y: ev.clientY, id: ev.pointerId,
+                       panel: WP.panels.top(),
+                       scroller: self.inSideScroller(ev.target) };
       }, true);
       /* Panels scroll vertically, so Chrome may claim a horizontal pan as a scroll
          attempt and end it with pointercancel instead of pointerup — and a cancel does
@@ -54,8 +96,33 @@
           self.start.lx = ev.clientX; self.start.ly = ev.clientY;
         }
       }, true);
+      /* touchmove as well, and this is not belt and braces: on the tablet a horizontal drag
+         across the dashboard was answered with pointerdown and then pointercancel with no
+         pointermove at all — Chrome claimed the pan for the scroller before it delivered
+         one — so the gesture ended with dx = 0 and the wall never paged. touchmove is still
+         delivered to a passive listener while a scroll is being claimed, so it is the only
+         reliable record of where the finger actually went. (style-pages.css asks for
+         touch-action: pan-y as well, so the horizontal axis is ours to begin with.) */
+      document.addEventListener("touchmove", function (ev) {
+        if (!self.start || !ev.touches || !ev.touches.length) return;
+        self.start.lx = ev.touches[0].clientX;
+        self.start.ly = ev.touches[0].clientY;
+      }, { passive: true, capture: true });
       document.addEventListener("pointerup", function (ev) { self.onUp(ev); }, true);
       document.addEventListener("pointercancel", function (ev) { self.onUp(ev); }, true);
+
+      WP.registerIdleLayer({
+        name: "home screen two",
+        ms: pages.IDLE_MS,
+        isOpen: function () { return pages.idx > 0; },
+        close: function () { pages.go(0); }
+      });
+
+      /* A hidden screen is a screen nobody finds. The dots appear once a few seconds after
+         boot — long enough for the cards to have filled in, brief enough to be part of the
+         wall waking up — so anyone watching sees that there are two of them. They fade on
+         their own; nothing here stays lit. */
+      setTimeout(function () { carousel.showDots(pages.idx, pages.COUNT); }, 4000);
 
       /* one slow tick drives the playlist; the dwell maths happens inside */
       setInterval(function () { self.tick(); }, 1000);
@@ -79,8 +146,12 @@
 
     /* A swipe that begins inside a horizontally scrollable strip (the hour chips, the
        day tabs) is that strip's scroll, never navigation. */
+    /* ...and the hourly strip is on the DASHBOARD as well as in a panel, so the walk stops
+       at whichever container the gesture is inside: a panel, or one of the two home
+       screens. Without the <main> case a flick along the hour chips paged the wall. */
     inSideScroller: function (node) {
-      while (node && node.classList && !node.classList.contains("panel")) {
+      while (node && node.classList && !node.classList.contains("panel")
+             && node.tagName !== "MAIN") {
         if (node.scrollWidth > node.clientWidth + 4) return true;
         node = node.parentNode;
       }
@@ -91,13 +162,13 @@
       var st = this.start;
       this.start = null;
       if (!st || st.scroller || ev.pointerId !== st.id) return;
-      if (!WP.panels.top()) return;
       var ex = (ev.clientX || ev.clientX === 0) && ev.type === "pointerup"
         ? ev.clientX : (st.lx == null ? st.x : st.lx);
       var ey = ev.type === "pointerup" ? ev.clientY : (st.ly == null ? st.y : st.ly);
       var dx = ex - st.x, dy = ey - st.y;
       if (Math.abs(dx) < SWIPE_MIN || Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) return;
-      this.nav(dx < 0 ? 1 : -1);
+      if (!st.panel) this.pages.nav(dx < 0 ? 1 : -1);
+      else this.nav(dx < 0 ? 1 : -1);
     },
 
     /* swipe navigation: neighbours wrap, and the direction of travel matches the finger */

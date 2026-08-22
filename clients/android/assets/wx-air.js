@@ -114,7 +114,15 @@
     panel: null,
 
     init: function () {
-      var loc = C.location || {};
+      var self = this;
+      /* Air quality follows the town the panel is set to, so a new one drops the cache and
+         re-asks rather than leaving the old city's number under the new name. */
+      WP.onPlaceChange(function () {
+        self.data = null; self.stale = false; self.fetchedAt = 0;
+        WP.store.write(CACHE, "");
+        self.fetch();
+      });
+      var loc = WP.place();
       if (loc.latitude == null || loc.longitude == null) {
         var sub = $("air-sub");
         if (sub) sub.textContent = "no location set";
@@ -130,7 +138,7 @@
     },
 
     url: function () {
-      var loc = C.location;
+      var loc = WP.place();
       return "https://air-quality-api.open-meteo.com/v1/air-quality"
         + "?latitude=" + encodeURIComponent(loc.latitude)
         + "&longitude=" + encodeURIComponent(loc.longitude)
@@ -140,6 +148,7 @@
 
     fetch: function () {
       var self = this;
+      if (WP.place().latitude == null) return;   /* nowhere to ask about yet */
       fetch(this.url())
         .then(function (r) {
           if (!r.ok) throw new Error("HTTP " + r.status);

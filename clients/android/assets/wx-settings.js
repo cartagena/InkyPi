@@ -18,6 +18,19 @@
   var section = ui.section, btn = ui.btn, segmented = ui.segmented,
       switchRow = ui.switchRow;
 
+  var geo = WP.geo;
+
+  /* The Location search's own state. It lives on the plugin rather than in the DOM because
+     the panel is repainted whole (WP.repaint is an innerHTML swap), so anything typed has
+     to be able to survive being redrawn — the query is written back into the field's value
+     every paint. */
+  var search = {
+    query: "",
+    results: [],
+    state: "idle",      // idle | busy | none | failed | done
+    seq: 0
+  };
+
   var settingsPlugin = {
     name: "settings",
     resetArmed: false,
@@ -26,6 +39,7 @@
     init: function () {
       var self = this;
       this.renderCard();
+      this.bindSearchField();
       S.onChange(function () { self.renderCard(); self.paintPanel(); });
 
       WP.onAction("settings", function (act, arg) {
@@ -47,6 +61,10 @@
           case "sky":    S.set("sky", !S.get("sky")); break;
           case "cycle":  S.set("cycle", !S.get("cycle")); break;
           case "widget": S.setShow(arg, !S.get("show")[arg]); break;
+          /* Location. The field is typed into without repainting (see bindSearchField);
+             these two are the only moments the section is redrawn. */
+          case "find":   self.runSearch(); break;
+          case "pick":   self.pickResult(parseInt(arg, 10)); break;
           /* Two-step. This panel is mounted on a wall where anyone walking past can reach
              it, and one tap on a red button used to wipe every preference with no warning
              and no undo. The armed state expires on its own after 5 s. */
@@ -68,6 +86,124 @@
         }
         self.paintPanel();
       });
+    },
+
+    /* The one text field in the app.
+
+       Delegated and bound once, for the reason every other listener here is: the panel body
+       is rewritten on every repaint, so a listener attached to the input itself would be
+       thrown away with the node it was on. `input` does not bubble in every engine but does
+       in Chromium, which is the only engine this ships on; `change` is bound as well so a
+       keyboard that commits on close still lands.
+
+       Typing must NOT repaint — a repaint would replace the field mid-word and drop the
+       caret — so this only records the text. Enter runs the search, because a soft keyboard
+       shows Go rather than a Search button the user can see. */
+    bindSearchField: function () {
+      var self = this;
+      function record(ev) {
+        var t = ev.target;
+        if (!t || t.id !== "place-q") return;
+        search.query = String(t.value == null ? "" : t.value);
+      }
+      document.addEventListener("input", record, true);
+      document.addEventListener("change", record, true);
+      document.addEventListener("keydown", function (ev) {
+        var t = ev.target;
+        if (!t || t.id !== "place-q") return;
+        /* Any key is somebody still working: the idle unwind must not close this panel out
+           from under a half-typed town. */
+        WP.armIdle();
+        if (ev.key === "Enter") {
+          if (ev.preventDefault) ev.preventDefault();
+          self.runSearch();
+        }
+      }, true);
+    },
+
+    /* Ask the geocoder. One request in flight matters: a slow first answer must not land
+       after a faster second one and put stale rows under a newer query, hence the sequence
+       number rather than a cancel. */
+    runSearch: function () {
+      var self = this;
+      var q = search.query;
+      if (!geo.usable(q)) {
+        search.state = "short";
+        search.results = [];
+        this.paintPanel();
+        return;
+      }
+      var mine = ++search.seq;
+      search.state = "busy";
+      search.results = [];
+      this.paintPanel();
+      fetch(geo.searchUrl(q), { cache: "no-store" })
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function (payload) {
+          if (mine !== search.seq) return;
+          search.results = geo.parse(payload);
+          search.state = search.results.length ? "done" : "none";
+          self.paintPanel();
+        })
+        .catch(function () {
+          if (mine !== search.seq) return;
+          search.results = [];
+          search.state = "failed";
+          self.paintPanel();
+        });
+    },
+
+    /* Tapping a row is the commit: it is stored, every weather widget is told, and the
+       search collapses back to the resting state so the section reads as an answer rather
+       than as a list somebody left open. */
+    pickResult: function (i) {
+      var r = search.results[i];
+      if (!r) return;
+      var p = geo.toPlace(r);
+      if (!WP.setPlace(p)) return;
+      search.query = "";
+      search.results = [];
+      search.state = "idle";
+      WP.toast("Now showing " + p.name);
+      this.renderCard();
+      this.paintPanel();
+    },
+
+    /* The Location section. Deliberately the FIRST thing on this screen: it is the only
+       setting here that changes what the dashboard is about rather than how it looks. */
+    locationSection: function () {
+      var here = WP.place();
+      var name = here.name || "Not set";
+      var rows = "";
+      if (search.state === "busy") {
+        rows = '<div class="muted place-note">Looking&hellip;</div>';
+      } else if (search.state === "none") {
+        rows = '<div class="muted place-note">No town by that name</div>';
+      } else if (search.state === "failed") {
+        rows = '<div class="muted place-note">Could not reach the search &mdash; check the wifi</div>';
+      } else if (search.state === "short") {
+        rows = '<div class="muted place-note">Type at least two letters</div>';
+      } else if (search.results.length) {
+        rows = '<div class="place-list">' + search.results.map(function (r, i) {
+          return '<div class="place-row tappable" role="button" tabindex="0"'
+            + ' data-ns="settings" data-act="pick" data-arg="' + i + '">'
+            + '<span class="place-name">' + esc(r.name) + "</span>"
+            + '<span class="place-where">' + esc(r.where) + "</span></div>";
+        }).join("") + "</div>";
+      }
+      return section("Location",
+        '<div class="place-now"><span class="place-cur">' + esc(name) + "</span>"
+        + '<span class="muted">Weather, air and the sky are for here</span></div>'
+        + '<div class="place-find">'
+        + '<input id="place-q" class="tinput" type="text" inputmode="search"'
+        + ' autocomplete="off" autocorrect="off" spellcheck="false"'
+        + ' placeholder="Town or city" aria-label="Search for a town"'
+        + ' value="' + esc(search.query) + '">'
+        + btn("find", "Search", "", null, "settings")
+        + "</div>" + rows, "wide");
     },
 
     disarmReset: function () {
@@ -119,6 +255,8 @@
       var b = C.burnInProtection || {};
 
       WP.repaint(body,
+        this.locationSection()
+
         /* Units and Clock share one section and one line. They were two sections, one under
            the other, each with its own heading over a single pair of buttons — 314 CSS px
            of a screen that was overflowing by 1157. They are the same KIND of thing (a
@@ -126,7 +264,7 @@
            A switch for everything that is merely on or off, including the one that used to
            sit here as "Hide seconds | Show seconds" — a pair of buttons for a boolean, two
            rows above a column of switches for the same thing (D1). */
-        section("Units & clock", '<div class="seg-pair">'
+        + section("Units & clock", '<div class="seg-pair">'
           /* Two glyphs and two figures, not "°F  mph  inHg" and "12-hour": three controls
              share this line and a label that wraps to two lines inside a button makes the
              whole row taller than the thing it is labelling. The units each choice implies

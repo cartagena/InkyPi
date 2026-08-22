@@ -331,6 +331,63 @@ window.WP = (function () {
     isMetric: function () { return settings.data.units === "celsius"; }
   };
 
+  /* ---------------- where this panel is ----------------
+     The location used to be config.js and only config.js: to move the panel to a new town
+     somebody had to edit a file on a PC, rebuild the APK and sideload it. That is the right
+     answer for a token and the wrong one for the first question anybody asks a weather
+     screen, so a place chosen on the tablet is stored here and wins over the file. The file
+     stays the fallback (a fresh install still knows where it is) and nothing else changes:
+     every widget asks WP.place() for the same three fields config.js always carried.
+
+     Kept out of the settings object on purpose — settings.reset() must not silently move
+     the panel back to whatever town the build was made in. */
+  var PLACE_KEY = "inky.place.v1";
+  var placeListeners = [];
+  var chosen;                                  // undefined until first read
+
+  /* A stored place is only usable if it still has both coordinates as real numbers: a
+     half-written record would otherwise take the weather widgets off the air permanently,
+     with no way back except a reinstall. */
+  function validPlace(p) {
+    if (!p || typeof p !== "object") return null;
+    if (p.latitude == null || p.longitude == null) return null;   /* Number(null) is 0 */
+    var lat = Number(p.latitude), lon = Number(p.longitude);
+    if (!isFinite(lat) || !isFinite(lon)) return null;
+    if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+    var name = String(p.name == null ? "" : p.name).slice(0, 60);
+    return { name: name, latitude: lat, longitude: lon };
+  }
+
+  function place() {
+    if (chosen === undefined) chosen = validPlace(store.readJSON(PLACE_KEY, null));
+    return chosen || C.location || {};
+  }
+
+  /* True when the panel is showing somewhere the person at it chose, rather than the town
+     the build was made in — which is the difference the Settings screen has to state. */
+  function placeIsChosen() { place(); return !!chosen; }
+
+  function setPlace(p) {
+    var v = validPlace(p);
+    if (!v) return false;
+    chosen = v;
+    store.writeJSON(PLACE_KEY, v);
+    placeListeners.forEach(function (fn) {
+      try { fn(v); } catch (e) { console.error("place listener: " + e.message); }
+    });
+    return true;
+  }
+
+  /* Back to config.js. Not offered as a button anywhere yet; it is what makes the stored
+     place recoverable if a future build ever needs to undo one. */
+  function clearPlace() {
+    chosen = null;
+    store.write(PLACE_KEY, "");
+    placeListeners.forEach(function (fn) { try { fn(place()); } catch (e) {} });
+  }
+
+  function onPlaceChange(fn) { placeListeners.push(fn); }
+
   /* ---------------- WMO weather codes -> words ----------------
      Open-Meteo returns WMO codes; the words come from this table and the picture comes
      from WP.wxIcon (wx-icons.js) — our own coloured SVG, drawn per code. This table used
@@ -365,6 +422,8 @@ window.WP = (function () {
     status: setStatus, toast: toast,
     bridge: bridge, store: store,
     settings: settings, WIDGETS: WIDGETS, WIDGET_LABELS: WIDGET_LABELS,
+    place: place, setPlace: setPlace, clearPlace: clearPlace,
+    placeIsChosen: placeIsChosen, onPlaceChange: onPlaceChange,
     bridgeFetch: bridgeFetch, fetchOrigins: fetchOrigins, originOf: originOf,
     wmo: wmo, register: register, registry: registry
   };

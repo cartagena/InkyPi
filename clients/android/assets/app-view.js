@@ -32,7 +32,10 @@
        carried flex-grow:1, and swallowed every pixel the hidden cards gave back. That, not
        the `margin: auto 0`, is why the all-hidden empty state rendered bottom-anchored with
        ~1700 device px of black above it. */
-    qsa("#home > .row3").forEach(function (row) {
+    /* Both screens: the tile rows moved to #home2 when the dashboard became two screens
+       (style-pages.css), and a selector pinned to #home would have left an empty row
+       holding its flex share open over there instead. */
+    qsa(".row3").forEach(function (row) {
       var any = qsa("[data-widget]", row).some(function (n) {
         return n.style.display !== "none";
       });
