@@ -253,10 +253,25 @@ Imager writes these into cloud-init's user-data and network-config
 files on this same (boot) partition, applied automatically on first
 boot.
 
+IMPORTANT — Wi-Fi country: Pi OS blocks the wifi radio by default
+(rfkill) until a regulatory domain / country is set. Where that field
+lives in Imager has moved (pre-2.0: the Wi-Fi dialog; 2.0+: the
+Localisation step), and pre-2.0 versions have been seen to leave
+network-config's `regulatory-domain:` unset even though SSID/password
+were written correctly. Use Imager 2.0+ if you can.
+
+If the Pi never joins your network: edit network-config by hand and
+set `regulatory-domain:` under the wifi block, OR add this to the end
+of cmdline.txt on this partition (one line, space-separated from the
+rest, no newline) before first boot:
+    cfg80211.ieee80211_regdom=US
+(use your actual ISO country code). This unblocks the radio
+regardless of what Imager did or didn't write.
+
 If you'd rather not use Imager, this partition already ships stock
 cloud-init templates you can edit by hand before first boot:
     user-data        — hostname, user account, SSH
-    network-config    — Wi-Fi
+    network-config    — Wi-Fi (see the note above about country)
 Both are commented-out examples; see the comments in each file, or
 https://cloudinit.readthedocs.io/ for the format.
 
