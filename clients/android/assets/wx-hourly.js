@@ -248,12 +248,17 @@
          knocks out a contour. See .hc-hi/.hc-lo in style-charts.css. */
       /* AND THE BARS GET A NAME. A row of blue columns under a temperature curve is an
          unlabelled quantity — a reader can see that something rises and falls with the
-         hours and has no way to know what. Four words, dim, at the end of the row where
-         the curve has already climbed away from it, and only on the days the row is
-         drawn at all. */
+         hours and has no way to know what. Four words, dim, and only on the days the row
+         is drawn at all.
+
+         IT HANGS ABOVE THE FRAME, not inside it. Placed in the band between the
+         temperature plot's floor and the tops of the bars it was technically clear of
+         both and still read as clutter dropped into the picture — a caption inside a plot
+         area is something the chart is saying about a point, and this one is a key. Out
+         of the frame it is unambiguously a label on the whole row, and it cannot graze
+         the curve on a warm afternoon. The stylesheet keeps the margin it sits in. */
       var cap = showBars
-        ? '<span class="hc-cap" style="left:' + pctX(R) + ";top:" + pctY(barBase - barMax - 3)
-          + '">% chance of rain</span>'
+        ? '<span class="hc-cap" style="left:' + pctX(R) + '">% chance of rain</span>'
         : "";
 
       var hiN = temps.indexOf(hi), loN = temps.indexOf(lo);

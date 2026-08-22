@@ -26,29 +26,26 @@
      the state of the screen for months at a time. Three cells of zero are not three facts;
      they are one fact, and the fact is "no". So when there is nothing falling and nothing
      forecast, the section says the one thing worth saying and gives its height back — and
-     when there IS something, it says WHEN, which is what the zeros never did.
-
-     The grid comes back the moment rain is real (falling now, likely within the hour, or
-     any measured total today), because then the three figures genuinely differ. */
+     when there IS something, it says WHEN, which is what the zeros never did. The grid
+     comes back the moment rain is real (falling now, likely within the hour, or any
+     measured total today), because then the three figures genuinely differ. */
   /* THE DAY'S LIGHT, AS ONE PICTURE rather than three labelled cells.
 
      SUN was SUNRISE / SUNSET / DAYLIGHT: three grey caps over three white figures, the
      same shape as AIR above it and WIND above that, which is what kept this panel reading
      as a spec sheet however much colour was put on it. The three facts are one fact — the
      shape of the day — and a shape is a thing to draw. So: the sun's own path from the
-     horizon at sunrise to the horizon at sunset, the part of it already flown picked out
-     in warm light and the rest left as track, and the sun itself sitting where the hour
-     actually is. The two times stay, at the two ends they belong to; the length of the day
-     is the caption under the apex.
+     horizon at sunrise to the horizon at sunset, the part already flown picked out in warm
+     light and the rest left as track, and the sun itself where the hour actually is. The
+     two times stay at the ends they belong to; the day's length captions the apex.
 
      The curve is a quadratic and the lit part is the SAME curve split at t with de
-     Casteljau, not a dash pattern approximating it — so the marker and the end of the lit
-     arc are one point by construction and cannot drift apart at the ends of the day.
+     Casteljau, not a dash approximating it — so the marker and the end of the lit arc are
+     one point by construction and cannot drift apart at the ends of the day.
 
-     The marker is HTML, and the labels are HTML, for the reason the hourly chart's are:
-     the box is stretched to a declared height, so anything round drawn inside the viewBox
-     would come out an ellipse, and any text in it would need a size authored outside the
-     ramp. */
+     The marker and the labels are HTML, for the reason the hourly chart's are: the box is
+     stretched to a declared height, so anything round drawn inside the viewBox would come
+     out an ellipse and any text in it would need a size authored outside the ramp. */
   function sunArc(rise, set, dayLen) {
     var P0 = [5, 30], P1 = [50, -18], P2 = [95, 30];   /* ends on the horizon, apex at 6 */
     function mid(a, b, t) { return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; }
@@ -60,6 +57,14 @@
     var t = (rise && set && set > rise) ? (Date.now() - rise) / (set - rise) : -1;
     var up = t > 0 && t < 1;
     var A = mid(P0, P1, t), B = mid(P1, P2, t), C = mid(A, B, t);
+    /* AND THE NIGHT HAS A MARKER TOO. With the sun down this was a hairline grey arc with
+       no gold on it and two gold clock times printed underneath, as if something up there
+       were pointing at them — a chart with a legend and no plot, which a capture review
+       read, correctly, as broken. Below the horizon is a POSITION, not an absence: the
+       marker stays, unlit, under the line at whichever end of the day it is nearest, and
+       the caption says where the sun is rather than quoting a daylight total for a day
+       that is either over or has not started. */
+    var restX = t >= 1 ? P2[0] : P0[0];
     return '<div class="sunarc' + (up ? "" : " down") + '"><div class="sun-plot">'
       + '<svg viewBox="0 0 100 34" preserveAspectRatio="none" aria-hidden="true">'
       + '<line class="sun-hz" x1="0" y1="30" x2="100" y2="30"/>'
@@ -67,11 +72,14 @@
       + (up ? '<path class="sun-flown" d="' + quad(P0, A, C) + '"/>' : "")
       + "</svg>"
       + (up ? '<span class="sun-dot" style="left:' + C[0].toFixed(1) + "%;top:"
-          + (C[1] / 34 * 100).toFixed(1) + '%"></span>' : "")
+          + (C[1] / 34 * 100).toFixed(1) + '%"></span>'
+          : '<span class="sun-dot rest" style="left:' + restX.toFixed(1)
+          + '%;top:100%"></span>')
       + "</div>"
       + '<div class="sun-ends"><span class="sunlit">'
       + (rise ? esc(fmt.clock(new Date(rise), false)) : "--") + "</span>"
-      + '<span class="sun-len">' + esc(dayLen) + " of daylight</span>"
+      + '<span class="sun-len">'
+      + (up ? esc(dayLen) + " of daylight" : "below the horizon") + "</span>"
       + '<span class="sunlit">' + (set ? esc(fmt.clock(new Date(set), false)) : "--")
       + "</span></div></div>";
   }

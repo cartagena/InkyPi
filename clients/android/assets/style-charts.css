@@ -18,7 +18,10 @@
 /* ---- hourly panel chart ----
    Ticks and hi/lo callouts are HTML over the SVG so their sizes come off the ramp like
    every other label; the SVG carries only geometry. */
-.hchart-wrap { position: relative; margin: 0.6vh 0 0.2vh; }
+/* The top margin is the caption's room. See .hc-cap: the "% chance of rain" key hangs
+   entirely above the plot frame, because a caption inside a plot area reads as something
+   the chart is saying about a point rather than as a label on the whole bar row. */
+.hchart-wrap { position: relative; margin: 2.4vh 0 0.2vh; }
 /* The height is DECLARED. With `height: auto` the SVG took it from its own aspect ratio,
    so the plot was as tall as the panel was wide — 250 CSS px in portrait and 357 px of a
    711 px-tall landscape screen. That is the landscape bug: the chart pushed the hero and
@@ -63,7 +66,7 @@
    over the tallest bar, because that corner is the one place on this chart where neither
    the curve nor a callout ever goes. Dim and small: it is a key, not a reading. */
 .hc-cap {
-  position: absolute; transform: translate(-100%, -100%);
+  position: absolute; top: 0; transform: translate(-100%, -100%);
   font-size: var(--fs-note); color: var(--dimmer);
   letter-spacing: 0.02em; white-space: nowrap; pointer-events: none;
 }

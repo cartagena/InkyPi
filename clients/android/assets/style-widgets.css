@@ -463,3 +463,12 @@
 }
 .sun-len { color: var(--dim); }
 .sunarc.down .sun-track { opacity: 0.6; }
+/* The sun with the sun down: the same marker, unlit and sitting under the horizon at the
+   end of the day it is nearest. A track with nothing on it is a chart that failed to
+   draw; a marker parked below the line is the fact the section is there to carry. */
+.sun-dot.rest {
+  background: var(--ic-ray);
+  opacity: 0.5;
+  box-shadow: none;
+  width: 1.2vh; height: 1.2vh;
+}
