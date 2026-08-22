@@ -113,7 +113,7 @@ class Comic(BasePlugin):
     ) -> ImageType:
         # Use adaptive loader for memory-efficient processing
         # Note: Comic images are usually reasonable size, but still benefit from optimization
-        image_loader = cast(Any, self.image_loader)
+        image_loader = self.image_loader
         img = image_loader.from_url(
             comic_panel["image_url"],
             dimensions=(width, height),
@@ -162,7 +162,7 @@ class Comic(BasePlugin):
                 width / img.width, (height - top_padding - bottom_padding) / img.height
             )
             new_size = (int(img.width * scale), int(img.height * scale))
-            img = img.resize(new_size, Image.LANCZOS)
+            img = img.resize(new_size, Image.Resampling.LANCZOS)
 
             y_middle = (height - img.height) // 2
             y_top_bound = top_padding

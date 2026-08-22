@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 PLUGIN_API_VERSION = "1.0"
 
-PLUGINS_DIR = cast(str, cast(Any, resolve_path)("plugins"))
+PLUGINS_DIR = resolve_path("plugins")
 BASE_PLUGIN_DIR = os.path.join(PLUGINS_DIR, "base_plugin")
 BASE_PLUGIN_RENDER_DIR = os.path.join(BASE_PLUGIN_DIR, "render")
 
@@ -75,8 +75,7 @@ class BasePlugin:
         )
 
         # Initialize adaptive image loader for device-aware image processing
-        image_loader_factory = cast(Any, AdaptiveImageLoader)
-        self.image_loader = image_loader_factory()
+        self.image_loader = AdaptiveImageLoader()
 
         self.render_dir = self.get_plugin_dir("render")
         # Always initialize Jinja environment so plugins without their own
@@ -301,7 +300,7 @@ class BasePlugin:
             template = self.env.get_template(html_file)
             update_step(f"Rendering template with {len(template_params)} parameters")
             t0 = perf_counter()
-            rendered_html = cast(str, template.render(template_params))
+            rendered_html = template.render(template_params)
             elapsed_ms = int((perf_counter() - t0) * 1000)
             complete_step(
                 f"Template rendered successfully for {html_file} ({elapsed_ms}ms)"
@@ -333,8 +332,13 @@ class BasePlugin:
             timeout_desc = f" (timeout: {timeout_ms}ms)" if timeout_ms else ""
             update_step(f"Taking screenshot of rendered HTML{timeout_desc}")
             t1 = perf_counter()
-            screenshot_html = cast(Any, take_screenshot_html)
-            image = screenshot_html(rendered_html, dimensions, timeout_ms=timeout_ms)
+            # The `cast(Any, ...)` this replaces existed only because the real
+            # signature was invisible with imports skipped; it turned the
+            # already-correct `Image.Image | None` into Any and took the None
+            # check below with it.
+            image = take_screenshot_html(
+                rendered_html, dimensions, timeout_ms=timeout_ms
+            )
             elapsed_ms = int((perf_counter() - t1) * 1000)
             if image is None:
                 image = self._screenshot_fallback(dimensions, elapsed_ms)

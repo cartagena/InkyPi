@@ -30,11 +30,10 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
 
 from flask import Flask, Response, current_app, request
 
-from utils.http_utils import json_error
+from utils.http_utils import JsonResponse, json_error
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +74,8 @@ def register_smoke_endpoints(app: Flask) -> None:
         SMOKE_RENDER_PATH,
     )
 
-    @app.route(SMOKE_RENDER_PATH, methods=["POST"])  # type: ignore
-    def smoke_render() -> tuple[dict[str, Any], int] | Response | tuple[str, int]:
+    @app.route(SMOKE_RENDER_PATH, methods=["POST"])
+    def smoke_render() -> JsonResponse | Response | tuple[str, int]:
         """Render the named plugin in-process and return basic image metadata.
 
         Deliberately does NOT push the image to the display manager; the goal

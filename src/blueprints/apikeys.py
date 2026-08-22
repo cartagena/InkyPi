@@ -47,7 +47,14 @@ def parse_env_file(filepath: str) -> list[tuple[str, str]]:
 
     try:
         env_dict = dotenv_values(filepath)
-        return list(env_dict.items())
+        # `dotenv_values` yields None for a bare key — a line like `FOO` with no
+        # `=`. The declared return type says str, and consumers iterate the
+        # value (`_has_invalid_control_chars`), so a None reached them as
+        # `TypeError: 'NoneType' object is not iterable` and broke the whole
+        # API-keys page. A key with no value is an empty value.
+        return [
+            (key, "" if value is None else value) for key, value in env_dict.items()
+        ]
     except Exception as e:
         logger.error(f"Error parsing .env file: {e}")
         return []
@@ -161,7 +168,7 @@ def mask_value(value: str) -> str:
     return "●" * 8 + value[-4:]
 
 
-@apikeys_bp.route("/api-keys", methods=["GET"])  # type: ignore
+@apikeys_bp.route("/api-keys", methods=["GET"])
 def apikeys_page() -> Response | str:
     """Render API keys management page."""
     env_path = get_env_path()
@@ -194,7 +201,7 @@ def apikeys_page() -> Response | str:
     )
 
 
-@apikeys_bp.route("/api-keys/save", methods=["POST"])  # type: ignore
+@apikeys_bp.route("/api-keys/save", methods=["POST"])
 def save_apikeys() -> tuple[Response | dict[str, Any], int] | Response | dict[str, Any]:
     """Save API keys to .env file."""
     try:

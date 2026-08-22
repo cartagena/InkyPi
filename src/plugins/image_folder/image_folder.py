@@ -2,7 +2,6 @@ import logging
 import os
 import random
 from collections.abc import Mapping
-from typing import Any, cast
 
 from PIL import Image, ImageOps
 
@@ -169,9 +168,7 @@ class ImageFolder(BasePlugin):
             # Use adaptive loader for memory-efficient processing
             # Load without auto-resize first to handle padding options
             # Note: Loader automatically handles EXIF orientation correction
-            img = cast(Any, self.image_loader).from_file(
-                image_url, dimensions, resize=False
-            )
+            img = self.image_loader.from_file(image_url, dimensions, resize=False)
 
             if not img:
                 raise RuntimeError("Failed to load image from file")
@@ -205,7 +202,7 @@ class ImageFolder(BasePlugin):
                 logger.debug(
                     f"Scaling to fit dimensions: {dimensions[0]}x{dimensions[1]}"
                 )
-                img = ImageOps.fit(img, dimensions, method=Image.LANCZOS)
+                img = ImageOps.fit(img, dimensions, method=Image.Resampling.LANCZOS)
 
             logger.info("=== Image Folder Plugin: Image generation complete ===")
             return img

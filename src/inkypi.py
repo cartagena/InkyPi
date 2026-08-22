@@ -393,7 +393,7 @@ def _configure_upload_limits(app: Flask) -> None:
 def _register_before_request_hooks(app: Flask) -> None:
     """Attach before-request hooks for refresh task, timers, and request IDs."""
 
-    @app.before_request  # type: ignore[untyped-decorator]
+    @app.before_request
     def _ensure_refresh_task_started() -> None:
         if WEB_ONLY:
             return
@@ -403,14 +403,14 @@ def _register_before_request_hooks(app: Flask) -> None:
                 logger.info("Starting refresh task (flask dev server lazy start)")
                 rt.start()
 
-    @app.before_request  # type: ignore[untyped-decorator]
+    @app.before_request
     def _start_request_timer() -> None:
         try:
             g._t0 = perf_counter()
         except Exception:
             pass
 
-    @app.before_request  # type: ignore[untyped-decorator]
+    @app.before_request
     def _attach_request_id() -> None:
         try:
             from utils.http_utils import _get_or_set_request_id
@@ -433,7 +433,12 @@ def _lookup_static_version_factory(
         cached = cache.get(filename)
         if cached is not None:
             return cached
-        static_path = Path(app.static_folder) / filename
+        static_root = app.static_folder
+        if static_root is None:
+            # Flask allows a static-less app; without this the next line raises
+            # TypeError rather than falling back to the plain version token.
+            return version
+        static_path = Path(static_root) / filename
         try:
             if static_path.is_file():
                 token = f"{version}-{int(static_path.stat().st_mtime)}"
@@ -721,14 +726,19 @@ if __name__ == "__main__":
     ):
         import threading
 
+        # Bound here rather than captured: the narrowing above cannot follow
+        # `device_cfg` into a closure that runs on another thread, because
+        # nothing stops the name being rebound in between.
+        startup_cfg = device_cfg
+
         def _show_startup() -> None:
             try:
                 logger.info("Displaying startup image")
-                img = generate_startup_image(device_cfg.get_resolution())
+                img = generate_startup_image(startup_cfg.get_resolution())
                 display_manager_obj = created_app.config.get("DISPLAY_MANAGER")
                 if display_manager_obj is not None:
                     display_manager_obj.display_image(img)
-                device_cfg.update_value("startup", False, write=True)
+                startup_cfg.update_value("startup", False, write=True)
             except Exception:
                 logger.exception("Startup image failed")
 

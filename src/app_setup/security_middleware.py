@@ -20,9 +20,13 @@ from urllib.parse import quote, urlencode, urlunsplit
 
 from flask import Flask, Response, abort, g, redirect, request, session
 
+# `redirect` returns a werkzeug Response, and `json_error` may return a
+# plain dict when there is no app context — see utils.http_utils.
+from werkzeug.wrappers import Response as WerkzeugResponse
+
 from app_setup.smoke import SMOKE_RENDER_PATH, smoke_render_enabled
 from config import Config
-from utils.http_utils import json_error
+from utils.http_utils import JsonResponse, json_error
 from utils.rate_limit import (
     TokenBucket,
     make_auth_bucket,
@@ -116,8 +120,8 @@ def setup_https_redirect(app: Flask, *, dev_mode: bool) -> None:
     """When INKYPI_FORCE_HTTPS=1 (and not in dev mode), redirect HTTP→HTTPS."""
     force_https = not dev_mode and _env_bool("INKYPI_FORCE_HTTPS")
 
-    @app.before_request  # type: ignore
-    def _redirect_to_https() -> Response | None:
+    @app.before_request
+    def _redirect_to_https() -> Response | WerkzeugResponse | JsonResponse | None:
         if not force_https:
             return None
         if (
@@ -211,12 +215,12 @@ def _extract_csrf_token_from_request() -> str | None:
 def setup_csrf_protection(app: Flask) -> None:
     """Register CSRF token generation and per-request validation."""
 
-    @app.context_processor  # type: ignore
+    @app.context_processor
     def _inject_csrf_token() -> dict[str, Any]:
         return {"csrf_token": _generate_csrf_token}
 
-    @app.before_request  # type: ignore
-    def _check_csrf_token() -> Response | None:
+    @app.before_request
+    def _check_csrf_token() -> Response | WerkzeugResponse | JsonResponse | None:
         if request.method in _CSRF_SAFE_METHODS:
             return None
         if request.path in _CSRF_EXEMPT_PATHS:
@@ -278,7 +282,9 @@ def _rate_limited_json_response(message: str, *, retry_after: str) -> Response:
     return resp
 
 
-def _apply_token_bucket_limits(path: str, addr: str) -> Response | None:
+def _apply_token_bucket_limits(
+    path: str, addr: str
+) -> Response | WerkzeugResponse | JsonResponse | None:
     """Check per-endpoint token-bucket limits; return a 429 response or None.
 
     Extracted to keep ``_rate_limit_mutations`` below SonarCloud's cognitive
@@ -318,8 +324,8 @@ def setup_rate_limiting(app: Flask) -> None:
     _refresh_bucket = make_refresh_bucket()
     _mutating_bucket = make_mutating_bucket()
 
-    @app.before_request  # type: ignore
-    def _rate_limit_mutations() -> Response | None:
+    @app.before_request
+    def _rate_limit_mutations() -> Response | WerkzeugResponse | JsonResponse | None:
         if request.method in _CSRF_SAFE_METHODS:
             return None
         if request.path in _RATE_EXEMPT:
@@ -360,11 +366,11 @@ def setup_csp_nonce(app: Flask) -> None:
     intentionally NOT used.
     """
 
-    @app.before_request  # type: ignore
+    @app.before_request
     def _generate_csp_nonce() -> None:
         g.csp_nonce = secrets.token_urlsafe(16)
 
-    @app.context_processor  # type: ignore
+    @app.context_processor
     def _inject_csp_nonce() -> dict[str, Any]:
         return {"csp_nonce": getattr(g, "csp_nonce", "")}
 
@@ -505,7 +511,7 @@ def setup_security_headers(app: Flask, *, dev_mode: bool) -> None:
     cognitive complexity stays low (SonarCloud S3776).
     """
 
-    @app.after_request  # type: ignore
+    @app.after_request
     def _set_security_headers(response: Response) -> Response:
         for step in (
             _emit_request_timing_log,

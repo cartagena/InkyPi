@@ -89,7 +89,7 @@ def _plugin_form_data(*, include_form_for_files: bool = False) -> dict[str, Any]
 
 def _plugins_dir() -> str:
     """Resolve the current plugin source directory at request time."""
-    return str(cast(Any, resolve_path)("plugins"))
+    return resolve_path("plugins")
 
 
 def _cacheable_send_file(path: str, ttl_env: str = "INKYPI_RENDER_CACHE_TTL_S") -> Any:
@@ -160,7 +160,7 @@ def _resolve_api_key_presence(
         api_key_meta["present"] = device_config.load_env_key(expected_key) is not None
 
 
-@plugin_bp.route("/plugin/<plugin_id>", methods=["GET"])  # type: ignore[untyped-decorator]
+@plugin_bp.route("/plugin/<plugin_id>", methods=["GET"])
 def plugin_page(plugin_id: str) -> Any:
     device_config = current_app.config[_CONFIG_KEY]
     playlist_manager = device_config.get_playlist_manager()
@@ -228,7 +228,7 @@ def plugin_page(plugin_id: str) -> Any:
     )
 
 
-@plugin_bp.route("/plugin/ai_image/random_prompt", methods=["POST"])  # type: ignore[untyped-decorator]
+@plugin_bp.route("/plugin/ai_image/random_prompt", methods=["POST"])
 def ai_image_random_prompt() -> Any:
     """Generate a prompt suggestion for the AI Image plugin."""
     device_config = current_app.config[_CONFIG_KEY]
@@ -259,8 +259,11 @@ def ai_image_random_prompt() -> Any:
 
             from plugins.ai_image.ai_image import AIImage
 
-            client = genai.Client(api_key=api_key)
-            prompt = AIImage.fetch_image_prompt_google(client, seed_prompt)
+            # Named per provider: the two branches bind unrelated SDK client
+            # types, and sharing one name made the second look like a
+            # reassignment to an incompatible type.
+            google_client = genai.Client(api_key=api_key)
+            prompt = AIImage.fetch_image_prompt_google(google_client, seed_prompt)
         else:
             api_key = device_config.load_env_key("OPEN_AI_SECRET")
             if not api_key:
@@ -269,8 +272,8 @@ def ai_image_random_prompt() -> Any:
 
             from plugins.ai_image.ai_image import AIImage
 
-            client = OpenAI(api_key=api_key)
-            prompt = AIImage.fetch_image_prompt(client, seed_prompt)
+            openai_client = OpenAI(api_key=api_key)
+            prompt = AIImage.fetch_image_prompt(openai_client, seed_prompt)
 
         if not prompt:
             raise ClientInputError(
@@ -279,7 +282,7 @@ def ai_image_random_prompt() -> Any:
         return json_success("Generated prompt.", prompt=prompt)
 
 
-@plugin_bp.route("/plugins", methods=["GET"])  # type: ignore[untyped-decorator]
+@plugin_bp.route("/plugins", methods=["GET"])
 def plugins_page() -> Any:
     device_config = current_app.config[_CONFIG_KEY]
     plugins = device_config.get_plugins()
@@ -292,7 +295,7 @@ def plugins_page() -> Any:
     )
 
 
-@plugin_bp.route("/images/<plugin_id>/<path:filename>", methods=["GET"])  # type: ignore[untyped-decorator]
+@plugin_bp.route("/images/<plugin_id>/<path:filename>", methods=["GET"])
 def image(plugin_id: str, filename: str) -> Any:
     # Reject null-byte / absolute path inputs up front (defence in depth).
     if (
@@ -371,7 +374,7 @@ def image(plugin_id: str, filename: str) -> Any:
     "/plugin_latest_image/<string:plugin_id>",
     endpoint="plugin_latest_image",
     methods=["GET"],
-)  # type: ignore[untyped-decorator]
+)
 def latest_plugin_image(plugin_id: str) -> Any:
     """Serve the most recent history image for a given plugin_id.
 
@@ -455,7 +458,7 @@ def _cleanup_plugin_resources(
         )
 
 
-@plugin_bp.route("/delete_plugin_instance", methods=["POST", "DELETE"])  # type: ignore[untyped-decorator]
+@plugin_bp.route("/delete_plugin_instance", methods=["POST", "DELETE"])
 def delete_plugin_instance() -> Any:
     device_config = current_app.config[_CONFIG_KEY]
     playlist_manager = device_config.get_playlist_manager()
@@ -504,7 +507,7 @@ def delete_plugin_instance() -> Any:
     return json_success(message="Deleted plugin instance.")
 
 
-@plugin_bp.route("/update_plugin_instance/<string:instance_name>", methods=["PUT"])  # type: ignore[untyped-decorator]
+@plugin_bp.route("/update_plugin_instance/<string:instance_name>", methods=["PUT"])
 def update_plugin_instance(instance_name: str) -> Any:
     device_config = current_app.config[_CONFIG_KEY]
     playlist_manager = device_config.get_playlist_manager()
@@ -616,7 +619,7 @@ def update_plugin_instance(instance_name: str) -> Any:
     return json_success(message=f"Updated plugin instance {instance_name}.")
 
 
-@plugin_bp.route("/display_plugin_instance", methods=["POST"])  # type: ignore[untyped-decorator]
+@plugin_bp.route("/display_plugin_instance", methods=["POST"])
 def display_plugin_instance() -> Any:
     device_config = current_app.config[_CONFIG_KEY]
     refresh_task = current_app.config["REFRESH_TASK"]
@@ -671,7 +674,7 @@ def display_plugin_instance() -> Any:
 @plugin_bp.route(
     "/plugin_instance/<string:plugin_id>/<string:instance_name>/force_retry",
     methods=["POST"],
-)  # type: ignore[untyped-decorator]
+)
 def force_retry_plugin_instance(plugin_id: str, instance_name: str) -> Any:
     """Clear the circuit-breaker paused state for a plugin instance.
 
@@ -987,7 +990,7 @@ def _push_update_now_fallback_from_current_exception(
     )
 
 
-@plugin_bp.route("/api/job/<job_id>", methods=["GET"])  # type: ignore[untyped-decorator]
+@plugin_bp.route("/api/job/<job_id>", methods=["GET"])
 def job_status(job_id: str) -> tuple[Any, int]:
     """Poll the status of an asynchronous render job."""
     queue = get_job_queue()
@@ -1076,7 +1079,7 @@ def _run_update_now(
             }
 
 
-@plugin_bp.route("/update_now", methods=["POST"])  # type: ignore[untyped-decorator]
+@plugin_bp.route("/update_now", methods=["POST"])
 def update_now() -> Any:
     """Render a plugin image and push it to the display.
 
@@ -1110,7 +1113,11 @@ def update_now() -> Any:
 
         if parsed.want_async:
             queue = get_job_queue()
-            app = current_app._get_current_object()  # real app, not proxy
+            # `current_app` is a LocalProxy at runtime, but flask types it as
+            # `Flask` for convenience, so the unwrap is invisible to mypy. The
+            # real object is needed because the proxy is bound to this request
+            # context and the job runs outside it.
+            app = cast(Any, current_app)._get_current_object()
             job_id = queue.enqueue(_run_update_now, app, plugin_id, plugin_settings)
             return jsonify({"job_id": job_id}), 202
 
@@ -1202,7 +1209,7 @@ def update_now() -> Any:
         return json_error(_ERR_INTERNAL, status=500, code="internal_error")
 
 
-@plugin_bp.route("/save_plugin_settings", methods=["POST"])  # type: ignore[untyped-decorator]
+@plugin_bp.route("/save_plugin_settings", methods=["POST"])
 def save_plugin_settings() -> Any:
     device_config = current_app.config[_CONFIG_KEY]
     playlist_manager = device_config.get_playlist_manager()
@@ -1238,7 +1245,7 @@ def save_plugin_settings() -> Any:
         return json_error(_ERR_INTERNAL, status=500)
 
 
-@plugin_bp.route("/plugin/<string:plugin_id>/save", methods=["POST"])  # type: ignore[untyped-decorator]
+@plugin_bp.route("/plugin/<string:plugin_id>/save", methods=["POST"])
 def save_plugin_settings_alias(plugin_id: str) -> Any:
     """Backward-compatible route alias for plugin settings save."""
     device_config = current_app.config[_CONFIG_KEY]
@@ -1420,7 +1427,7 @@ def _find_latest_plugin_refresh_time(device_config: Any, plugin_id: str) -> str 
     "/instance_image/<string:plugin_id>/<string:instance_name>",
     endpoint="plugin_instance_image",
     methods=["GET"],
-)  # type: ignore[untyped-decorator]
+)
 def instance_image(plugin_id: str, instance_name: str) -> Any:
     device_config = current_app.config[_CONFIG_KEY]
     playlist_manager = device_config.get_playlist_manager()

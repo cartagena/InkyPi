@@ -2,6 +2,7 @@
 
 import io
 import re
+from collections.abc import Mapping
 from typing import Any
 
 from flask import Response, current_app, jsonify, request
@@ -11,7 +12,7 @@ from utils.http_utils import json_error
 from utils.time_utils import now_device_tz
 
 
-@_mod.settings_bp.route("/download-logs", methods=["GET"])  # type: ignore[untyped-decorator]
+@_mod.settings_bp.route("/download-logs", methods=["GET"])
 def download_logs() -> Response:
     try:
         # Guardrail hours clamp
@@ -38,8 +39,14 @@ def download_logs() -> Response:
 
 
 def _parse_log_params(
-    args: dict[str, str | None],
+    args: Mapping[str, str | None],
 ) -> tuple[int, int, str, bool, str, int, int]:
+    """Parse the log query parameters.
+
+    Takes a Mapping rather than a dict so `request.args` — a werkzeug
+    MultiDict, which is a Mapping but not a dict — can be passed directly
+    instead of being copied at each call site.
+    """
     raw_hours = args.get("hours")
     raw_limit = args.get("limit")
     raw_contains_full = args.get("contains") or ""
@@ -83,7 +90,7 @@ def _filter_log_lines(lines: list[str], contains: str, level: str) -> list[str]:
     return lines
 
 
-@_mod.settings_bp.route("/api/logs", methods=["GET"])  # type: ignore[untyped-decorator]
+@_mod.settings_bp.route("/api/logs", methods=["GET"])
 def api_logs() -> Response | tuple[Any, int]:
     """JSON logs API with server-side filter, level selection and limits."""
     try:
