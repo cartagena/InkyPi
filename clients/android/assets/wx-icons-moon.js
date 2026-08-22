@@ -56,10 +56,10 @@
                [43, 40.5, 3, 0.26], [19.5, 33, 2.3, 0.24], [16.5, 27, 2.7, 0.22],
                [35, 46, 2, 0.20]];
 
-  /* An arc of a circle, by angle. Craters are drawn from these rather than as offset
-     discs because what makes a depression read as a depression is that its two inner
-     walls disagree: the wall facing the sun is in its own shadow and the wall opposite is
-     square-on to the light. Two arcs, no clip path, no id. */
+  /* An arc of a circle, by angle — the lit rim on the far side of a crater, and nothing
+     else now. It used to strike the near wall too, in a dark tone, and that pair rendered
+     as an open horseshoe: the "lit" arc was drawn in a colour the face was already
+     wearing, so only the shadow ever registered and every crater came out a dark C. */
   function arc(cx, cy, r, a0, a1) {
     function pt(a) {
       return (cx + Math.cos(a) * r).toFixed(2) + " " + (cy + Math.sin(a) * r).toFixed(2);
@@ -67,24 +67,27 @@
     return "M " + pt(a0) + " A " + r.toFixed(2) + " " + r.toFixed(2) + " 0 0 1 " + pt(a1);
   }
 
-  /* The moon's gradient lights it from the upper right, so that is where every crater's
-     shadow goes. `deep` is off for the small phase discs — eleven of them on the Moon
-     panel at 30-odd pixels each, where three extra strokes per crater is 200 nodes
+  /* A CRATER IS A CLOSED BOWL. One filled disc carrying wxg-crater — a ramp running from
+     the sunward wall in its own shadow, through the floor, to the far wall square-on to
+     the light — so the depression is a shape rather than an outline, and there is no gap
+     in it for the face to show through.
+
+     `deep` adds the one detail the fill cannot carry: the raised rim on the far side,
+     struck just OUTSIDE the bowl, which is the ground the ejecta piled up on and the
+     brightest thing on a lunar photograph. Off for the small phase discs — eleven of them
+     on the Moon panel at 30-odd pixels each, where an extra stroke per crater is nodes
      nobody can resolve. */
-  function craters(deep) {
+  function craters(deep, wane) {
+    /* the far wall is opposite the sun, and the sun swaps sides at full moon */
+    var a0 = wane ? -0.53 : 1.05, a1 = wane ? 2.09 : 3.67;
     return MARIA.map(function (c) {
       var x = c[0], y = c[1], r = c[2], o = c[3];
-      var s = '<circle cx="' + x + '" cy="' + y + '" r="' + r
-        + '" fill="var(--ic-moon-dim)" opacity="' + o + '"/>';
+      var s = '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="url(#wxg-crater'
+        + (wane ? "w" : "") + ')" opacity="' + (o * 2.15).toFixed(2) + '"/>';
       if (!deep) return s;
-      var ir = r * 0.82, w = (r * 0.3).toFixed(2);
-      return s
-        + '<path d="' + arc(x, y, ir, -2.36, 0.79) + '" fill="none"'
-        + ' stroke="var(--ic-moon-dk)" stroke-width="' + w + '" stroke-linecap="round"'
-        + ' opacity="' + (o * 1.5).toFixed(2) + '"/>'
-        + '<path d="' + arc(x, y, ir, 0.79, 3.93) + '" fill="none"'
-        + ' stroke="var(--ic-moon-lit)" stroke-width="' + w + '" stroke-linecap="round"'
-        + ' opacity="' + (o * 0.85).toFixed(2) + '"/>';
+      return s + '<path d="' + arc(x, y, r * 1.06, a0, a1) + '" fill="none"'
+        + ' stroke="var(--ic-moon-lit)" stroke-width="' + (r * 0.26).toFixed(2)
+        + '" stroke-linecap="round" opacity="' + (o * 1.5).toFixed(2) + '"/>';
     }).join("");
   }
 
@@ -100,28 +103,58 @@
      Both fall out of drawing the disc the way the Moon panel draws it: the whole body,
      dark side present as earthshine, lit limb at the LIVE phase.
 
-     WHAT MAKES IT A SPHERE rather than two flat shapes butted together is three things,
-     none of them a filter: a terminator FEATHERED over four steps instead of cut, limb
-     darkening on the outer eighth of the radius (a sphere does not end at a bright line,
-     it turns away), and craters with two disagreeing inner walls. */
+     WHAT MAKES IT A SPHERE rather than two flat shapes butted together is three things:
+     a terminator that is a soft band and not a cut, a face whose dimmest lit ground is
+     the ground NEAREST that band (which is where the sun is grazing it), and craters that
+     are closed bowls. None of them is a highlight — a specular hotspot on a moon is a
+     pearl button, because regolith back-scatters and does not shine. */
   function moon(cx, cy, r, p, deep) {
     var s = r / 24;                            /* the maria are authored on a 24-unit disc */
-    /* The night side, as the disc minus a lit limb. Drawn FOUR TIMES at four phases a few
-       thousandths apart, because a terminator is not a cut.
+    /* HERO-SIZED DISCS ONLY get the soft terminator and the deep craters. The Moon panel
+       draws eleven thumbnails in a strip at 30-odd pixels; a blur raster each, for a band
+       two pixels wide, is the same trade the cloud texture already refuses. */
+    var lush = deep !== false && r >= 14;
+    var wane = p >= 0.5;                       /* after full, the sun lights the left limb */
+    /* The night side, as the disc minus a lit limb.
 
-       The single evenodd path gave a hard edge — mathematically exact and, at hero size,
-       the tell of a mask rather than a lit sphere: the real line is a band a couple of
-       degrees wide where the sun is grazing the surface. Stepping the same path back
-       toward new and painting each at a fraction of the ink lays that band down for free,
-       in the geometry that already exists, with no filter and no second id. Toward NEW is
-       the direction that grows the shadow, so the feather falls on the lit side where the
-       light is failing rather than eating into the dark. */
-    function night(pp, op) {
+       ONE shadow, softened by one small static blur. It used to be the same path painted
+       four times at four phases a few thousandths apart, on the theory that stepping the
+       geometry would lay the band down for free — and it does lay something down, but what
+       it lays down is four countable steps with a lighter ribbon between the shadow and
+       the face. A review read that ribbon as backwards, and it is: the ground nearest the
+       terminator is the ground the sun is grazing, so it should be the DIMMEST lit tone on
+       the disc, which is what the body gradient now makes it. The shadow's job is only to
+       stop being a knife edge, and a blur of under a unit does that in one raster on a
+       shape that changes once an hour.
+
+       TWO of them, though, and the second is why. A blur softens every edge it is given,
+       including the shadow's outer one — which is the LIMB, where the dark side should
+       simply stop. Softened there it let the lit sphere underneath show through as a pale
+       crescent hugging the outside of the shadow, a rim of light on the night side. So a
+       hard copy goes down too, stepped a hair toward full so its own terminator sits
+       INSIDE the soft one: it holds the limb opaque and the blurred pass lays the band
+       across the only edge that wants one. Both are the same opaque fill, so which of the
+       two is painted first makes no difference to the picture — the soft one leads only so
+       that the first phase in the markup is the REAL one, which is what the tests read. */
+    function disc(pp) {
       return '<path fill-rule="evenodd" fill="var(--ic-moon-dk)"'
-        + (op ? ' opacity="' + op + '"' : "")
         + ' d="' + ring(cx, cy, r) + " " + moonPath(cx, cy, r, pp) + '"/>';
     }
-    var back = p < 0.5 ? -1 : 1;               /* whichever way is toward a new moon */
+    /* A HAIR toward full, clamped short of it. 0.028 of a synodic month is two or three
+       units of terminator at hero size — comfortably more than the blur's own reach, so
+       the hard copy's edge lands where the soft one is already solid and never shows. The
+       clamp matters at the two ends: step across 0.5 and the lit limb changes sides, and
+       the hard copy would mirror itself onto the wrong half of the disc. */
+    var hard = p < 0.5 ? Math.min(p + 0.028, 0.499) : Math.max(p - 0.028, 0.501);
+    /* THE BLUR IS ATTACHED BY THE STYLESHEET, not here — the same rule the cloud texture
+       lives by. A clear night puts this moon in the Now card AND in twenty-four hourly
+       glyphs AND in seven daily ones, all at the same authored radius; a filter written
+       into the markup would rasterise thirty-one blurs for a band two pixels wide on
+       thirty of them. style-icons.css turns it on for the hero sizes only, and without it
+       the pair simply collapses to the hard terminator the small discs already had. */
+    var night = lush
+      ? '<g class="wxi-term">' + disc(p) + "</g>" + disc(hard)
+      : disc(p);
     return '<g class="wxi-moon">'
       + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="var(--ic-moon-dk)"/>'
       /* THE WHOLE DISC takes the sphere gradient, not the lit limb alone. Filling the
@@ -131,12 +164,12 @@
          terminator" that made the disc read as two flat shapes butted together. A sphere's
          shading belongs to the sphere; the phase is a shadow cast ON it, and it goes on
          afterwards. */
-      + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="url(#wxg-moon)"/>'
+      + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="url(#wxg-moon'
+      + (wane ? "w" : "") + ')"/>'
       + '<g transform="translate(' + (cx - 32 * s).toFixed(2)
       + " " + (cy - 32 * s).toFixed(2) + ") scale(" + s.toFixed(3) + ')">'
-      + craters(deep !== false && r >= 14) + "</g>"
-      + night(p, 0) + night(p + back * 0.009, 0.40)
-      + night(p + back * 0.019, 0.30) + night(p + back * 0.030, 0.24)
+      + craters(lush, wane) + "</g>"
+      + night
       /* the limb, and then the hairline that keeps a new moon from vanishing entirely */
       + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="url(#wxg-limb)"/>'
       + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="none"'

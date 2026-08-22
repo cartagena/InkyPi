@@ -49,6 +49,16 @@
 .wx-icon .wxi .wxi-mass,
 .big-icon .wxi .wxi-mass { filter: url(#wxf-cloud); }
 
+/* The moon's terminator takes the same deal for the same reason. A clear night draws this
+   disc thirty-one times — the Now card, twenty-four hourly glyphs, seven daily ones — and
+   the soft band between lunar day and night is two pixels wide on thirty of them. Here it
+   is the hero sizes plus the Moon panel's own disc, which is the one drawing in the build
+   big enough for a hard terminator to look like a mask. wx-icons-moon.js draws the pair so
+   that WITHOUT this rule the picture is exactly the hard-edged one the small discs want. */
+.wx-icon .wxi .wxi-term,
+.big-icon .wxi .wxi-term,
+.moon-disc .wxi-term { filter: url(#wxf-term); }
+
 /* ---- the light of the hour, cast on the icons ----
    The sky layer knows which of six moods the panel is in and stamps it on <html> as
    data-mood. All it changes here is the HIGHLIGHT tokens — the stop the light lands on
