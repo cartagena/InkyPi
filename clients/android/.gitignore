@@ -1,0 +1,6 @@
+# Build outputs and the local signing key. build.ps1 / a local build generates
+# debug.keystore on first run; it is per-machine and must never reach a public repo.
+build/
+debug.keystore
+*.apk
+*.apk.idsig
