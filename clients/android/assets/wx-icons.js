@@ -67,26 +67,41 @@
      and — the point — still ONE outline. Its creases run across it rather than down it,
      because what makes a grey sky read as overcast is layers stacked to the horizon, not
      lobes stacked into a heap. */
-  var OV_D = "M 8 47 C 3.6 47 1 43.8 1.6 40.2 C 2.2 36.9 5 34.6 8.4 34.6"
-    + " C 8.6 30.2 12.2 26.8 16.6 26.8 C 18.4 22.4 22.7 19.4 27.6 19.4"
-    + " C 32.6 19.4 36.9 22.5 38.6 27 C 40 26.1 41.7 25.6 43.5 25.6"
-    + " C 48.2 25.6 52 29.2 52.5 33.8 C 57.3 34.6 60.9 38.4 60.9 43"
+  /* EVERY JOIN ON THE LEFT SHOULDER IS TANGENT-CONTINUOUS, which the first deck's were
+     not: it met its own top with two square corners — control points leaving horizontally
+     and arriving vertically — so the crown looked like a bun set down on a slab, and a
+     capture review named the step exactly where those corners are. A cumulus turret grows
+     OUT of the deck it is standing on; there is no line at the bottom of it. */
+  var OV_D = "M 8 47 C 3.6 47 1 43.8 1.6 40.2 C 2.2 36.9 5 34.7 8.4 34.8"
+    + " C 11.8 34.9 13.6 32.4 14.6 29.4"
+    + " C 15.8 25.8 19 22.6 23.2 21.4"
+    + " C 27.6 20.1 32.6 21.5 35.6 24.9"
+    + " C 37.4 26.9 39.6 25.9 41.8 25.9"
+    + " C 46.8 25.9 51 29.5 52.3 34.2"
+    + " C 57 35 60.9 38.6 60.9 43"
     + " C 60.9 45.2 59.1 47 56.9 47"
     + " C 48 48.5 39 48.5 30.5 47 C 22.5 48.4 15.5 48.4 8 47 Z";
-  var OV_RIM = "M 3.2 39.6 C 3.8 37 5.9 35.6 8.9 35.6"
-    + " C 9.2 31.6 12.6 28.4 16.9 28.2 C 18.8 24 22.9 21 27.6 21";
-  var OV_RIM_R = "M 43.5 27.2 A 7.4 7.4 0 0 1 50.7 33.2";
-  /* The deck's creases run ACROSS it, not down it, and they are cut in the belly colour
-     rather than the body colour: at the height they sit the surrounding fill has already
-     gone to the shadow grey, so a mid-grey stroke there reads as a bright rule scored
-     across the cloud — which is what the first draft looked like. */
-  var OV_FOLD = "M 6.2 36.6 C 18 34.4 34 34.9 56 36.9"
-    + "M 10.5 42.2 C 25 40.5 40 40.8 55.5 42.4";
+  var OV_RIM = "M 3.2 39.9 C 3.8 37.6 6 36.1 8.8 36.2"
+    + " C 11.8 36.3 13.4 33.6 14.4 30.6 C 15.6 27 18.8 24 22.9 22.8";
+  var OV_RIM_R = "M 42.4 27.4 A 7.6 7.6 0 0 1 50.6 33.6";
+  /* AND THEY ARE BROKEN. Two full-width curves at the same curvature, one above the
+     other, is not a layered sky — it is a slab with two rules scored across it, which is
+     what three separate captures of this drawing were failed for. Real layering is
+     RAGGED: pieces of shadow that start and stop at different places, at different
+     heights, bending different amounts, with the widest gap where the light is. So: four
+     short segments, no two the same length, none parallel to another, and none of them
+     reaching either edge of the mass. */
+  var OV_FOLD = "M 7.4 37.4 C 12.5 35.9 17.6 35.4 22.4 35.8"
+    + "M 31.5 34.9 C 38.4 35.1 45.2 36.2 51.4 38.1"
+    + "M 12.2 42.6 C 19.8 41.2 27.4 40.9 33.2 41.5"
+    + "M 39.6 42.9 C 45.1 42.5 49.8 42.7 54.2 43.6";
 
   var CUMULUS = { W: 57.5, MID: 30.75, BASE: 45, D: CL_D, RIM: CL_RIM, RIM2: CL_RIM_R,
                   FOLD: CL_FOLD, FTOK: "cloud-dk", FOP: 0.34, BX: 29.5 };
+  /* 0.3, not 0.5: a crease is where one layer of the deck passes in front of the next,
+     and at half an alpha of the belly colour it is a drawn line instead. */
   var DECK = { W: 59.9, MID: 31.25, BASE: 47, D: OV_D, RIM: OV_RIM, RIM2: OV_RIM_R,
-               FOLD: OV_FOLD, FTOK: "cloud-dkr", FOP: 0.5, BX: 31 };
+               FOLD: OV_FOLD, FTOK: "cloud-dkr", FOP: 0.3, BX: 31 };
 
   /* Placed by where it should SIT, not by a magic translate: centre x, the line its base
      rests on, and how wide it is. Everything else is arithmetic.
@@ -95,12 +110,13 @@
      texture filter on .wxi-mass, so the filtered raster is produced once and then
      composited by the transform above it — an animated geometry under a filter is a
      repaint every frame, which is exactly what the 855 cannot afford. */
-  function body(art, cx, base, w, dark) {
+  function body(art, cx, base, w, mat) {
+    var dark = mat !== "cloud";
     var s = w / art.W;
     var tx = cx - s * art.MID, ty = base - s * art.BASE;
     return '<g class="wxi-cloud" transform="translate(' + tx.toFixed(2) + " "
       + ty.toFixed(2) + ") scale(" + s.toFixed(3) + ')"><g class="wxi-mass">'
-      + '<path d="' + art.D + '" fill="url(#wxg-' + (dark ? "cloudd" : "cloud") + ')"/>'
+      + '<path d="' + art.D + '" fill="url(#wxg-' + mat + ')"/>'
       /* TWO bellies. One ellipse softened the centre of the base and left the rest of it
          a straight cut; the second is wider, fainter and offset, so the shadow runs the
          whole width of the base and thins unevenly along it. Both sit ENTIRELY inside the
@@ -113,21 +129,33 @@
       + '<path d="' + art.FOLD + '" fill="none" stroke="var(--ic-' + art.FTOK + ')"'
       + ' stroke-width="1.7" stroke-linecap="round" opacity="' + art.FOP + '"/>'
       + '<path d="' + art.RIM + '" fill="none" stroke="url(#wxg-rim)"'
-      + ' stroke-width="1.25" stroke-linecap="round" opacity="' + (dark ? 0.5 : 0.9) + '"/>'
+      + ' stroke-width="1.25" stroke-linecap="round" opacity="'
+      + (mat === "cloud" ? 0.9 : mat === "cloudd" ? 0.5 : 0.26) + '"/>'
       + '<path d="' + art.RIM2 + '" fill="none" stroke="url(#wxg-rim)"'
-      + ' stroke-width="1.1" stroke-linecap="round" opacity="' + (dark ? 0.18 : 0.32) + '"/>'
+      + ' stroke-width="1.1" stroke-linecap="round" opacity="'
+      + (mat === "cloud" ? 0.32 : mat === "cloudd" ? 0.18 : 0.1) + '"/>'
       + "</g></g>";
   }
-  function cloud(cx, base, w, dark) { return body(CUMULUS, cx, base, w, dark); }
-  function deck(cx, base, w) { return body(DECK, cx, base, w, true); }
+  function cloud(cx, base, w) { return body(CUMULUS, cx, base, w, "cloud"); }
+  function deck(cx, base, w) { return body(DECK, cx, base, w, "cloudd"); }
+  /* The thunder anvil takes the third material and almost none of the rim light: a bank
+     with rain coming out of it has no white edge, because there is no clear sky beside it
+     for one. That, and not the bolt, is what should tell a storm from an overcast day. */
+  function anvil(cx, base, w) { return body(DECK, cx, base, w, "clouds"); }
 
   /* What a bolt does to the cloud it just left, and the one mark that tells a storm from a
      dark cumulus in a STILL frame: a warm bloom pressed up under the belly. Drawn outside
      the mass so the texture filter never touches it — a blurred gradient through a
      displacement map is expensive and looks like nothing. */
   function underglow(cx, base, w) {
-    return '<ellipse class="wxi-underglow" cx="' + cx + '" cy="' + (base - 2).toFixed(1)
-      + '" rx="' + (w * 0.46).toFixed(1) + '" ry="' + (w * 0.19).toFixed(1)
+    /* IT SITS IN THE BELLY, not under it. Centred two units below the base with a radius
+       most of the mass's height, it hung as a separate fuzzy orange blob below the cloud —
+       a review read it as exactly that. Light from a strike is light ON the bank: the
+       warm patch belongs inside the silhouette, wide and shallow, pressed up against the
+       underside it is lighting. */
+    return '<ellipse class="wxi-underglow" cx="' + cx + '" cy="'
+      + (base - w * 0.11).toFixed(1)
+      + '" rx="' + (w * 0.44).toFixed(1) + '" ry="' + (w * 0.14).toFixed(1)
       + '" fill="url(#wxg-underglow)"/>';
   }
 
@@ -139,55 +167,68 @@
      two ray sets now — eight wedges that rock, and eight long thin ones between them that
      turn very slowly — because a single ring of spikes is a compass rose and two rings at
      different rates is glare. */
+  /* A RAY IS A FLAME, NOT A TRIANGLE. Straight sides meeting at a bevelled point, eight
+     of them, at full opacity, is a cut-paper compass rose — which is the verdict the first
+     shipped sun came back with. Two changes take it off the page and neither costs a node:
+     the sides are pulled INWARD by a quadratic, so the wedge loses most of its width in
+     the first third and finishes as a needle; and the ring is drawn at half strength, so
+     what is left of the tip dissolves into the corona instead of ending somewhere. */
   function rayRing(cx, cy, i0, o0, hw) {
     var out = "";
     for (var i = 0; i < 8; i++) {
       var a = (Math.PI / 4) * i + Math.PI / 8;
       var c = Math.cos(a), s = Math.sin(a);
-      /* a ray is a wedge, not a stick: wide at the disc, a point at the tip */
-      out += '<path d="M ' + (cx + c * i0 - s * hw).toFixed(1) + " "
-        + (cy + s * i0 + c * hw).toFixed(1)
-        + " L " + (cx + c * o0).toFixed(1) + " " + (cy + s * o0).toFixed(1)
-        + " L " + (cx + c * i0 + s * hw).toFixed(1) + " "
-        + (cy + s * i0 - c * hw).toFixed(1) + ' Z"/>';
+      var m = (i0 + o0) * 0.5, mw = hw * 0.26;      /* the waist, pulled well in */
+      function p(rr, ww) {
+        return (cx + c * rr - s * ww).toFixed(1) + " " + (cy + s * rr + c * ww).toFixed(1);
+      }
+      out += '<path d="M ' + p(i0, hw) + " Q " + p(m, mw) + " " + p(o0, 0)
+        + " Q " + p(m, -mw) + " " + p(i0, -hw) + ' Z"/>';
     }
     return out;
   }
   function sun(cx, cy, r) {
-    /* ORDER IS THE WHOLE OF IT. The first layered sun drew both ray sets underneath the
-       corona, which is a soft bright disc a third again the radius — so the rays were
-       painted and then painted over, and the icon came out as a plain glowing ball. Air
-       first, then the light travelling through it. */
+    /* ORDER IS THE WHOLE OF IT, and the order changed. Everything used to be painted under
+       the disc, which left the collar of light with nowhere to start but outside the limb —
+       and between the limb and where it started there was nothing but the wide halo at a
+       fifth of an alpha. That band is the DARK RING a review found around the sun, and it
+       cannot be closed from below: the fix is to let the light travelling through the air
+       be painted over the thing emitting it, which is also what glare does to an outline.
+
+       So: halo, then rays into it, then the disc, and the collar LAST, reaching back
+       inside the limb far enough that there is no seam to find.
+
+       AND THE RAYS START UNDER THE DISC. Based just outside the limb they left a ring of
+       bare collar between the sun's edge and the first ray — six per cent of the radius,
+       dimmer than both of its neighbours, which is a dark ring by another route. Tucked
+       inside, the disc hides the base and every ray is already tapering by the time it
+       becomes visible, which is also how light actually leaves a limb. */
     return '<circle class="wxi-halo" cx="' + cx + '" cy="' + cy + '" r="'
-      + (r * 2).toFixed(1) + '" fill="url(#wxg-halo)"/>'
-      + '<circle class="wxi-halo-in" cx="' + cx + '" cy="' + cy + '" r="'
-      + (r * 1.5).toFixed(1) + '" fill="url(#wxg-corona)"/>'
-      + '<g class="wxi-rays2" fill="var(--ic-ray)" opacity="0.42" transform="rotate(22.5 '
+      + (r * 1.85).toFixed(1) + '" fill="url(#wxg-halo)"/>'
+      + '<g class="wxi-rays2" fill="var(--ic-ray)" opacity="0.18" transform="rotate(22.5 '
       + cx + " " + cy + ')">'
-      + rayRing(cx, cy, r * 1.3, r * 1.95, r * 0.055) + "</g>"
-      + '<g class="wxi-rays" fill="var(--ic-ray)">'
-      + rayRing(cx, cy, r * 1.18, r * 1.72, r * 0.19) + "</g>"
+      + rayRing(cx, cy, r * 1.26, r * 2.02, r * 0.07) + "</g>"
+      + '<g class="wxi-rays" fill="var(--ic-ray)" opacity="0.4">'
+      + rayRing(cx, cy, r * 0.94, r * 1.66, r * 0.24) + "</g>"
       + '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="url(#wxg-sun)"/>'
-      + '<ellipse cx="' + (cx - r * 0.26).toFixed(1) + '" cy="' + (cy - r * 0.3).toFixed(1)
-      + '" rx="' + (r * 0.42).toFixed(1) + '" ry="' + (r * 0.36).toFixed(1)
-      + '" fill="var(--ic-sun-lit)" opacity="0.5"/>';
+      + '<circle class="wxi-halo-in" cx="' + cx + '" cy="' + cy + '" r="'
+      + (r * 1.5).toFixed(1) + '" fill="url(#wxg-corona)"/>';
   }
 
   /* The moon body, drawn in wx-icons-moon.js and shared with the Moon widget — see that
      file's header for why it is not in here. */
   var moon = WP.moonArt.body;
 
-  /* A star is a garnish, not a subject. Four of them at sparkle size beside a thin crescent
-     made the night glyph read as an emoji; two small ones beside a real disc read as sky. */
+  /* A star is a POINT OF LIGHT with air glowing round it — which is what the sky canvas
+     behind the cards has always drawn, and what a telescope, a camera and an eye all
+     record. The four-armed sparkle it used to be is a diffraction figure belonging to a
+     lens with a cross-shaped aperture, and beside a rendered sphere it was the one thing
+     left on the night glyph that read as clip-art. Same two nodes, same twinkle, no arms. */
   function star(cx, cy, s) {
-    return '<g opacity="0.72"><circle cx="' + cx + '" cy="' + cy + '" r="' + (s * 2.1).toFixed(1)
-      + '" fill="url(#wxg-starglow)"/>'
-      + '<path class="wxi-star" d="M ' + cx + " " + (cy - s)
-      + " Q " + cx + " " + cy + " " + (cx + s) + " " + cy
-      + " Q " + cx + " " + cy + " " + cx + " " + (cy + s)
-      + " Q " + cx + " " + cy + " " + (cx - s) + " " + cy
-      + " Q " + cx + " " + cy + " " + cx + " " + (cy - s)
-      + ' Z" fill="var(--ic-star)"/></g>';
+    return '<g opacity="0.66"><circle cx="' + cx + '" cy="' + cy + '" r="'
+      + (s * 2.6).toFixed(1) + '" fill="url(#wxg-starglow)"/>'
+      + '<circle class="wxi-star" cx="' + cx + '" cy="' + cy + '" r="'
+      + (s * 0.6).toFixed(2) + '" fill="var(--ic-star)"/></g>';
   }
 
   /* Falling water. ONE rake angle and ONE gap below the belly for every streak in the
@@ -270,8 +311,18 @@
     var d = pts.map(function (q, i) {
       return (i ? "L " : "M ") + (cx + q[0]).toFixed(1) + " " + (38 + q[1]).toFixed(1);
     }).join(" ") + " Z";
+    /* THE GLOW HAS TO FOLLOW THE SHAPE. A radial ellipse behind a zigzag lights the air
+       around the middle of it and leaves the channel itself with a hard cut edge, which
+       is the contour a review picked out. Bloom belongs to the outline: the same path,
+       swollen about its own centre and laid down at a fifth of an alpha, is a halo the
+       exact shape of the thing glowing. (The scale is written out longhand because a
+       presentation transform takes its origin from the user space, not from fill-box —
+       that is a CSS-transform rule and this is an attribute.) */
+    var px = cx + 0.7, py = 48, k = 1.2;
     return '<g class="wxi-bolt">'
-      + '<ellipse cx="' + cx + '" cy="48" rx="13" ry="14" fill="url(#wxg-boltglow)"/>'
+      + '<ellipse cx="' + cx + '" cy="48" rx="11" ry="12.5" fill="url(#wxg-boltglow)"/>'
+      + '<path d="' + d + '" fill="var(--ic-bolt)" opacity="0.22" transform="translate('
+      + (px * (1 - k)).toFixed(2) + " " + (py * (1 - k)).toFixed(2) + ") scale(" + k + ')"/>'
       + '<path d="' + d + '" fill="url(#wxg-bolt)"/>'
       + '<path d="M ' + (cx + 3.9) + ' 37 L ' + (cx - 2.4) + " 47 L " + (cx + 1.2)
       + " 47 L " + (cx - 1) + ' 55" fill="none"'
@@ -279,28 +330,41 @@
       + ' opacity="0.75"/></g>';
   }
 
-  /* Fog is layers of air, so it is drawn as layers — and each layer is drawn TWICE: a wide
-     soft under-band and a narrower, brighter core on top of it. Three hard rules under a
-     cloud is a menu glyph or a legend; what makes a band read as air is that it has no
-     edge anywhere, in either axis. The middle band carries the most weight because that is
-     where the eye enters the shape. */
+  /* FOG, AS LENSES OF AIR. Every earlier attempt drew it as strokes — three bands with
+     round caps, a wide soft one under a narrow bright one — and every one of them came
+     back as the same note: capsules, pills, a legend, a barcode. The reason is the cap. A
+     thick stroke ends in a shape, and a shape at 0.8 of the fog colour is an object with
+     an edge, however soft the gradient over it is.
+
+     An ellipse has no cap and no side. Filled with one object-box radial it fades to
+     nothing at both ends AND at top and bottom, at whatever length and thickness it is
+     drawn — so a band can be as dense as it likes in the middle and still have no edge
+     anywhere. Three of them, no two the same length, thickness, offset or weight, sliding
+     against each other on the stylesheet's clock.
+
+     They hang BELOW the cloud rather than across it. Over the belly they read as
+     something drawn on the drawing; clear of it they read as the air under a bank, which
+     is where fog is. */
   function fog(y) {
-    /* Three bands, no two the same length, weight, offset or density. Evenly spaced bands
-       of equal length are a barcode — which is exactly what the first attempt drew. */
-    var band = [[26, 3.4, 0, 0.72], [17.5, 4.6, 5.5, 1], [22, 3.0, -3.5, 0.6]];
-    var rows = band.map(function (b, i) {
-      var yy = y + i * 8;
-      return '<g class="wxi-fogband" opacity="' + b[3] + '">'
-        /* The soft band carries most of the weight and the core is a hint inside it — the
-           other way round draws three capsules, which is a legend. */
-        + '<line stroke-width="' + (b[1] * 3).toFixed(1) + '" opacity="0.42"'
-        + ' x1="' + (32 + b[2] - b[0] * 1.14).toFixed(1) + '" y1="' + yy
-        + '" x2="' + (32 + b[2] + b[0] * 1.14).toFixed(1) + '" y2="' + yy + '"/>'
-        + '<line stroke-width="' + (b[1] * 0.62).toFixed(1) + '" opacity="0.8"'
-        + ' x1="' + (32 + b[2] - b[0] * 0.82).toFixed(1) + '" y1="' + yy
-        + '" x2="' + (32 + b[2] + b[0] * 0.82).toFixed(1) + '" y2="' + yy + '"/></g>';
+    /* Six lobes on three levels, not three bands: a layer whose density is the same all
+       the way along it is a shape, and a shape at this scale is a lozenge. Each level
+       carries a long lens and a short one riding on it, off to one side and at a
+       different weight, so the layer thickens and thins as it crosses — which is the one
+       property that separates fog from grey paint, and the same trick the sky canvas's
+       haze sprite is built on. rx, ry, x offset, y offset, weight. */
+    var band = [[27, 3.8, 0, 0, 0.85], [13, 3, -12, 1.2, 0.7],
+                [19, 5.2, 6, 6.6, 1], [11, 3.4, -9, 7.8, 0.8],
+                [23, 3.2, -4, 13.2, 0.7], [9, 2.4, 14, 12.4, 0.55]];
+    return band.map(function (b, i) {
+      /* FILL-OPACITY, not opacity: the stylesheet animates `opacity` on this class to
+         make the layers slide and breathe against each other, and an animated property
+         wins over a presentation attribute — so a weight written as opacity was quietly
+         discarded and all three bands ran at one density. fill-opacity is a different
+         property, and it survives. */
+      return '<ellipse class="wxi-fogband" cx="' + (32 + b[2]).toFixed(1) + '" cy="'
+        + (y + b[3]).toFixed(1) + '" rx="' + b[0] + '" ry="' + b[1]
+        + '" fill="url(#wxg-fogband)" fill-opacity="' + b[4] + '"/>';
     }).join("");
-    return '<g stroke="url(#wxg-fog)" stroke-linecap="round">' + rows + "</g>";
   }
 
   function wrap(inner) {
@@ -352,7 +416,7 @@
   /* ONE deck, not two stacked cumulus. The seam the old pair produced ran through the
      middle of the largest drawing in the product. */
   var overcast = once(function () { return deck(32, 45, 52); });
-  var foggy = once(function () { return cloud(32, 34, 42) + fog(42); });
+  var foggy = once(function () { return cloud(32, 33, 42) + fog(44); });
   var drizzle = once(function () { return cloud(32, 40, 45) + drops(2, 7, 40); });
   var rain = once(function () { return cloud(32, 40, 45) + drops(3, 12, 40); });
   /* one drop beside one flake: rain that freezes */
@@ -367,10 +431,10 @@
     return moon(18, 17, 10.5, livePhase()) + cloud(36, 42, 40) + drops(3, 11, 42);
   }
   var storm = once(function () {
-    return deck(32, 38, 50) + underglow(32, 38, 50) + bolt(32);
+    return anvil(32, 38, 50) + underglow(32, 38, 50) + bolt(32);
   });
   var stormRain = once(function () {
-    return deck(32, 38, 50) + underglow(32, 38, 50) + bolt(32)
+    return anvil(32, 38, 50) + underglow(32, 38, 50) + bolt(32)
       + rainGroup(streak(15.5, 41.2, 11, 2.6, 0.8) + streak(48.5, 41.2, 13, 2.6));
   });
   var snowShowersDay = once(function () {

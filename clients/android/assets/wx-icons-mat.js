@@ -58,10 +58,19 @@
     "wxg-cloud": vol("wxg-cloud", 0.30, 0.14, 0.95,
       stop(0, "cloud-hi") + stop(0.16, "cloud-lit") + stop(0.42, "cloud")
       + stop(0.74, "cloud-dk") + stop(1, "cloud-dkr")),
-    /* The same mass with the light taken out of it — overcast decks and the storm anvil.
+    /* The same mass with the light taken out of it — the overcast deck.
        Still radial, because even a grey sky has a brighter side. */
     "wxg-cloudd": vol("wxg-cloudd", 0.32, 0.16, 0.98,
       stop(0, "cloud-lit") + stop(0.22, "cloud") + stop(0.55, "cloud-dk")
+      + stop(1, "cloud-dkr")),
+    /* AND THE THUNDER ANVIL, which is not the overcast deck turned down — it is a
+       different weight of grey. A still frame of a storm and a still frame of overcast
+       used to differ by one bolt; the mass itself has to be the heavier of the two, so
+       this one starts where the other one is already halfway to its shadow and never
+       reaches the lit face at all. The crown is low and grey rather than a white turret,
+       which is what a bank with rain falling out of it actually looks like. */
+    "wxg-clouds": vol("wxg-clouds", 0.34, 0.20, 1.02,
+      stop(0, "cloud") + stop(0.2, "cloud-dk") + stop(0.62, "cloud-dkr")
       + stop(1, "cloud-dkr")),
     /* the soft dark under the belly of a bank, so the base is not a straight cut */
     "wxg-belly": '<radialGradient id="wxg-belly">'
@@ -77,25 +86,68 @@
     "wxg-rim": '<linearGradient id="wxg-rim">'
       + stop(0, "cloud-hi", 0) + stop(0.3, "cloud-hi", 1)
       + stop(0.72, "cloud-hi", 1) + stop(1, "cloud-hi", 0) + "</linearGradient>",
-    /* the disc: hot centre up and left, cooling to the rim */
-    "wxg-sun": vol("wxg-sun", 0.38, 0.33, 0.75,
-      stop(0, "sun-lit") + stop(0.5, "sun") + stop(1, "ray")),
-    /* the air around it — this is what a sun looks like through an atmosphere */
+    /* THE DISC, and the one stop that was doing the damage. It used to finish on --ic-ray
+       (#ffb347), an amber two shades under the collar of light outside it — so the far
+       rim of the sun was DARKER than the air around it, and the eye read a dark annulus
+       ringing a flat ball. A star's limb is dimmer than its centre by a few per cent, not
+       by a shade, and whatever is left of that is buried under the corona. So the ramp
+       runs hot centre to body and stays there; the turn of the form is carried by the
+       off-centre placement, and the edge is finished by the collar, from outside. */
+    "wxg-sun": vol("wxg-sun", 0.37, 0.32, 0.80,
+      stop(0, "sun-lit") + stop(0.34, "sun-lit") + stop(0.72, "sun") + stop(1, "sun")),
+    /* The air around it. Held DOWN and pulled IN: a wide field of amber at a fifth of an
+       alpha over true black is not a glow, it is a brown disc the size of the icon — which
+       is what a capture review called it. Glow is a steep falloff, so most of the reach is
+       spent in the first third and what is left beyond that is a rumour. */
     "wxg-halo": '<radialGradient id="wxg-halo">'
-      + stop(0, "sun-lit", 0.38) + stop(0.45, "sun", 0.2) + stop(1, "sun", 0)
-      + "</radialGradient>",
-    /* The corona is the halo's inner, hotter half: a sun seen through air has a bright
-       collar right off the limb and a long faint reach beyond it, and one gradient cannot
-       be both without going flat in the middle. */
+      + stop(0, "sun-lit", 0.30) + stop(0.34, "sun", 0.15) + stop(0.66, "sun", 0.05)
+      + stop(1, "sun", 0) + "</radialGradient>",
+    /* THE COLLAR, and it is now painted ON TOP of the disc rather than under it.
+
+       Under the disc it could only ever start outside the limb, which left a band of bare
+       halo — a fifth of an alpha of amber over black — between the sun's edge and the
+       first bright thing outside it. That band is the dark annulus a review found ringing
+       the sun, and no amount of tuning the ring's own stops closes it, because the gap is
+       between two layers rather than inside one.
+
+       Over the disc it can begin INSIDE the limb and carry the edge outward, which is
+       what a bright source seen through air actually does: the glare eats its own outline.
+       It is drawn on a circle 1.5 radii wide, so 0.667 here is the limb exactly — the ramp
+       starts at 0.5 (three quarters of the way out on solid sun) and is still going when
+       it crosses. Nothing is painted at full strength anywhere, so the disc keeps its
+       colour and only its rim is lifted. */
     "wxg-corona": '<radialGradient id="wxg-corona">'
-      /* Nothing until the disc's own edge, then the collar. The first version put its
-         bright stop at 0.52 of a circle 1.34 radii wide — i.e. inside the disc, where it
-         painted over solid sun and did nothing at all outside it. A corona is what happens
-         to light AFTER it leaves the limb. */
-      + stop(0, "sun-lit", 0) + stop(0.68, "sun-lit", 0) + stop(0.77, "sun-lit", 0.42)
-      + stop(0.88, "sun", 0.2) + stop(1, "sun", 0) + "</radialGradient>",
-    "wxg-moon": vol("wxg-moon", 0.6, 0.34, 0.8,
-      stop(0, "moon-lit") + stop(0.55, "moon") + stop(1, "moon-dim")),
+      + stop(0, "sun-lit", 0) + stop(0.48, "sun-lit", 0) + stop(0.63, "sun-lit", 0.5)
+      + stop(0.7, "sun-lit", 0.52) + stop(0.82, "sun", 0.26) + stop(0.92, "sun", 0.1)
+      + stop(1, "sun", 0) + "</radialGradient>",
+    /* THE LIT FACE. Flatter than a billiard ball on purpose: the moon's regolith
+       back-scatters, which is why a full moon reads as a disc rather than as a sphere, and
+       a hot little highlight on the sunward shoulder turned the hero into a pearl button.
+       So the bright stop is small and the middle of the ramp holds one value for most of
+       the face; all the modelling that is left is the fall toward the terminator, which is
+       the side the light is failing on and therefore the side that should be dimmest. */
+    "wxg-moon": vol("wxg-moon", 0.62, 0.42, 1.02,
+      stop(0, "moon-lit") + stop(0.26, "moon") + stop(0.72, "moon")
+      + stop(1, "moon-dim")),
+    /* A CRATER IS A BOWL, and a bowl is one fill with the light running across it. Drawn
+       as an arc pair it came out an open dark horseshoe — the lit inner wall was struck in
+       a tone the face already wore, so only the shadow ever registered. This is the same
+       depression as one closed shape: the wall facing the sun (upper right) in its own
+       shadow, the floor in half-light, the far wall square-on to the light. */
+    "wxg-crater": '<linearGradient id="wxg-crater" x1="0.86" y1="0.14" x2="0.2" y2="0.86">'
+      + stop(0, "moon-dk", 0.55) + stop(0.45, "moon-dim", 0.5)
+      + stop(1, "moon-lit", 0.5) + "</linearGradient>",
+    /* AND BOTH OF THEM MIRRORED, because the sun changes sides. A waxing moon is lit from
+       the right and a waning one from the left, and a face shaded from the right for the
+       whole month has its dimmest ground on the LIT limb for two weeks out of four —
+       which is the same "backwards" the stepped terminator was failed for, just slower to
+       notice. Two extra defs and a branch is the whole cost of getting it right. */
+    "wxg-moonw": vol("wxg-moonw", 0.38, 0.42, 1.02,
+      stop(0, "moon-lit") + stop(0.26, "moon") + stop(0.72, "moon")
+      + stop(1, "moon-dim")),
+    "wxg-craterw": '<linearGradient id="wxg-craterw" x1="0.14" y1="0.14" x2="0.8" y2="0.86">'
+      + stop(0, "moon-dk", 0.55) + stop(0.45, "moon-dim", 0.5)
+      + stop(1, "moon-lit", 0.5) + "</linearGradient>",
     /* Limb darkening. A sphere does not end at a bright line; it turns away, and the last
        few per cent of the disc is the part turning fastest. Transparent until 0.72 of the
        radius so it costs the face nothing and only bites at the edge. */
@@ -111,19 +163,37 @@
     /* Rain and fog take userSpaceOnUse: a drop's bounding box is a hair wide, so an
        object-box gradient on its stroke degenerates. Every icon shares one 64x64 space,
        so one definition in that space serves all of them. */
+    /* A STREAK IS A HEAD AND A TRAIL, and the ramp between them has to be steep enough to
+       see. At 0.12 to 0.85 over the top half it was a stroke that got slightly brighter —
+       the sky canvas had already learned that what makes a drop read as FALLING is a
+       leading end clearly brighter than what is behind it, and the icon's drops were the
+       last flat strokes in the pack. Now the trail is nearly gone and the last third is
+       the near-white --ic-rain-lit, which is also what takes the accent blue off them. */
     "wxg-rain": '<linearGradient id="wxg-rain" gradientUnits="userSpaceOnUse"'
-      + ' x1="0" y1="36" x2="0" y2="64">'
-      + stop(0, "rain", 0.12) + stop(0.45, "rain", 0.85) + stop(1, "rain-lit", 1)
-      + "</linearGradient>",
-    "wxg-fog": '<linearGradient id="wxg-fog" gradientUnits="userSpaceOnUse"'
-      + ' x1="4" y1="0" x2="60" y2="0">'
-      + stop(0, "fog", 0) + stop(0.22, "fog", 0.95) + stop(0.78, "fog", 0.95)
-      + stop(1, "fog", 0) + "</linearGradient>",
+      + ' x1="0" y1="34" x2="0" y2="64">'
+      + stop(0, "rain", 0.05) + stop(0.34, "rain", 0.42) + stop(0.72, "rain-lit", 0.9)
+      + stop(1, "rain-lit", 1) + "</linearGradient>",
+    /* FOG, AS A LENS RATHER THAN A LINE. The bands used to be stroked lines with round
+       caps under a gradient that ran across the whole 64-space: a band whose ends did not
+       reach the gradient's own fade kept full opacity right up to its cap, and a thick
+       round-capped stroke at 0.8 is a capsule. Three of those over a cloud read as UI
+       pills, which is what a review called them.
+
+       An ELLIPSE has a bounding box in both axes, so it can carry an object-box radial —
+       one def that fades every band to nothing at its own ends and its own edges, whatever
+       length and thickness it is drawn at. No cap, no rule, no edge anywhere. */
+    "wxg-fogband": '<radialGradient id="wxg-fogband">'
+      + stop(0, "fog", 1) + stop(0.42, "fog", 0.92) + stop(0.75, "fog", 0.45)
+      + stop(1, "fog", 0) + "</radialGradient>",
     /* a flake is not a wire drawing at hero size — it has air lit around it */
     "wxg-bloom": '<radialGradient id="wxg-bloom">'
       + stop(0, "snow", 0.34) + stop(0.5, "snow", 0.12) + stop(1, "snow", 0)
       + "</radialGradient>",
-    "wxg-bolt": lin("wxg-bolt", 0, 1, stop(0, "bolt-hi") + stop(1, "bolt")),
+    /* Three stops down the bolt's length, not two: white-hot where it leaves the cloud,
+       through the body colour, into amber at the tip. A channel that is the same yellow
+       from top to bottom is a road sign. */
+    "wxg-bolt": lin("wxg-bolt", 0, 1,
+      stop(0, "bolt-hi") + stop(0.4, "bolt") + stop(1, "ray")),
     "wxg-boltglow": '<radialGradient id="wxg-boltglow">'
       + stop(0, "bolt", 0.42) + stop(1, "bolt", 0) + "</radialGradient>"
   };
@@ -162,7 +232,24 @@
       + ' values="0 0 0 0 0.10  0 0 0 0 0.12  0 0 0 0 0.16  0 0 0 0.46 -0.17"/>'
       + '<feComposite in="veil" in2="mass" operator="in" result="mottle"/>'
       + "<feMerge><feMergeNode in=\"mass\"/><feMergeNode in=\"mottle\"/></feMerge>"
-      + "</filter>"
+      + "</filter>",
+
+    /* THE TERMINATOR, softened by the only honest means there is.
+
+       The line between lunar day and night is not a cut — it is a band a couple of degrees
+       wide where the sun is grazing the surface. That band used to be faked by painting
+       the shadow four times at four phases a few thousandths apart, which lays down four
+       countable steps: a review read them as hard bands with a light stripe sitting
+       between the shadow and the disc, which is backwards, because the dimmest lit ground
+       on a moon is the ground nearest the terminator.
+
+       One small static blur is what four stacked paths were approximating, and it costs
+       one raster on a shape that changes once an hour. It is attached to the HERO discs
+       only — the Moon panel draws eleven thumbnails in a strip, and a filter each for a
+       band nobody can resolve at 30 px is the trade the icon texture already refuses. */
+    "wxf-term": '<filter id="wxf-term" x="-6%" y="-6%" width="112%" height="112%"'
+      + ' color-interpolation-filters="sRGB">'
+      + '<feGaussianBlur stdDeviation="0.9"/></filter>'
   };
 
   /* THE MATERIALS ARE MOUNTED ONCE, into a permanent hidden sprite in index.html, and
