@@ -159,6 +159,39 @@ test("the light does move — a day is not one flat colour", function () {
   assert.ok(L.at(D.at(19, 40), D.rise, D.set).glowX > 0.75, "the sun does not set in the west");
 });
 
+test("the zenith stays cool at every hour — a daytime sky is never one warm wash", function () {
+  /* The fault this pins is one a capture found and no assertion could have: the wash used
+     to be a SINGLE colour ramped over the frame, so at golden hour every pixel on the
+     panel was some strength of orange and a five-o'clock August screenshot came back a
+     uniform tobacco brown with no blue in it anywhere — the only scene in the set whose
+     sky visibly warmed the white type on top of it.
+
+     The model carries both ends of the gradient now, and the rule is that the top of the
+     window is cold at every hour of the day. Warmth is a HORIZON property: it may burn as
+     hard as the table likes down there, because the painter keeps it in the bottom fifth
+     of the frame, under the height anything is read at. */
+  Object.keys(L.MOODS).forEach(function (k) {
+    var m = L.MOODS[k];
+    assert.ok(m.top[2] - m.top[0] > 40, k + " has a warm zenith: " + m.top.join(","));
+  });
+  /* and the two ends must actually DIFFER at the hours when the light is low, or the
+     second colour is costing a lerp and buying nothing. Measured as red-minus-blue, which
+     is what "warmer" means to an eye: dusk's own horizon is a violet rather than an amber
+     and still clears its zenith by seventy levels of it. */
+  ["dawn", "golden", "dusk"].forEach(function (k) {
+    var m = L.MOODS[k];
+    assert.ok((m.sky[0] - m.sky[2]) - (m.top[0] - m.top[2]) > 60,
+      k + "'s horizon is no warmer than its own zenith");
+  });
+  /* the zeniths interpolate, so no minute between two cool moods can be a warm one */
+  var worst = -999;
+  everyMinute(D.midnight, D.midnight + DAY, function (t) {
+    var top = L.at(t, D.rise, D.set).top;
+    worst = Math.max(worst, top[0] - top[2]);
+  });
+  assert.ok(worst <= -40, "the zenith warms to r-b " + worst + " at some point in the day");
+});
+
 /* ---------------- the alpha budget ---------------- */
 
 test("no mood exceeds the stated alpha budget, and no pair of them can together", function () {
