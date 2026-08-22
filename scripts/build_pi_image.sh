@@ -232,6 +232,34 @@ fi
 grep -qxF 'i2c-dev' "${MNT}/etc/modules"
 echo "i2c-dev registered in /etc/modules"
 
+# --- unblock wifi: NetworkManager ships it disabled by default -------------
+# Confirmed by inspecting the pristine Trixie base image directly: it ships
+# /var/lib/NetworkManager/NetworkManager.state containing exactly
+# "[main]\nWirelessEnabled=false". Per NetworkManager's own documentation,
+# writing WirelessEnabled also updates the kernel rfkill soft-block state for
+# wifi (networkmanager.dev/docs/rfkill/) — so this one persisted flag, wholly
+# independent of any regulatory-domain/country setting, is why a freshly
+# flashed device never joins any network even with correct SSID/password:
+# NetworkManager refuses to even bring the radio up. Real-hardware testing
+# hit exactly this (service started, e-paper refreshed, wifi never came up).
+#
+# This is a deliberate InkyPi override of Pi OS's conservative
+# ship-wifi-disabled default: the world/00 regulatory domain still applies
+# as a conservative safety net (this does not touch regulatory-domain), and
+# InkyPi's headless deployment has no way to surface Pi OS's own
+# "wifi blocked, run raspi-config" login warning to a user who can't get a
+# shell in the first place. Revisit if this default ever needs reconsidering.
+banner "Enabling wifi radio by default (NetworkManager ships it off)"
+NM_STATE="${MNT}/var/lib/NetworkManager/NetworkManager.state"
+mkdir -p "$(dirname "${NM_STATE}")"
+if [ -f "${NM_STATE}" ]; then
+    sed -i 's/^WirelessEnabled=false$/WirelessEnabled=true/' "${NM_STATE}"
+else
+    printf '[main]\nWirelessEnabled=true\n' > "${NM_STATE}"
+fi
+grep -qxF 'WirelessEnabled=true' "${NM_STATE}"
+echo "NetworkManager WirelessEnabled set to true"
+
 # --- first-boot instructions --------------------------------------------------
 banner "Writing first-boot instructions"
 # Pi OS Trixie dropped the old custom.toml/raspberrypi-sys-mods firstboot
@@ -245,7 +273,8 @@ InkyPi pre-installed image (JTN-533)
 ====================================
 
 This image already has InkyPi installed and enabled. It has NO user
-password, NO wifi and NO SSH until you configure it.
+password and NO SSH until you configure it, and isn't joined to any
+network until you give it Wi-Fi credentials (the radio itself is on).
 
 Set your Wi-Fi, hostname, username/password and SSH access in
 Raspberry Pi Imager's "Edit Settings" (gear icon) BEFORE flashing —
@@ -253,20 +282,22 @@ Imager writes these into cloud-init's user-data and network-config
 files on this same (boot) partition, applied automatically on first
 boot.
 
-IMPORTANT — Wi-Fi country: Pi OS blocks the wifi radio by default
-(rfkill) until a regulatory domain / country is set. Where that field
-lives in Imager has moved (pre-2.0: the Wi-Fi dialog; 2.0+: the
-Localisation step), and pre-2.0 versions have been seen to leave
-network-config's `regulatory-domain:` unset even though SSID/password
-were written correctly. Use Imager 2.0+ if you can.
-
-If the Pi never joins your network: edit network-config by hand and
-set `regulatory-domain:` under the wifi block, OR add this to the end
-of cmdline.txt on this partition (one line, space-separated from the
-rest, no newline) before first boot:
+Wi-Fi is enabled by default on this image (unlike stock Pi OS, which
+ships NetworkManager with wifi turned off until you set a regulatory
+domain / country — this image overrides that, since a headless device
+like this one has no way to show you Pi OS's usual "wifi is blocked,
+run raspi-config" login message). If the Pi still doesn't join your
+network, in order of how likely each is to actually work: (1) double
+check the SSID/password Imager wrote are correct; (2) set a Wi-Fi
+country anyway — edit network-config on this partition by hand and
+set `regulatory-domain:` under the wifi block (Imager 2.0+ does this
+for you automatically; earlier versions don't) — a confirmed country
+gets you full channel/power support rather than the conservative
+worldwide default; (3) as a last resort, add this to the end of
+cmdline.txt on this partition (one line, space-separated from the
+rest, no newline):
     cfg80211.ieee80211_regdom=US
-(use your actual ISO country code). This unblocks the radio
-regardless of what Imager did or didn't write.
+(use your actual ISO country code).
 
 If you'd rather not use Imager, this partition already ships stock
 cloud-init templates you can edit by hand before first boot:

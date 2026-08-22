@@ -164,6 +164,16 @@ else
     bad "i2c-dev not in /etc/modules — /dev/i2c-1 will not exist and inky.auto() fails with 'No EEPROM detected'"
 fi
 
+# Pi OS ships NetworkManager with WirelessEnabled=false in its persisted
+# state file — confirmed on real hardware to mean the wifi radio never comes
+# up at all, independent of any SSID/password/regulatory-domain setting.
+# build_pi_image.sh flips this; verify it stuck.
+if d "cat /var/lib/NetworkManager/NetworkManager.state" | grep -qx "WirelessEnabled=true"; then
+    ok "NetworkManager WirelessEnabled=true (wifi radio enabled by default)"
+else
+    bad "NetworkManager.state does not have WirelessEnabled=true — wifi radio will not come up on boot"
+fi
+
 CFG_DIR_LS="$(d "ls /opt/inkypi-src/src/config" | tr -s ' \n' '\n')"
 if printf '%s' "${CFG_DIR_LS}" | grep -qx "device.json"; then
     ok "device.json provisioned"
