@@ -18,15 +18,18 @@
 /* ---- hourly panel chart ----
    Ticks and hi/lo callouts are HTML over the SVG so their sizes come off the ramp like
    every other label; the SVG carries only geometry. */
-/* The top margin is the caption's room. See .hc-cap: the "% chance of rain" key hangs
-   entirely above the plot frame, because a caption inside a plot area reads as something
-   the chart is saying about a point rather than as a label on the whole bar row. */
+/* The top margin is the caption's room, and the plot pays for it. See .hc-cap: the
+   "% chance of rain" key hangs entirely above the frame, because a caption inside a plot
+   area reads as something the chart is saying about a point rather than as a label on the
+   whole bar row. Every panel in this build is SIZED to fit its box rather than scrolled,
+   so a line of height taken here has to be given back somewhere — .hchart is 1.8vh
+   shorter than it was, which leaves the block a hair under its old total. */
 .hchart-wrap { position: relative; margin: 2.4vh 0 0.2vh; }
 /* The height is DECLARED. With `height: auto` the SVG took it from its own aspect ratio,
    so the plot was as tall as the panel was wide — 250 CSS px in portrait and 357 px of a
    711 px-tall landscape screen. That is the landscape bug: the chart pushed the hero and
    the stat row off the top and its own peak out of view. */
-.hchart { width: 100%; height: 20vh; display: block; }
+.hchart { width: 100%; height: 18.2vh; display: block; }
 /* the selected hour's dot, in HTML so a stretched viewBox cannot turn it into an ellipse */
 .hc-dot {
   position: absolute;
