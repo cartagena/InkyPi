@@ -1,0 +1,12 @@
+{
+  "name": "inky-oled",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Wall panel dashboard for a Galaxy Tab S6 — test harness only. The app itself is vanilla JS with no dependencies; this file exists so `npm test` works and nothing else.",
+  "scripts": {
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

@@ -66,7 +66,8 @@ exclude = [
   "build",
   "dist",
   "mock_display_output",
-  "src/display/waveshare_epd"
+  "src/display/waveshare_epd",
+  "clients"
 ]
 
 [tool.ruff.lint]

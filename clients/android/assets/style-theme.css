@@ -1,0 +1,499 @@
+/* Wall panel dashboard — THE COLOUR LAYER AND LANDSCAPE.
+   Icon/temperature/AQI palettes, the sky canvas layer, charts, the carousel slide,
+   the new widgets' looks, and the landscape grid. Tokens it defines extend the ramp
+   in style.css, which loads first. */
+
+/* ---------- toast ----------
+   Both screens are full layouts with no spare band, so a floating toast is always over
+   something and the only real choice is *what*. Two earlier positions both picked content:
+   5.5vh printed through the panel subtitle, and 11.5vh cleared the header only to land on
+   the first content row instead — in the HA panel, on the entity chip row the user had just
+   tapped, and in Settings across the "WIDGETS" label.
+   So it takes over the one line of throwaway text in whichever context it appears, and that
+   line fades out underneath it: the home status line ("Updated 3:41 PM") when the dashboard
+   is showing, an open panel's subtitle when one is up. Both are re-rendered from state, so
+   nothing is lost by hiding them for 1.8s, and no control or datum is ever covered.
+     home   0.9-5.5vh, entirely inside the 4.2vh topbar band (clock starts at ~5.95vh)
+     panel  6.0-10.6vh, the subtitle line plus the body's top padding (content at ~11.9vh)
+   max-width keeps a long message clear of the gear button and the panel's close button. */
+.toast {
+  position: fixed;
+  left: 50%;
+  top: 0.9vh;
+  transform: translate(-50%, -1.5vh);
+  max-width: 76vw;
+  background: #141414;
+  border: 1px solid var(--card-line2);
+  border-radius: 1.2vh;
+  padding: 1.05vh 3vw;
+  font-size: var(--fs-body);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--fg);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-ui) var(--ease), transform var(--dur-ui) var(--ease);
+  z-index: 90;
+}
+body.panel-open .toast { top: 6vh; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* The line the toast stands on gets out of the way rather than being painted over. It
+   vanishes instantly (transition: none) and only fades back afterwards: if it faded out over
+   the same 200ms the toast fades in, every frame in between would show one legible through
+   the other — which is the collision this position exists to avoid. */
+#status, .panel-sub { transition: opacity var(--dur-ui) var(--ease) var(--dur-press); }
+body.toasting #status,
+body.toasting .panel.is-open .panel-sub { opacity: 0; transition: none; }
+
+/* ---------- countdown alarm ----------
+   Fully opaque, not rgba(0,0,0,.92): at 92% the whole dashboard stayed legible behind the
+   alarm and the countdown's preset chips read straight through the Dismiss button, so the
+   one thing on screen that has to be unmistakable from across a room was competing with the
+   layout it had covered. Opaque black also costs nothing on OLED — those pixels are off. */
+.alarm {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  opacity: 0;
+  visibility: hidden;
+  /* transform is the burn-in drift: this layer is on the same cycle as the dashboard and
+     the panels, because an alarm has 60s of unattended life before the idle unwind takes
+     it down and a bright red title should not spend that on fixed pixels */
+  transition: opacity var(--dur-ui) var(--ease), transform var(--dur-drift) ease-in-out;
+}
+.alarm.show { opacity: 1; visibility: visible; }
+.alarm-inner { text-align: center; padding: 0 8vw; width: 100%; }
+.alarm-title {
+  font-size: var(--fs-hero);
+  font-weight: 300;
+  color: var(--danger);
+  animation: pulse var(--dur-pulse) infinite;
+}
+.alarm-sub { font-size: var(--fs-body-lg); color: var(--dim); margin: 1.4vh 0 3vh; }
+.alarm-flash { animation: pulse var(--dur-pulse) infinite; }
+
+/* ============================================================================
+   LANDSCAPE FALLBACK
+   The device currently renders portrait, but if it is ever rotated the panel must not
+   look broken: two columns, shorter type, same touch targets.
+   ============================================================================ */
+
+/* ============================= THE COLOUR LAYER =============================
+   The app was monochrome because Android's emoji font made colour uncontrollable, not
+   because the panel wanted to be grey. The icons are our own SVG now, so colour is ours
+   to spend — and it is spent by meaning, not decoration: sun things are warm, rain
+   things are blue, snow is ice, AQI wears the EPA's own scale, and temperature always
+   reads hot=warm-colour / cold=blue. Text stays monochrome; colour marks DATA. */
+:root {
+  /* Each material is a PAIR OR A TRIO — a lit face, a body, a shadow — because that is
+     what a gradient needs and a flat fill did not. The icons never pick a colour; they
+     pick a material and let style-icons.css and the gradients decide where the light
+     falls. Adding a fourth cloud grey is how a palette sprawls, so: three per material. */
+  --ic-sun:       #ffcf54;
+  --ic-sun-lit:   #fff3c4;   /* the hot centre of the disc, and the halo's core */
+  --ic-ray:       #ffdc8e;   /* light LEAVING the sun — never darker than the disc */
+  --ic-moon:      #e9e5ff;
+  --ic-moon-lit:  #fbfaff;
+  --ic-moon-dim:  #b0aacf;   /* maria, and the limb turning away from the sun */
+  /* Earthshine, not absence: a sphere with a dark side, not a crescent in a hole. */
+  --ic-moon-dk:   #262f42;
+  --ic-star:      #cfd4ff;
+  --ic-cloud:     #aebfd4;
+  --ic-cloud-lit: #e6eef8;   /* the rim the sky catches */
+  --ic-cloud-hi:  #f6faff;   /* the lobe the light lands on square (style-icons.css tints it) */
+  --ic-cloud-dk:  #71829a;
+  --ic-cloud-dkr: #47536b;   /* the belly of a storm anvil */
+  --ic-rain:      #5aa9ff;
+  --ic-rain-lit:  #a9d5ff;   /* the head of a falling drop */
+  --ic-rain-sky:  #93b3cf;   /* rain on the canvas: weather, not the accent that marks it */
+  --ic-snow:      #d6efff;
+  --ic-bolt:      #ffd75a;
+  --ic-bolt-hi:   #fff6c9;
+  --ic-fog:       #9aa8b8;
+
+  --temp-hot:    #ff8a50;
+  --temp-warm:   #ffc954;
+  --temp-cold:   #6db3f2;
+
+  /* ---- the ONE severity ramp ----
+     Six steps, and every value on the wall that arrives with a published band takes its
+     colour from here. The hues are the EPA's AQI scale, which is where they came from and
+     why they look like this; the WHO's five UV bands and a pollutant measured against its
+     WHO guideline land on the same six.
+
+     They used to be three treatments: AQI wore the band, UV MAX 8.3 "Very high" was plain
+     white, and OZONE 98 was plain white. So the single coloured value anywhere in the app
+     was 70 / Moderate — the one that is harmless. A severity colour that appears on the
+     safe number and not on the dangerous ones is worse than no severity colour, because it
+     is read as a warning. Either every banded value wears its band or none does. */
+  --band-1:      #6fdc7f;   /* good · low */
+  --band-2:      #ffd75a;   /* moderate */
+  --band-3:      #ffa04d;   /* unhealthy for sensitive groups · high · over guideline */
+  --band-4:      #ff6d6d;   /* unhealthy · very high */
+  --band-5:      #c78cff;   /* very unhealthy · extreme */
+  /* Hazardous has to out-shout Unhealthy, and it did not: the EPA's own maroon (#7E0023)
+     is nearly invisible on black, so this token had drifted to a dusty #d97a7a — LESS
+     saturated and LESS urgent than the vivid red two steps below it. Forced to 350 in the
+     simulator, the worst reading on the scale rendered calmer than the one under it, which
+     is the only thing on this panel that could actually matter to somebody. On a dark
+     panel severity has to climb in saturation, not sink into the background. */
+  --band-6:      #ff3b6b;   /* hazardous */
+}
+
+/* the sky canvas sits between the body background and the dashboard */
+#sky { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+#drift { position: relative; z-index: 1; }
+
+/* The weather icons' sizing, shading and motion live in style-icons.css. */
+
+/* ---- severity classes: a banded value takes its band's hue ---- */
+.band-1 { color: var(--band-1); }
+.band-2 { color: var(--band-2); }
+.band-3 { color: var(--band-3); }
+.band-4 { color: var(--band-4); }
+.band-5 { color: var(--band-5); }
+.band-6 { color: var(--band-6); }
+.band-na { color: var(--dimmer); }
+
+/* THE BATTERY'S TWO STATES, and they are states rather than severities — which is why they
+   are not on the band ramp above. It replaces the "↯" that used to sit welded to the
+   per-cent sign on the Device tile: whether the thing is charging is a property OF the
+   number, so it belongs in the number's colour rather than in a second symbol competing
+   with it for 78 px. The tile, the panel hero and the drawn battery glyph all take it, so
+   the three agree. No animation — a wall panel that pulsed because it was charging would
+   pulse all night, every night. */
+.batt-chg { color: var(--ok); }
+.batt-low { color: var(--danger); }
+
+/* ---- the accent language, as classes ----
+   These are the same three temperature tokens the hourly curve and the daily chart are
+   built from, promoted to colour classes the way the six band classes already are: a
+   widget picks a TONE (WP.ui.tempTone) and never a colour. Conditions' hero temperature
+   and the world clocks read from here, so the number on a panel wears the same hue the
+   chart two taps away would give it.
+   .daybar carries the same three classes to tint a BAR rather than text, so it opts out. */
+.t-hot  { color: var(--temp-hot); }
+.t-warm { color: var(--temp-warm); }
+.t-cold { color: var(--temp-cold); }
+.daybar.t-hot, .daybar.t-warm, .daybar.t-cold { color: inherit; }
+
+/* rain-chance figures wear rain's colour once they mean something (>= 30%) */
+.hr-p.wet, .hrow-p.wet, .stat-v .wet { color: var(--ic-rain); }
+/* Sun times are sun-coloured, because that is the rule the whole colour layer runs on:
+   warm things are warm — wherever they are printed, a stat cell or the two ends of the
+   day's arc on Conditions. */
+.stat-v .sunlit, .sun-ends .sunlit { color: var(--temp-warm); }
+/* Daylight, as a colour: the warm white of a room with the sun in it, one step off plain
+   --fg. The icon pack's own sun-lit token, because it is the same thing being named. Worn
+   by the Clock hero at the hours the other two tones leave uncovered — see wx-clock.js. */
+.t-daylight { color: var(--ic-sun-lit); }
+/* Daily lows read cool — hi stays primary text. One rule for every low in the app: the
+   home strip (.fc-lo), the Daily panel's hero (.lo) and the hourly chart's valley callout
+   (.hc-lo). The panel used to render its low as --dim, so the same number was blue on the
+   dashboard and grey one tap later. */
+.fc-lo, .big-time .lo { color: var(--temp-cold); }
+
+/* ---- moon ---- */
+/* The Moon tile is the one tile whose value is a picture AND a number, so it is the one
+   that ran out of room first — its disc plus "62%" measured 111 px inside a 74 px tile and
+   printed straight through the Air tile beside it. The disc is narrower and the gap is a
+   hair now; the tile row's own width fix is in style.css. */
+.mini-big.moon-row { display: flex; align-items: center; gap: 0.5vw; min-width: 0; }
+.moon-mini { width: 0.85em; height: 0.85em; flex: 0 0 auto; }
+
+/* ---- screen-to-screen slide (the carousel) ----
+   A mounted-but-not-open panel normally rests 2.4vh BELOW its place (the open is a rise);
+   with a slide-from class it rests to the SIDE instead, so the same is-open transition
+   plays as a horizontal slide. The exit classes need is-open's specificity beaten by one
+   extra class, which is exactly what they are. */
+.panel.slide-from-r { transform: translateX(9vw); }
+.panel.slide-from-l { transform: translateX(-9vw); }
+.panel.is-open.slide-exit-l { opacity: 0; transform: translateX(-9vw); pointer-events: none; }
+.panel.is-open.slide-exit-r { opacity: 0; transform: translateX(9vw); pointer-events: none; }
+
+/* position dots, shown briefly after a screen change */
+#dots {
+  position: fixed;
+  left: 50%; bottom: 1.6vh;
+  transform: translateX(-50%);
+  display: flex; gap: 1.2vw;
+  z-index: 60;
+  opacity: 0;
+  transition: opacity var(--dur-ui) var(--ease);
+  pointer-events: none;
+}
+#dots.show { opacity: 1; }
+#dots .dot {
+  width: 1vh; height: 1vh; border-radius: 50%;
+  background: var(--card-line2);
+}
+#dots .dot.on { background: var(--fg); }
+
+/* ---- news ticker ---- */
+/* The ticker is one line of text, so it is the one card in the column that can give
+   height back. It was the eighth card added to a budget that had converged on ~2 px of
+   slack — measured on the device — and 2 px is not a margin, it is luck: a font fallback,
+   a longer headline, or a system font-size bump clips it. It takes the tighter chip
+   padding rather than the row padding, and it is the only card allowed to shrink. */
+.news-card {
+  flex-direction: row;
+  align-items: center;
+  gap: 2.2vw;
+  padding: var(--pad-chip) 2.2vw;
+  min-height: 0;
+}
+#home > .card[data-widget="news"] { flex-shrink: 1; }
+.news-line { display: flex; min-width: 0; flex: 1 1 auto; align-items: baseline; gap: 1.6vw; }
+.news-t {
+  min-width: 0; flex: 1 1 auto;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size: var(--fs-body);
+}
+.news-meta { flex: 0 0 auto; color: var(--dim); font-size: var(--fs-label); }
+/* The list is the whole panel, so its rows share the whole panel: six rows at flex 1 1 0
+   distribute the height between them instead of stacking at the top and leaving the
+   remainder as one black band. Same mechanism the hourly rows use. */
+.panel[data-panel="news"] .panel-body { display: flex; flex-direction: column; }
+.panel[data-panel="news"] .psec:last-child {
+  flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0;
+}
+.panel[data-panel="news"] .news-list { flex: 1 1 auto; display: flex; flex-direction: column; }
+.panel[data-panel="news"] .news-row { flex: 1 1 0; justify-content: center; }
+.news-row {
+  padding: 1.05vh 0;
+  border-bottom: 1px solid var(--card-line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.news-row:last-child { border-bottom: none; }
+/* Two lines maximum. A headline that needs three at 2-4 m is not being read from 2-4 m,
+   and in landscape — where a row is half the screen wide and the ramp is 1.45x — a long one
+   ran to four and pushed the list off the panel.
+
+   --fs-title-sm: a headline is this panel's VALUE. At --fs-body it measured 4' at 3 m and
+   the panel showed eight of them over 453 device px of black. */
+.news-row-t {
+  font-size: var(--fs-title-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.news-row-m { font-size: var(--fs-note); color: var(--dimmer); margin-top: 0.4vh; }
+/* A NOTE IS NOT A HEADLINE. The browser preview cannot reach a feed and says so — but it
+   said so in the headline slot, at the headline's weight, over "News · now". */
+.news-row.note .news-row-t { color: var(--dim); }
+/* One colour per feed, so a merged list is scannable without reading the word: the source
+   is the only field in a row that distinguishes it from the row above, and it was printed
+   in the same grey as the age beside it. Four steps, all of them tokens the palette
+   already carries; a fifth feed reuses the first. */
+.news-src.s0 { color: var(--accent); }
+.news-src.s1 { color: var(--temp-warm); }
+.news-src.s2 { color: var(--band-1); }
+.news-src.s3 { color: var(--band-5); }
+
+/* ============================= LANDSCAPE =============================
+   The tablet can hang either way. Portrait is a single column; landscape is a real
+   two-column composition, not the portrait column squeezed — the old fallback left the
+   lower-left third of the screen black and clipped the sensors card off the bottom.
+
+   Areas, not auto-flow: the clock anchors top-left, the weather trio stacks on the
+   right where the eye lands from a doorway, the six small tiles fill under the clock,
+   and Home Assistant takes the full base line. Every row is an fr of the same grid, so
+   the composition fills exactly 100% of the screen with zero dead space.
+
+   A vh is worth ~1.6x less across the short axis, so the type ramp is restated once at
+   ~1.45x — under parity on purpose: the grid rows are sized by the cards' own
+   content, and parity-sized chips made the rows total ~40px more than the screen. */
+@media (orientation: landscape) {
+  :root {
+    --fs-caption:    2.05vh;
+    --fs-label:      2.3vh;
+    --fs-note:       2.7vh;
+    --fs-body:       3.1vh;
+    --fs-body-lg:    3.55vh;
+    --fs-title-sm:   4.2vh;
+    --fs-title:      4.95vh;
+    --fs-title-lg:   5.8vh;
+    --fs-hero:       7.5vh;
+    --fs-display:    11vh;
+    --fs-display-xl: 17.5vh;
+  }
+
+  #drift { padding: 1.3vh 1.8vw; }
+
+  #home {
+    display: grid;
+    grid-template-columns: 1fr 1.22fr;
+    grid-template-rows: 1.15fr 1fr 1fr auto 1.2fr;
+    grid-template-areas:
+      "clock   weather"
+      "row3a   hourly"
+      "row3b   daily"
+      "news    news"
+      "sensors sensors";
+    gap: 1.1vh 1.8vw;
+  }
+  /* Centred in its cell, both ways. The clock block is ~180 CSS px of ink in a 512 px
+     cell, and left-anchored it left a 600 x 320 device px rectangle of black beside it in
+     the corner of the screen the eye lands on first from a doorway. Centring does not add
+     ink, but it turns one dead rectangle into two even margins, which is the difference
+     between "there is nothing there" and "there is space around this". */
+  #home > .card[data-widget="clock"]   {
+    grid-area: clock;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+  }
+  #home > .card[data-widget="weather"] { grid-area: weather; }
+  #home > .card[data-widget="hourly"]  { grid-area: hourly; }
+  #home > .card[data-widget="daily"]   { grid-area: daily; }
+  #home > .card[data-widget="sensors"] { grid-area: sensors; }
+  #home > .card[data-widget="news"]    { grid-area: news; }
+  #home > .row3:nth-of-type(1) { grid-area: row3a; }
+  #home > .row3:nth-of-type(2) { grid-area: row3b; }
+  #home > .empty { grid-area: 1 / 1 / -1 / -1; }
+
+  /* tiles stretch to their grid row instead of hugging content */
+  .row3 { align-items: stretch; }
+  .card.mini { justify-content: center; }
+
+  /* ---- a panel in landscape is TWO COLUMNS of sections ----
+     Landscape is 1138 x 711: a body that is 1.6x wider and 0.6x shorter than portrait's.
+     Stacking the sections down it did the worst of both — Conditions ran AIR across all six
+     columns, then left the right half of WIND and SUN empty with their hairlines stopping
+     dead mid-screen, and pushed RAIN off the bottom entirely. Two columns of section
+     groups (AIR | WIND over SUN | RAIN) fills the width, keeps every rule the full width of
+     its own grid, and halves the height of every panel that is a list of sections.
+
+     The hero, the chart and the timer's pinned block span both columns: they are the one
+     thing the screen is about, and a half-width hero beside a stat grid is not a hierarchy.
+     Panels with their own body layout (timer, sensors, hourly, and the short trio) out-rank
+     this rule on specificity and keep it — deliberately: those are single-subject screens,
+     not lists of sections. */
+  .panel-body {
+    display: grid;
+    /* minmax(0, 1fr), not 1fr: a plain fr has a min-content floor, so the daily panel's
+       24-column hour chart demanded 1059 px of the 1138 and squeezed the day chips beside
+       it into a 102 px column of stacked single characters. */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 3.5vw;
+    /* The rows share the HEIGHT as well as the width. With align-content:start the two
+       column-groups on Conditions sat in the top half and left the bottom 440 device px —
+       27.5% of a 2560 x 1600 screen — solid black, and Settings left a 1180 x 380 px hole
+       under its one-row units cluster. A landscape body is a short, wide canvas: reflowing
+       into two columns fixed the width and left the height unspent. */
+    align-content: space-evenly;
+  }
+  /* Full width: the thing the screen is about, and any control that selects WHICH thing. */
+  .panel-body > .big-readout,
+  .panel-body > .aqi-legend,
+  .panel-body > .hchart-wrap,
+  .panel-body > .chip-row,
+  .panel-body > .bar,
+  .panel-body > .stick,
+  .panel-body > .pfoot { grid-column: 1 / -1; }
+  /* a list of rows fills the width the same way a grid of sections does */
+  .news-list { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 3.5vw; }
+  .news-row:nth-last-child(-n+2) { border-bottom: none; }
+
+  /* 5vw, not 6: the strip carries all 24 hours and the landscape card shows about nine of
+     them, so a narrower chip buys a whole extra hour on screen for nothing. */
+  /* A landscape body is 0.62x the height of a portrait one, so the vertical rhythm comes
+     down with it: the same four numbers that make a section breathe across 1138 px of
+     height are what push it off the bottom across 711. Nothing here changes a TYPE size —
+     the ramp is restated once, above, and this is spacing only. */
+  .psec { margin-top: 0.7vh; }
+  .stat { padding-bottom: 0.5vh; }
+  .stat-grid, .stat-grid.cols3 { row-gap: 0.7vh; }
+  .big-readout.hero { padding: 0.6vh 0 0.8vh; }
+  /* The sparkline gives back the last few pixels the short axis does not have; the hourly
+     curve TAKES some back. At 15vh it was ~105 CSS px, and a day with a 29-degree swing
+     rendered almost flat — in portrait the same curve has roughly double the amplitude and
+     reads correctly, so the landscape screen was showing a different, wronger chart of the
+     same data. The list under it dropped from four rows to three (see wx-hourly.js: four
+     did not fit, and the fourth was being sliced by the bezel), and this is where that row
+     went. */
+  .hchart { height: 19vh; }
+  .spark { height: 8.5vh; }
+
+  .hr { min-width: 5vw; }
+  .sensors { grid-template-columns: repeat(5, 1fr); }
+  /* the grids keep their portrait shape, because a section is half the screen wide now */
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-grid.cols3 { grid-template-columns: repeat(3, 1fr); }
+  .wc-grid { grid-template-columns: repeat(3, 1fr); }   /* six cities, two rows */
+  .switch { width: 6vw; }
+  .switch.on span { transform: translateX(calc(6vw - 3.6vh)); }
+  /* A vw is worth 1.6x more across the long axis, so the widget grid's pill has to come
+     down or it takes the room its label needs — "Next days" was wrapping to two lines and
+     making that section a row taller than the panel had. */
+  .srows.cols3 .switch { width: 5.5vw; }
+  .srows.cols3 .switch.on span { transform: translateX(calc(5.5vw - 3.6vh)); }
+  /* A section marked .wide takes the whole width rather than a column of the two — the
+     widget checklist is twelve items, and as a half-width column of four rows it was the
+     38 px this panel was overflowing by. Across the full width it is four across and three
+     rows, with 267 px per cell, which is more room for a label than portrait has. */
+  .panel-body > .psec.wide { grid-column: 1 / -1; }
+  .psec.wide .srows.cols3 { grid-template-columns: repeat(4, 1fr); }
+  .psec.wide .srows.cols3 .srow:nth-last-child(-n+4) { border-bottom: none; }
+  .sensor-sw { width: 2.6vw; }
+  .sensor.on .sensor-sw span { transform: translateX(calc(2.6vw - 2vh)); }
+  .moon-disc { width: 22vh; height: 22vh; }
+}
+
+/* ---- panels whose content is short ----
+   Moon and Air each rendered a hero, one or two stat blocks, and then 200-335 px of empty
+   black — measured at 41% of the Moon panel. A wall panel read from across a room cannot
+   tell "short screen" from "screen that failed to load", so the content owns the height it
+   has: the sections space themselves down the panel instead of stacking at the top, and the
+   hero art grows into the room it is given. (Calendar was the third panel in this list and
+   is gone; a screen that has to be spaced out because it has nothing on it was the symptom,
+   and for that one the honest fix was to stop shipping it.) */
+.panel[data-panel="moon"] [data-body] {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  gap: 1.2vh;
+}
+/* Air is PORTRAIT ONLY, and the distinction is what the screen is. Moon is one picture and
+   two small blocks about it — a single-subject screen, which spaces itself down the column
+   in either orientation. Air stopped being one: it is a number, a band scale, a 24-hour
+   chart and six pollutants, i.e. a list of sections, and a list of sections in landscape
+   belongs in the two-column grid every other list uses. Left unscoped, this rule out-ranked
+   that grid on specificity and stacked all four blocks down a 711 px screen — measured 71 px
+   past the bottom of the frame. */
+@media (orientation: portrait) {
+  .panel[data-panel="air"] [data-body] {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    gap: 1.2vh;
+  }
+}
+.panel[data-panel="moon"] .moon-hero { padding: 0; }
+.panel[data-panel="moon"] .moon-disc { width: 22vh; height: 22vh; }
+
+/* Clock and Conditions are the same story one size down: both fit comfortably and both
+   left what was over — 272 px and 232 px, measured on the device — as one slab under the
+   last row. Space it through the sections instead. (Conditions gained its slab honestly:
+   its RAIN section collapsed from nine zeros to one line.)
+
+   PORTRAIT ONLY, and that is the point of the media query: in landscape these two are two
+   columns of sections, and a flex column here would out-rank that grid on specificity and
+   quietly undo it. */
+@media (orientation: portrait) {
+  .panel[data-panel="clock"] [data-body],
+  .panel[data-panel="weather"] [data-body] {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+  }
+}
