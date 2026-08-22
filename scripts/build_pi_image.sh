@@ -260,6 +260,30 @@ fi
 grep -qxF 'WirelessEnabled=true' "${NM_STATE}"
 echo "NetworkManager WirelessEnabled set to true"
 
+# --- enable ssh: gated behind the classic /boot/ssh marker file ------------
+# openssh-server is installed and sshd_config is present, but ssh.service is
+# NOT in multi-user.target.wants — confirmed by inspecting the built image
+# directly. What IS enabled is sshswitch.service
+# (/usr/lib/raspberrypi-sys-mods/sshswitch), whose own description is
+# "Turn on SSH if /boot/ssh or /boot/firmware/ssh is present": it looks for
+# that marker file, and only if found does it `systemctl enable --now ssh`
+# (then deletes the marker). This is the classic Raspbian headless-SSH
+# mechanism, predating cloud-init entirely — Imager's cloud-init
+# customisation path (user-data/network-config) never creates it, so ssh
+# never starts. Same shape of bug as the wifi radio being off by default:
+# real-hardware testing found the Pi fully reachable (wifi fixed) but SSH
+# refusing connections outright — nothing was listening on port 22.
+#
+# Lower risk than the wifi fix: this doesn't touch authentication at all,
+# only whether sshd is listening. Whoever configured (or didn't configure) a
+# password/key via cloud-init's user-data still gates actual login exactly
+# as before — an unreachable daemon and a running-but-uncredentialed one are
+# equally inaccessible.
+banner "Enabling SSH via the classic /boot/ssh marker file"
+touch "${MNT}/boot/firmware/ssh"
+[ -f "${MNT}/boot/firmware/ssh" ]
+echo "/boot/firmware/ssh marker created (sshswitch.service will enable+start ssh on first boot)"
+
 # --- first-boot instructions --------------------------------------------------
 banner "Writing first-boot instructions"
 # Pi OS Trixie dropped the old custom.toml/raspberrypi-sys-mods firstboot

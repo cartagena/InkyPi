@@ -117,6 +117,20 @@ else
     ok "cloud-init config present (user-data will be applied)"
 fi
 
+# sshswitch.service (raspberrypi-sys-mods) only enables+starts ssh if this
+# marker file exists on the boot partition — cloud-init/Imager never create
+# it, so without it sshd never starts. Matching on the padded 8.3 FAT
+# directory entry ("SSH" + 8 spaces, no extension) rather than a bare "ssh"
+# substring — that string shows up incidentally elsewhere on this partition
+# (ssh_config, doc text) often enough to make a plain substring match noisy.
+SSH_MARKER_HITS=$(dd if="${IMG}" bs=1M skip=$((BOOT_OFF / 1048576)) count=512 status=none 2>/dev/null \
+     | grep -ac 'SSH        ' || true)
+if [ "${SSH_MARKER_HITS:-0}" -gt 0 ]; then
+    ok "boot partition ships the /boot/firmware/ssh marker (sshswitch will enable ssh)"
+else
+    bad "/boot/firmware/ssh marker missing — sshswitch.service will never enable ssh, sshd will not listen"
+fi
+
 # cloud-init enables its own units via this generator at boot, not via a
 # static multi-user.target.wants symlink — so that's what to check for here.
 if absent /usr/lib/systemd/system-generators/cloud-init-generator; then
