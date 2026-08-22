@@ -1,6 +1,29 @@
 # CHANGELOG
 
 
+## v1.3.2 (2026-08-22)
+
+### Bug Fixes
+
+- Cron step syntax, assert-as-control-flow, and tests that could not fail
+  ([#636](https://github.com/jtn0123/InkyPi/pull/636),
+  [`085728f`](https://github.com/jtn0123/InkyPi/commit/085728f49f1d33c81a33fc0f642d20ade530d224))
+
+Real bugs: `*/N` cron syntax parsed to the empty set (a schedule that never fires); `assert` used
+  for control flow in a request handler, which vanishes under python -O and turned a failed
+  invariant into a 500.
+
+Tests that could not fail: test_utils_coverage.py made a live call to httpbin.org inside `except
+  Exception: pass`; two self-comparing assertions.
+
+Security: the inbound X-Request-Id was echoed into every json_* response body unvalidated. Now
+  charset- and length-checked, and escaped like every other reflected value.
+
+DevEx: macOS can get a green local run (the pixel snapshots honour SKIP_VISUAL and skip off Linux,
+  while CI still enforces them); scripts/test-fast.sh runs the suite in ~6m30s; corrected lockfile
+  instructions that would have dropped the Linux-only packages.
+
+
 ## v1.3.1 (2026-08-21)
 
 ### Bug Fixes
