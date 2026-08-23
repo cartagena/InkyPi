@@ -145,10 +145,10 @@ class Wpotd(BasePlugin):
             raise RuntimeError("Failed to resolve WPOTD image URL.")
         logger.info(f"WPOTD plugin Picture URL: {picurl}")
 
+        # `_download_image` raises on failure rather than returning None — it
+        # has its own guard around the loader — so there is nothing to check
+        # here. The declared return type now enforces that.
         image = self._download_image(picurl)
-        if image is None:
-            logger.error("Failed to download WPOTD image.")
-            raise RuntimeError("Failed to download WPOTD image.")
         if settings.get("shrinkToFitWpotd") == "true":
             dimensions = self.get_oriented_dimensions(device_config)
             max_width, max_height = dimensions
@@ -185,7 +185,7 @@ class Wpotd(BasePlugin):
             )
             raise RuntimeError("Failed to load WPOTD image.")
         dimensions = (4096, 4096)
-        image_loader = cast(Any, self.image_loader)
+        image_loader = self.image_loader
         image = image_loader.from_url(
             url,
             dimensions=dimensions,
@@ -315,7 +315,7 @@ class Wpotd(BasePlugin):
                 else:
                     new_width, new_height = orig_width, orig_height
             # Resize using high-quality resampling
-            image = image.resize((new_width, new_height), Image.LANCZOS)
+            image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
             # Create a new image with white background and paste the resized image in the center
             new_image = Image.new("RGB", (max_width, max_height), (255, 255, 255))
             new_image.paste(

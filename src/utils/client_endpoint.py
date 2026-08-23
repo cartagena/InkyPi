@@ -11,15 +11,15 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from flask import Response, request
+from flask import request
 
-from utils.http_utils import json_error
+from utils.http_utils import JsonResponse, json_error
 from utils.rate_limit import TokenBucket
 
 
 def enforce_size_and_rate(
     rate_limiter: TokenBucket, body_max: int
-) -> tuple[bytes | None, tuple[Response, int] | None]:
+) -> tuple[bytes | None, JsonResponse | None]:
     """Enforce body-size cap + per-IP rate-limit.
 
     Returns ``(raw_body, None)`` on success or ``(None, error_response)``.
@@ -45,7 +45,7 @@ def enforce_size_and_rate(
 
 def parse_client_report(
     rate_limiter: TokenBucket, body_max: int
-) -> tuple[dict[str, Any] | None, Response | tuple[Response, int] | None]:
+) -> tuple[dict[str, Any] | None, JsonResponse | None]:
     """Validate body size, rate-limit, and parse JSON.
 
     Returns ``(data, None)`` on success or ``(None, error_response)`` on

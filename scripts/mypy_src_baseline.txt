@@ -1,3 +1,74 @@
 # Checked-in mypy src/ advisory baseline for scripts/lint.sh.
 # Lower this number when src/ typing debt is intentionally reduced.
+#
+# 0 -> 90 (2026-08-21). This is NOT a regression, and no new error was
+# introduced. The previous zero was an artefact of `follow_imports = skip` in
+# mypy.ini: mypy never read an imported module, so every cross-module call
+# resolved to Any and whole classes of mismatch were unreportable. Turning the
+# setting on surfaced 214 pre-existing errors; 115 of those were stale
+# `# type: ignore` comments that only looked necessary while the real types
+# were invisible, and removing them left 99. Fixing the 9 that fell inside the blocking
+# strict subset — see below — brought it to 90.
+#
+# Two of the 214 were real defects, both found the moment imports were
+# followed:
+#   * PlaylistRefresh.execute called image.save() on the result of
+#     generate_image without a None check, while the base class had been
+#     widened to allow None for control-only plugins. The PluginLike Protocol
+#     still declared `-> Image.Image`, so callers type-checked against a
+#     contract the implementation no longer honoured.
+#   * client_endpoint declared its error slot as Response when json_error can
+#     also return a plain dict (its no-app-context fallback).
+#
+# return-value, arg-type and attr-defined are the ones most likely to be real
+# defects rather than annotation noise; they are the intended next piece of
+# work (item I2 in .claude/grade-report.md). This number must only go down.
 0
+
+# 90 -> 50 (2026-08-21). Worked the highest-signal rules. Three were real:
+#   * calendar.get_contrast_color unpacked ImageColor.getrgb() into three
+#     names. Alpha colours yield a 4-tuple, so a user pasting "#ff000080" as a
+#     per-calendar colour raised ValueError and failed the whole render.
+#   * Clock.draw_clock_center defaulted `width` to None, which PIL rejects with
+#     TypeError. Latent only because both callers pass one.
+#   * Deprecated Image.LANCZOS/NEAREST/BICUBIC aliases (7 sites) still work in
+#     Pillow 12 but are slated for removal, and the pin allows <13.
+#
+# The rest were annotations narrower than the values they described:
+# json_error's dict fallback (named JsonResponse in utils/http_utils), werkzeug
+# vs flask Response from redirect(), and `-> Image` naming the PIL module
+# rather than Image.Image.
+
+# 50 -> 23 (2026-08-21). Two more real defects, both from an annotation that
+# promised more than the value delivered:
+#   * blueprints/apikeys.parse_env_file declared list[tuple[str, str]] while
+#     dotenv_values yields None for a bare key (a line like `FOO` with no `=`).
+#     Consumers iterate the value, so that reached them as
+#     `TypeError: 'NoneType' object is not iterable` and broke the API-keys
+#     page. A key with no value is now an empty value.
+#   * inkypi._lookup_static_version called Path(app.static_folder) unguarded.
+#     Flask allows a static-less app, where that is Path(None) -> TypeError.
+#
+# Also: the startup-image thread captured `device_cfg` across a `is not None`
+# check that cannot follow into a closure; it now binds the narrowed value.
+# `safe_join` was imported from werkzeug.utils, which only re-exports it —
+# corrected to werkzeug.security. Two redundant casts and one `cast(Any, ...)`
+# removed: the last existed only because the real signature was invisible, and
+# it erased an already-correct `Image.Image | None`.
+#
+# 40 more `cast(Any, ...)` remain in src/. Most predate this work and exist to
+# quiet a checker that could not see across modules; they are the main source
+# of the residual `no-any-return`. Removing them is the obvious next pass.
+
+# 23 -> 0 (2026-08-21). src/ is clean with imports followed — the zero this
+# file started with was an artefact of `follow_imports = skip`; this one is
+# real, and the ratchet above will now hold it.
+#
+# Most of the remainder was one root cause: `cast(Any, ...)` wrappers written
+# to quiet a checker that could not see across modules. They did not work
+# around a problem, they created one — `cast(Any, take_screenshot)` and
+# `cast(Any, take_screenshot_html)` each erased an already-correct Optional
+# return and silently disabled the None check beneath it. One cast on
+# AdaptiveImageLoader forced seven more downstream; removing that one removed
+# all eight. The `cast(str, cast(Any, resolve_path)(...))` pattern was
+# double-casting a function that was correctly typed all along.

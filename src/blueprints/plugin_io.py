@@ -15,7 +15,7 @@ from typing import Any, cast
 from flask import Blueprint, Response, current_app, jsonify, request
 
 from utils.form_utils import sanitize_log_field
-from utils.http_utils import json_error
+from utils.http_utils import JsonResponse, json_error
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +78,8 @@ def _make_json_attachment(payload: dict[str, Any], filename: str) -> Response:
 # ---------------------------------------------------------------------------
 
 
-@plugin_io_bp.route("/api/plugins/export", methods=["GET"])  # type: ignore
-def export_plugins() -> Response:
+@plugin_io_bp.route("/api/plugins/export", methods=["GET"])
+def export_plugins() -> Response | JsonResponse:
     """Export one or all plugin instances as a downloadable JSON file.
 
     Query parameters:
@@ -182,7 +182,7 @@ def _validate_payload(payload: object) -> tuple[str | None, list[dict[str, Any]]
     return None, instances
 
 
-@plugin_io_bp.route("/api/plugins/import", methods=["POST"])  # type: ignore
+@plugin_io_bp.route("/api/plugins/import", methods=["POST"])
 def import_plugins() -> (
     tuple[Response | dict[str, Any], int] | Response | dict[str, Any]
 ):

@@ -2,16 +2,22 @@ import logging
 from collections.abc import Mapping
 from contextlib import AbstractContextManager
 from random import choice
-from typing import Any, cast
+from typing import cast
 
-from PIL import Image, ImageColor, ImageOps
+from PIL import Image, ImageOps
 
 from plugins.base_plugin.base_plugin import BasePlugin, DeviceConfigLike
 from plugins.base_plugin.settings_schema import field, option, row, schema, section
 from utils.http_client import get_http_session
 from utils.http_utils import pinned_dns
-from utils.image_loader import AdaptiveImageLoader
-from utils.image_utils import pad_image_blur
+from utils.image_loader import (
+    FIT_AUTO,
+    FIT_CONTAIN,
+    AdaptiveImageLoader,
+    effective_fit_mode,
+    resolve_fit_mode,
+)
+from utils.image_utils import pad_image_blur, resolve_background_color
 from utils.security_utils import URLValidationError, validate_url_with_ips
 
 logger = logging.getLogger(__name__)
@@ -132,7 +138,7 @@ class ImmichProvider:
         # Use adaptive image loader for memory-efficient processing
         # Let loader resize when requested (when no padding will be applied)
         with self._pin():
-            img = cast(Any, self.image_loader).from_url(
+            img = self.image_loader.from_url(
                 asset_url,
                 dimensions,
                 timeout_ms=40000,
@@ -179,13 +185,21 @@ class ImageAlbum(BasePlugin):
                 "Display",
                 row(
                     field(
-                        "padImage",
-                        "checkbox",
-                        label="Scale to Fit",
-                        hint="Keep the full image visible and pad the background instead of cropping to fill the screen.",
-                        checked_value="false",
-                        unchecked_value="true",
-                        submit_unchecked=True,
+                        "fitMode",
+                        "select",
+                        label="Fit",
+                        hint=(
+                            "Fill crops to fill the screen. Whole image pads the "
+                            "leftover space. Auto picks per image: fill when the "
+                            "photo and screen share an orientation, whole image "
+                            "when they differ."
+                        ),
+                        default="cover",
+                        options=[
+                            option("cover", "Fill display"),
+                            option("contain", "Whole image"),
+                            option("auto", "Auto"),
+                        ],
                     ),
                     field(
                         "randomize",
@@ -284,43 +298,52 @@ class ImageAlbum(BasePlugin):
         logger.info(f"Album provider: {album_provider}")
 
         # Check padding options to determine resize strategy
-        use_padding = settings.get("padImage") == "true"
+        requested_fit = resolve_fit_mode(settings)
         background_option = settings.get("backgroundOption", "blur")
         if not isinstance(background_option, str):
             background_option = "blur"
         logger.debug(
-            f"Settings: pad_image={use_padding}, background_option={background_option}"
+            f"Settings: fit_mode={requested_fit}, background_option={background_option}"
         )
+
+        # `auto` cannot be settled until the image is open, so fetch at full
+        # size and decide afterwards — same as the contain path already did.
+        defer_resize = requested_fit in (FIT_CONTAIN, FIT_AUTO)
 
         match album_provider:
             case "Immich":
                 img = self._fetch_immich_image(
-                    settings, device_config, dimensions, use_padding
+                    settings, device_config, dimensions, defer_resize
                 )
             case _:
                 logger.error(f"Unknown album provider: {album_provider}")
                 raise RuntimeError(f"Unsupported album provider: {album_provider}")
 
-        if img is None:
-            logger.error("Image is None after provider processing")
-            raise RuntimeError("Failed to load image, please check logs.")
+        # Every branch of the match above either binds `img` or raises, and the
+        # provider helpers are typed non-Optional, so there is no None to catch
+        # here.
+        fit_mode = effective_fit_mode(requested_fit, img.size, dimensions)
 
         # Apply padding if requested (image was loaded at full size)
-        if use_padding:
+        if fit_mode == FIT_CONTAIN:
             logger.debug(f"Applying padding with {background_option} background")
             if background_option == "blur":
                 img = pad_image_blur(img, dimensions)
             else:
-                background_color_value = settings.get("backgroundColor", "white")
-                if not isinstance(background_color_value, str):
-                    background_color_value = "white"
-                background_color = ImageColor.getcolor(background_color_value, img.mode)
+                background_color = resolve_background_color(
+                    settings.get("backgroundColor"), img.mode
+                )
                 img = ImageOps.pad(
                     img,
                     dimensions,
                     color=background_color,
                     method=Image.Resampling.LANCZOS,
                 )
+        elif defer_resize:
+            # `auto` resolved to cover, but the fetch deliberately skipped the
+            # loader's resize, so crop to fill here instead.
+            logger.debug("Auto fit resolved to cover; cropping to fill the display")
+            img = ImageOps.fit(img, dimensions, method=Image.Resampling.LANCZOS)
         # else: loader already resized to fit with proper aspect ratio
 
         logger.info("=== Image Album Plugin: Image generation complete ===")

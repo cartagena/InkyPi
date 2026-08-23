@@ -14,7 +14,10 @@ import threading
 import time
 import types
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = REPO_ROOT / "src"
@@ -31,7 +34,7 @@ class FakeNotification(enum.Enum):
     STOPPING = "STOPPING=1"
 
 
-def _load_task_module(*, with_sd_notify: bool = True, module_alias: str = ""):
+def _load_task_module(*, with_sd_notify: bool = True, module_alias: str = "") -> Any:
     """Load src/refresh_task/task.py with cysystemd stubbed.
 
     Parameters
@@ -85,7 +88,7 @@ def _load_task_module(*, with_sd_notify: bool = True, module_alias: str = ""):
     return module, fake_notify
 
 
-def _make_refresh_task(module, *, with_sd_notify: bool = True):
+def _make_refresh_task(module: Any, *, with_sd_notify: bool = True) -> Any:
     """Instantiate a RefreshTask with minimal mocked dependencies."""
     device_config = MagicMock()
     device_config.get_config.return_value = 3600  # default 1-hour cycle
@@ -106,37 +109,39 @@ def _make_refresh_task(module, *, with_sd_notify: bool = True):
 class TestWatchdogIntervalSeconds:
     """_watchdog_interval_seconds() must compute half of WATCHDOG_USEC in seconds."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         self.module, _ = _load_task_module(
             with_sd_notify=True, module_alias="task_interval_test"
         )
 
-    def test_120s_watchdog_usec(self, monkeypatch):
+    def test_120s_watchdog_usec(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("WATCHDOG_USEC", "120000000")
         assert self.module.RefreshTask._watchdog_interval_seconds() == 60.0
 
-    def test_60s_watchdog_usec(self, monkeypatch):
+    def test_60s_watchdog_usec(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("WATCHDOG_USEC", "60000000")
         assert self.module.RefreshTask._watchdog_interval_seconds() == 30.0
 
-    def test_empty_string_defaults_to_30(self, monkeypatch):
+    def test_empty_string_defaults_to_30(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("WATCHDOG_USEC", "")
         assert self.module.RefreshTask._watchdog_interval_seconds() == 30.0
 
-    def test_unset_defaults_to_30(self, monkeypatch):
+    def test_unset_defaults_to_30(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("WATCHDOG_USEC", raising=False)
         assert self.module.RefreshTask._watchdog_interval_seconds() == 30.0
 
-    def test_invalid_string_defaults_to_30(self, monkeypatch):
+    def test_invalid_string_defaults_to_30(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("WATCHDOG_USEC", "not_a_number")
         assert self.module.RefreshTask._watchdog_interval_seconds() == 30.0
 
-    def test_zero_defaults_to_30(self, monkeypatch):
+    def test_zero_defaults_to_30(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("WATCHDOG_USEC", "0")
         assert self.module.RefreshTask._watchdog_interval_seconds() == 30.0
 
-    def test_minimum_is_1_second(self, monkeypatch):
-        # Very small WATCHDOG_USEC (e.g. 100µs) should still yield at least 1s
+    def test_minimum_is_1_second(self, monkeypatch: pytest.MonkeyPatch):
+        # Very small WATCHDOG_USEC (e.g. 100µs) -> None -> None should still yield at least 1s
         monkeypatch.setenv("WATCHDOG_USEC", "100")
         assert self.module.RefreshTask._watchdog_interval_seconds() == 1.0
 
@@ -149,7 +154,7 @@ class TestWatchdogIntervalSeconds:
 class TestWatchdogThreadStartsWithRefreshTask:
     """start() must spawn a WatchdogHeartbeat thread when cysystemd is available."""
 
-    def test_watchdog_thread_starts(self, monkeypatch):
+    def test_watchdog_thread_starts(self, monkeypatch: pytest.MonkeyPatch) -> None:
         module, _ = _load_task_module(
             with_sd_notify=True, module_alias="task_thread_start_test"
         )
@@ -158,7 +163,7 @@ class TestWatchdogThreadStartsWithRefreshTask:
         # Use a blocking heartbeat loop so the thread stays alive long enough to assert.
         started = threading.Event()
 
-        def blocking_heartbeat_loop():
+        def blocking_heartbeat_loop() -> None:
             started.set()
             # Block until task.running is False
             with task.condition:
@@ -191,7 +196,9 @@ class TestWatchdogThreadStartsWithRefreshTask:
 class TestWatchdogHeartbeatPingsRepeatedly:
     """The heartbeat loop must ping _notify_watchdog at the configured cadence."""
 
-    def test_pings_at_least_4_times_in_300ms(self, monkeypatch):
+    def test_pings_at_least_4_times_in_300ms(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         module, _ = _load_task_module(
             with_sd_notify=True, module_alias="task_ping_repeat_test"
         )
@@ -199,7 +206,7 @@ class TestWatchdogHeartbeatPingsRepeatedly:
 
         ping_count = 0
 
-        def fake_notify_watchdog():
+        def fake_notify_watchdog() -> None:
             nonlocal ping_count
             ping_count += 1
 
@@ -236,7 +243,7 @@ class TestWatchdogHeartbeatPingsRepeatedly:
 class TestWatchdogNoThreadWhenSdNotifyUnavailable:
     """start() must NOT spawn a WatchdogHeartbeat thread when cysystemd is absent."""
 
-    def test_watchdog_thread_is_none_without_sd_notify(self):
+    def test_watchdog_thread_is_none_without_sd_notify(self) -> None:
         module, _ = _load_task_module(
             with_sd_notify=False, module_alias="task_no_thread_test"
         )
@@ -261,7 +268,9 @@ class TestWatchdogNoThreadWhenSdNotifyUnavailable:
 class TestWatchdogHeartbeatStopsWithRunningFlag:
     """_watchdog_heartbeat_loop must exit promptly when self.running is set False."""
 
-    def test_thread_exits_within_1_second(self, monkeypatch):
+    def test_thread_exits_within_1_second(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         module, _ = _load_task_module(
             with_sd_notify=True, module_alias="task_stops_test"
         )
@@ -291,3 +300,104 @@ class TestWatchdogHeartbeatStopsWithRunningFlag:
             "WatchdogHeartbeat thread did not stop within 1 second after "
             "running=False + condition.notify_all()"
         )
+
+
+# ---------------------------------------------------------------------------
+# Test 6 — heartbeat is gated on refresh progress, not just on `running`
+# ---------------------------------------------------------------------------
+
+
+class TestWatchdogGatedOnRefreshProgress:
+    """A wedged refresh must stop the pings so systemd can restart the service.
+
+    JTN-596 decoupled the heartbeat from the refresh cycle, which left it a bare
+    timer keyed on ``self.running``.  That kept systemd satisfied even when the
+    refresh loop was blocked forever in SPI, chromium or a plugin socket — the
+    watchdog could never fire for the one failure it exists to catch.
+    """
+
+    def setup_method(self) -> None:
+        self.module, _ = _load_task_module(
+            with_sd_notify=True, module_alias="task_stall_gate_test"
+        )
+
+    def test_idle_loop_always_pings(self) -> None:
+        """Waiting between cycles is healthy, however long the interval is."""
+        task = _make_refresh_task(self.module, with_sd_notify=True)
+        task._work_started_at = None
+        assert task._watchdog_should_notify() is True
+
+    def test_refresh_within_budget_still_pings(self) -> None:
+        task = _make_refresh_task(self.module, with_sd_notify=True)
+        task._work_started_at = time.monotonic() - 5
+        assert task._watchdog_should_notify() is True
+
+    def test_refresh_over_budget_withholds_ping(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        task = _make_refresh_task(self.module, with_sd_notify=True)
+        monkeypatch.setenv("INKYPI_REFRESH_STALL_TIMEOUT_SECONDS", "10")
+        task._work_started_at = time.monotonic() - 11
+        assert task._watchdog_should_notify() is False
+
+    def test_stall_is_logged_once_not_every_tick(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        task = _make_refresh_task(self.module, with_sd_notify=True)
+        monkeypatch.setenv("INKYPI_REFRESH_STALL_TIMEOUT_SECONDS", "1")
+        task._work_started_at = time.monotonic() - 60
+        with caplog.at_level("ERROR"):
+            for _ in range(5):
+                assert task._watchdog_should_notify() is False
+        stall_lines = [r for r in caplog.records if "withholding" in r.getMessage()]
+        assert len(stall_lines) == 1
+
+    def test_heartbeat_loop_stops_pinging_while_wedged(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """End-to-end: the loop keeps running but withholds the keepalive."""
+        task = _make_refresh_task(self.module, with_sd_notify=True)
+        monkeypatch.setenv("INKYPI_REFRESH_STALL_TIMEOUT_SECONDS", "0.05")
+        monkeypatch.setattr(
+            self.module.RefreshTask,
+            "_watchdog_interval_seconds",
+            staticmethod(lambda: 0.01),
+        )
+
+        pings = 0
+
+        def fake_notify_watchdog() -> None:
+            nonlocal pings
+            pings += 1
+
+        monkeypatch.setattr(task, "_notify_watchdog", fake_notify_watchdog)
+
+        task.running = True
+        thread = threading.Thread(target=task._watchdog_heartbeat_loop, daemon=True)
+        thread.start()
+        time.sleep(0.1)
+        healthy_pings = pings
+        assert healthy_pings > 0, "idle loop should have been feeding the watchdog"
+
+        # Simulate a refresh that started long ago and never returned.
+        task._work_started_at = time.monotonic() - 10
+        time.sleep(0.1)
+        wedged_pings = pings
+
+        task.running = False
+        with task.condition:
+            task.condition.notify_all()
+        thread.join(timeout=1)
+
+        assert pings == wedged_pings, "watchdog kept being fed while refresh was wedged"
+
+    def test_stall_timeout_rejects_junk_and_non_positive_values(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A bad override must not silently disable the guard."""
+        default = self.module._DEFAULT_REFRESH_STALL_TIMEOUT
+        for raw in ("", "abc", "0", "-5"):
+            monkeypatch.setenv("INKYPI_REFRESH_STALL_TIMEOUT_SECONDS", raw)
+            assert self.module.RefreshTask._refresh_stall_timeout_seconds() == default
+        monkeypatch.setenv("INKYPI_REFRESH_STALL_TIMEOUT_SECONDS", "42.5")
+        assert self.module.RefreshTask._refresh_stall_timeout_seconds() == 42.5

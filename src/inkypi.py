@@ -3,6 +3,7 @@
 import argparse
 import logging
 import os
+import sys
 import warnings
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -304,6 +305,16 @@ def main(argv: list[str] | None = None) -> Flask:
         action="store_true",
         help="Use faster refresh intervals and skip startup image in dev",
     )
+    parser.add_argument(
+        "--run-once",
+        dest="run_once",
+        action="store_true",
+        help=(
+            "Render the next playlist plugin, push it to the display, and exit "
+            "without starting the web server. For cron- or timer-driven setups. "
+            "Exits non-zero if the refresh failed."
+        ),
+    )
     args, _unknown = parser.parse_known_args(argv)
 
     # Infer DEV_MODE from CLI or environment
@@ -382,7 +393,7 @@ def _configure_upload_limits(app: Flask) -> None:
 def _register_before_request_hooks(app: Flask) -> None:
     """Attach before-request hooks for refresh task, timers, and request IDs."""
 
-    @app.before_request  # type: ignore[untyped-decorator]
+    @app.before_request
     def _ensure_refresh_task_started() -> None:
         if WEB_ONLY:
             return
@@ -392,14 +403,14 @@ def _register_before_request_hooks(app: Flask) -> None:
                 logger.info("Starting refresh task (flask dev server lazy start)")
                 rt.start()
 
-    @app.before_request  # type: ignore[untyped-decorator]
+    @app.before_request
     def _start_request_timer() -> None:
         try:
             g._t0 = perf_counter()
         except Exception:
             pass
 
-    @app.before_request  # type: ignore[untyped-decorator]
+    @app.before_request
     def _attach_request_id() -> None:
         try:
             from utils.http_utils import _get_or_set_request_id
@@ -422,7 +433,12 @@ def _lookup_static_version_factory(
         cached = cache.get(filename)
         if cached is not None:
             return cached
-        static_path = Path(app.static_folder) / filename
+        static_root = app.static_folder
+        if static_root is None:
+            # Flask allows a static-less app; without this the next line raises
+            # TypeError rather than falling back to the plain version token.
+            return version
+        static_path = Path(static_root) / filename
         try:
             if static_path.is_file():
                 token = f"{version}-{int(static_path.stat().st_mtime)}"
@@ -602,10 +618,99 @@ def create_app() -> Flask:
     return app
 
 
+def run_once(created_app: Flask) -> int:
+    """Render the next playlist plugin, push it, and return an exit code.
+
+    A different operating mode rather than a variant of the normal one: nothing
+    listens on a port and no scheduler loop runs, so the device can be driven
+    entirely by cron or a systemd timer. That suits very low duty-cycle frames —
+    one refresh a day costs a few seconds of uptime instead of a resident
+    process.
+
+    Returns:
+        ``0`` when a plugin was refreshed, ``1`` otherwise. Cron needs a real
+        exit status to alert on, so every failure path returns non-zero rather
+        than logging and exiting successfully.
+    """
+    from refresh_task import PlaylistRefresh
+    from utils.time_utils import now_device_tz
+
+    device_config = created_app.config.get("DEVICE_CONFIG")
+    refresh_task_obj = created_app.config.get("REFRESH_TASK")
+    if device_config is None or refresh_task_obj is None:
+        logger.error("run-once: core services unavailable")
+        return 1
+
+    playlist_manager = device_config.get_playlist_manager()
+    current_dt = now_device_tz(device_config)
+    playlist = playlist_manager.determine_active_playlist(current_dt)
+    if playlist is None:
+        logger.error("run-once: no active playlist for %s", current_dt)
+        return 1
+
+    plugin_instance = playlist.get_next_eligible_plugin(current_dt)
+    if plugin_instance is None:
+        logger.error("run-once: no eligible plugin in playlist '%s'", playlist.name)
+        return 1
+
+    # The refresh loop owns the display and the config writes, so drive the
+    # refresh through it rather than reaching around it — that keeps run-once on
+    # the same code path (health, history, breadcrumbs) as a scheduled cycle.
+    refresh_task_obj.start()
+    try:
+        logger.info(
+            "run-once: refreshing %s/%s from playlist '%s'",
+            plugin_instance.plugin_id,
+            plugin_instance.name,
+            playlist.name,
+        )
+        result = refresh_task_obj.manual_update(
+            PlaylistRefresh(playlist, plugin_instance, force=True)
+        )
+        if result is None:
+            # manual_update returns None when the refresh task is not running,
+            # so nothing was rendered. Reporting success here would tell cron
+            # the frame updated when it did not.
+            logger.error("run-once: refresh did not run (task not running)")
+            return 1
+    except Exception:
+        logger.exception("run-once: refresh failed")
+        return 1
+    finally:
+        # manual_update returns as soon as the image is on disk (JTN-786),
+        # leaving the slow e-paper write in flight. That is right for an API
+        # caller, but this process is about to exit — wait for the write to
+        # finish so the panel actually shows the render.
+        _await_display_write(refresh_task_obj)
+        refresh_task_obj.stop()
+
+    logger.info("run-once: complete")
+    return 0
+
+
+def _await_display_write(refresh_task_obj: object, timeout: float = 120.0) -> None:
+    """Block until the refresh loop is idle again, or *timeout* elapses.
+
+    Best-effort: a device whose panel write hangs should still exit rather than
+    wedge a cron job forever.
+    """
+    from time import monotonic, sleep
+
+    deadline = monotonic() + timeout
+    while monotonic() < deadline:
+        if getattr(refresh_task_obj, "_work_started_at", None) is None:
+            return
+        sleep(0.2)
+    logger.warning("run-once: display write still in flight after %.0fs", timeout)
+
+
 if __name__ == "__main__":
     created_app = main()
 
     app = created_app
+
+    if getattr(args, "run_once", False):
+        sys.exit(run_once(created_app))
 
     refresh_task_obj = created_app.config.get("REFRESH_TASK")
     if not WEB_ONLY and not is_running_from_reloader() and refresh_task_obj is not None:
@@ -621,14 +726,19 @@ if __name__ == "__main__":
     ):
         import threading
 
+        # Bound here rather than captured: the narrowing above cannot follow
+        # `device_cfg` into a closure that runs on another thread, because
+        # nothing stops the name being rebound in between.
+        startup_cfg = device_cfg
+
         def _show_startup() -> None:
             try:
                 logger.info("Displaying startup image")
-                img = generate_startup_image(device_cfg.get_resolution())
+                img = generate_startup_image(startup_cfg.get_resolution())
                 display_manager_obj = created_app.config.get("DISPLAY_MANAGER")
                 if display_manager_obj is not None:
                     display_manager_obj.display_image(img)
-                device_cfg.update_value("startup", False, write=True)
+                startup_cfg.update_value("startup", False, write=True)
             except Exception:
                 logger.exception("Startup image failed")
 
@@ -639,7 +749,15 @@ if __name__ == "__main__":
 
         notify(Notification.READY)
         logger.info("Notified systemd: READY=1")
+    except ImportError:
+        # cysystemd is Linux-only by design (see install/requirements.in), so
+        # its absence off-device is expected rather than exceptional. Logging
+        # it at ERROR with a traceback on every start trains developers to
+        # scroll past ERROR lines, which is how a real startup failure gets
+        # missed.
+        logger.info("systemd notification unavailable (cysystemd not installed)")
     except Exception:
+        # Present but failed — that is genuinely unexpected and worth a trace.
         logger.exception("Failed to notify systemd READY")
 
     try:

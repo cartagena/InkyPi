@@ -12,22 +12,25 @@ from __future__ import annotations
 
 import json
 import time
+from pathlib import Path
+from typing import Any
 
 import pytest
+from flask.testing import FlaskClient
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 
-def _write_sidecar(directory, filename, **kwargs):
+def _write_sidecar(directory: Any, filename: Any, **kwargs: Any) -> Any:
     """Write a JSON sidecar file with the given fields into *directory*."""
     path = directory / filename
     path.write_text(json.dumps(kwargs), encoding="utf-8")
     return path
 
 
-def _make_sidecars(tmp_path, records):
+def _make_sidecars(tmp_path: Path, records: Any) -> Any:
     """Write a list of sidecar dicts (with auto-generated names) and return the dir."""
     for i, rec in enumerate(records):
         _write_sidecar(tmp_path, f"display_{i:04d}.json", **rec)
@@ -40,16 +43,16 @@ def _make_sidecars(tmp_path, records):
 
 
 class TestComputeStats:
-    def setup_method(self):
+    def setup_method(self) -> None:
         # Always start each test with a clean cache
         from utils.refresh_stats import _clear_cache
 
         _clear_cache()
 
-    def _now_ts(self):
+    def _now_ts(self) -> Any:
         return time.time()
 
-    def test_empty_directory(self, tmp_path):
+    def test_empty_directory(self, tmp_path: Path) -> None:
         from utils.refresh_stats import compute_stats
 
         result = compute_stats(str(tmp_path), 3600)
@@ -61,7 +64,7 @@ class TestComputeStats:
         assert result["p95_duration_ms"] == 0
         assert result["top_failing"] == []
 
-    def test_success_rate_calculation(self, tmp_path):
+    def test_success_rate_calculation(self, tmp_path: Path) -> None:
         from utils.refresh_stats import compute_stats
 
         now = self._now_ts()
@@ -89,7 +92,7 @@ class TestComputeStats:
         assert result["failure"] == 2
         assert result["success_rate"] == pytest.approx(0.5, abs=1e-4)
 
-    def test_all_success(self, tmp_path):
+    def test_all_success(self, tmp_path: Path) -> None:
         from utils.refresh_stats import compute_stats
 
         now = self._now_ts()
@@ -103,7 +106,7 @@ class TestComputeStats:
         assert result["failure"] == 0
         assert result["top_failing"] == []
 
-    def test_p50_p95_known_distribution(self, tmp_path):
+    def test_p50_p95_known_distribution(self, tmp_path: Path) -> None:
         from utils.refresh_stats import compute_stats
 
         now = self._now_ts()
@@ -121,7 +124,7 @@ class TestComputeStats:
         # P95 index = int(10 * 95 / 100) = 9 → value at index 9 = 1000
         assert result["p95_duration_ms"] == 1000
 
-    def test_top_failing_aggregation(self, tmp_path):
+    def test_top_failing_aggregation(self, tmp_path: Path) -> None:
         from utils.refresh_stats import compute_stats
 
         now = self._now_ts()
@@ -149,7 +152,7 @@ class TestComputeStats:
         assert top[2]["plugin"] == "nasa"
         assert top[2]["count"] == 1
 
-    def test_window_filters_old_records(self, tmp_path):
+    def test_window_filters_old_records(self, tmp_path: Path) -> None:
         from utils.refresh_stats import compute_stats
 
         now = self._now_ts()
@@ -178,7 +181,9 @@ class TestComputeStats:
         assert result_24h["total"] == 2
         assert result_24h["failure"] == 1
 
-    def test_cache_returns_same_dict_within_60s(self, tmp_path, monkeypatch):
+    def test_cache_returns_same_dict_within_60s(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> Any:
         """Same call within 60 s returns the cached dict without re-reading files."""
         import utils.refresh_stats as rs
 
@@ -187,7 +192,7 @@ class TestComputeStats:
 
         original_load = rs._load_sidecars
 
-        def counting_load(hdir, since):
+        def counting_load(hdir: Any, since: Any) -> Any:
             nonlocal call_count
             call_count += 1
             return original_load(hdir, since)
@@ -204,7 +209,9 @@ class TestComputeStats:
         assert call_count == 1, "second call within TTL should hit cache"
         assert result_first is result_second
 
-    def test_cache_expires_after_ttl(self, tmp_path, monkeypatch):
+    def test_cache_expires_after_ttl(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> Any:
         """After the TTL, the next call re-reads the directory."""
         import utils.refresh_stats as rs
 
@@ -212,7 +219,7 @@ class TestComputeStats:
 
         original_load = rs._load_sidecars
 
-        def counting_load(hdir, since):
+        def counting_load(hdir: Any, since: Any) -> Any:
             nonlocal call_count
             call_count += 1
             return original_load(hdir, since)
@@ -229,7 +236,7 @@ class TestComputeStats:
 
         assert call_count == 2, "cache should expire after TTL"
 
-    def test_missing_duration_skipped_in_percentiles(self, tmp_path):
+    def test_missing_duration_skipped_in_percentiles(self, tmp_path: Path) -> None:
         from utils.refresh_stats import compute_stats
 
         now = self._now_ts()
@@ -244,7 +251,7 @@ class TestComputeStats:
         # Only one duration contributed; p50 should be 500
         assert result["p50_duration_ms"] == 500
 
-    def test_unknown_plugin_id_on_failure(self, tmp_path):
+    def test_unknown_plugin_id_on_failure(self, tmp_path: Path) -> None:
         from utils.refresh_stats import compute_stats
 
         now = self._now_ts()
@@ -255,7 +262,7 @@ class TestComputeStats:
         result = compute_stats(hist_dir, 3600)
         assert result["top_failing"][0]["plugin"] == "unknown"
 
-    def test_nonexistent_directory(self):
+    def test_nonexistent_directory(self) -> None:
         from utils.refresh_stats import compute_stats
 
         result = compute_stats("/nonexistent/path/xyz123", 3600)
@@ -270,7 +277,7 @@ class TestComputeStats:
 class TestApiStatsEndpoint:
     """Tests for GET /api/stats via the Flask test client."""
 
-    def test_returns_200_with_correct_shape(self, client):
+    def test_returns_200_with_correct_shape(self, client: FlaskClient) -> None:
         resp = client.get("/api/stats")
         assert resp.status_code == 200
         data = resp.get_json()
@@ -291,15 +298,144 @@ class TestApiStatsEndpoint:
             assert isinstance(w["top_failing"], list)
             assert 0.0 <= w["success_rate"] <= 1.0
 
-    def test_cache_control_header(self, client):
+    def test_cache_control_header(self, client: FlaskClient) -> None:
         resp = client.get("/api/stats")
         assert resp.status_code == 200
         cc = resp.headers.get("Cache-Control", "")
         assert "max-age=60" in cc
 
-    def test_empty_history_returns_zeros(self, client, device_config_dev):
+    def test_empty_history_returns_zeros(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
         """When the history dir is empty all totals should be 0."""
         resp = client.get("/api/stats")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["last_1h"]["total"] == 0
+
+
+# ---------------------------------------------------------------------------
+# Records written before the `status` field existed
+# ---------------------------------------------------------------------------
+
+
+class TestSidecarsWithoutAStatusField:
+    """A sidecar with no `status` is a successful display, not a failure.
+
+    Every sidecar the app had actually written on disk looked like this —
+    `refresh_type`, `plugin_id`, `playlist`, `plugin_instance`, `refresh_time`
+    and nothing else. `failure` used to be derived as `total - success`, so all
+    of them counted as errors and the dashboard reported a 100% error rate on a
+    healthy device. Every existing test supplied an explicit status, so nothing
+    covered the shape the app was really producing.
+    """
+
+    def setup_method(self) -> None:
+        from utils.refresh_stats import _clear_cache
+
+        _clear_cache()
+
+    def _real_world_record(self, ts: Any, **extra: Any) -> Any:
+        """The exact shape display_manager writes for a successful display."""
+        return {
+            "refresh_type": "Manual Update",
+            "plugin_id": "clock",
+            "playlist": None,
+            "plugin_instance": None,
+            "refresh_time": "2026-08-15T15:40:35.447671-07:00",
+            "timestamp": ts,
+            **extra,
+        }
+
+    def test_statusless_records_count_as_successes(self, tmp_path: Path) -> None:
+        from utils.refresh_stats import compute_stats
+
+        now = time.time()
+        records = [self._real_world_record(now - i) for i in range(1, 4)]
+        result = compute_stats(_make_sidecars(tmp_path, records), 3600)
+
+        assert result["total"] == 3
+        assert result["failure"] == 0, "a displayed render is not an error"
+        assert result["success"] == 3
+        assert result["success_rate"] == 1.0
+
+    def test_explicit_failures_are_still_counted(self, tmp_path: Path) -> None:
+        from utils.refresh_stats import compute_stats
+
+        now = time.time()
+        records = [
+            self._real_world_record(now - 1),
+            self._real_world_record(now - 2, status="failure", plugin_id="weather"),
+            self._real_world_record(now - 3, status="success"),
+        ]
+        result = compute_stats(_make_sidecars(tmp_path, records), 3600)
+
+        assert result["total"] == 3
+        assert result["failure"] == 1
+        assert result["success"] == 2
+
+    def test_failure_count_agrees_with_top_failing(self, tmp_path: Path) -> None:
+        """These two disagreed: many errors reported, no failing plugins listed.
+
+        Both now key on the same explicit status, so the numbers cannot drift
+        apart again.
+        """
+        from utils.refresh_stats import compute_stats
+
+        now = time.time()
+        records = [
+            self._real_world_record(now - 1),
+            self._real_world_record(now - 2),
+            self._real_world_record(now - 3, status="failure", plugin_id="weather"),
+        ]
+        result = compute_stats(_make_sidecars(tmp_path, records), 3600)
+
+        assert result["failure"] == sum(f["count"] for f in result["top_failing"])
+
+    def test_an_unrecognised_status_is_not_an_error(self, tmp_path: Path) -> None:
+        """Only an explicit "failure" counts; unknown values are not errors."""
+        from utils.refresh_stats import compute_stats
+
+        now = time.time()
+        records = [self._real_world_record(now - 1, status="displayed")]
+        result = compute_stats(_make_sidecars(tmp_path, records), 3600)
+
+        assert result["failure"] == 0
+        assert result["success"] == 1
+
+
+class TestHistoryMetaCarriesStatus:
+    """The writer half — success and error renders must be distinguishable."""
+
+    class _Action:
+        def get_refresh_info(self) -> Any:
+            return {
+                "refresh_type": "Playlist",
+                "plugin_id": "clock",
+                "playlist": "Default",
+                "plugin_instance": "clock-a",
+            }
+
+    def test_default_is_success(self) -> None:
+        from refresh_task.housekeeping import RefreshHousekeeper
+
+        meta = RefreshHousekeeper.build_history_meta(self._Action())
+        assert meta["status"] == "success"
+
+    def test_failure_status_can_be_recorded(self) -> None:
+        from refresh_task.housekeeping import RefreshHousekeeper
+
+        meta = RefreshHousekeeper.build_history_meta(self._Action(), status="failure")
+        assert meta["status"] == "failure"
+
+    def test_fallback_error_render_is_recorded_as_a_failure(self) -> None:
+        """The error-card path pushes an image, so it writes a sidecar too.
+
+        Without a status it was indistinguishable on disk from a real render.
+        """
+        import inspect
+
+        from refresh_task import housekeeping
+
+        source = inspect.getsource(housekeeping.RefreshHousekeeper.push_fallback_image)
+        assert 'status="failure"' in source

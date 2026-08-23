@@ -44,6 +44,7 @@ from __future__ import annotations
 import ipaddress
 import logging
 import os
+import re
 import socket
 import threading
 from collections.abc import Iterator
@@ -65,6 +66,18 @@ if TYPE_CHECKING:  # pragma: no cover — type hints only
 from utils.form_utils import sanitize_response_value
 
 logger = logging.getLogger(__name__)
+
+#: What :func:`json_error` and :func:`json_success` actually return.
+#:
+#: Normally the first element is a ``Response`` from ``jsonify``, but both fall
+#: back to a plain ``dict`` when there is no application context for jsonify to
+#: use. Callers used to annotate only the ``Response`` half, so a dozen handlers
+#: across the app were typed as something narrower than the value they return.
+JsonResponse = tuple["FlaskResponse | dict[str, Any]", int]
+
+#: Accepted shape for an inbound ``X-Request-Id``. Covers uuids, hex ids, and
+#: the ``trace:span`` forms proxies emit, without admitting markup.
+_REQUEST_ID_RE = re.compile(r"[A-Za-z0-9._:-]{1,128}")
 
 
 def _sanitize_details(details: dict[str, Any]) -> dict[str, Any]:
@@ -134,11 +147,26 @@ def _get_or_set_request_id() -> str | None:
         rid_existing: str | None = getattr(g, "request_id", None)
         if rid_existing is not None and rid_existing != "":
             return rid_existing
-        # Prefer inbound X-Request-Id if provided by client/proxy
+        # Prefer inbound X-Request-Id if provided by client/proxy.
+        #
+        # The value is echoed back in every json_error/json_success body, so an
+        # unvalidated header is client-controlled data reflected in a response
+        # (CodeQL py/reflective-xss). A request id is an opaque correlation
+        # token, so anything outside a conservative charset is not one — reject
+        # it and generate our own rather than trying to clean it up. Also
+        # bounded, so a multi-megabyte header cannot ride along on every reply.
         rid_hdr: str | None = request.headers.get("X-Request-Id")
-        if rid_hdr is not None and rid_hdr != "":
-            g.request_id = rid_hdr
-            return rid_hdr
+        if rid_hdr and _REQUEST_ID_RE.fullmatch(rid_hdr):
+            # Escaped on the way out for the same reason `_sanitize_details`
+            # escapes the details dict: it is a user-derived string reaching the
+            # JSON envelope, and that policy applied to every such value except
+            # this one. After the charset check above the escape is a no-op, so
+            # this is consistency and defence in depth rather than the guard.
+            # Annotated because this module is in the mypy strict subset and
+            # `follow_imports = skip` hides form_utils' `-> str` declaration.
+            rid_safe: str = sanitize_response_value(rid_hdr)
+            g.request_id = rid_safe
+            return rid_safe
         # Generate
         import uuid
 
@@ -154,7 +182,7 @@ def json_error(
     status: int = 400,
     code: int | str | None = None,
     details: dict[str, Any] | None = None,
-) -> tuple[FlaskResponse | dict[str, Any], int]:
+) -> JsonResponse:
     payload: dict[str, Any] = {"success": False, "error": message}
     if code is not None:
         payload["code"] = code
@@ -172,7 +200,7 @@ def json_error(
 
 def json_success(
     message: str | None = None, status: int = 200, **payload: Any
-) -> tuple[FlaskResponse | dict[str, Any], int]:
+) -> JsonResponse:
     body: dict[str, Any] = {"success": True}
     if message is not None:
         body["message"] = message

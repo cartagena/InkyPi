@@ -2,6 +2,7 @@ import base64
 import logging
 import os
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Protocol, cast
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 PLUGIN_API_VERSION = "1.0"
 
-PLUGINS_DIR = cast(str, cast(Any, resolve_path)("plugins"))
+PLUGINS_DIR = resolve_path("plugins")
 BASE_PLUGIN_DIR = os.path.join(PLUGINS_DIR, "base_plugin")
 BASE_PLUGIN_RENDER_DIR = os.path.join(BASE_PLUGIN_DIR, "render")
 
@@ -74,8 +75,7 @@ class BasePlugin:
         )
 
         # Initialize adaptive image loader for device-aware image processing
-        image_loader_factory = cast(Any, AdaptiveImageLoader)
-        self.image_loader = image_loader_factory()
+        self.image_loader = AdaptiveImageLoader()
 
         self.render_dir = self.get_plugin_dir("render")
         # Always initialize Jinja environment so plugins without their own
@@ -107,8 +107,44 @@ class BasePlugin:
 
     def generate_image(
         self, settings: Mapping[str, object], device_config: "DeviceConfigLike"
-    ) -> Image.Image:
+    ) -> Image.Image | None:
+        """Render this plugin's image.
+
+        Returning ``None`` means "I produce no image" — the refresh completes
+        without touching the display. That makes a plugin usable as an actuator
+        or side effect (moving a servo, poking an API) rather than only as a
+        picture source. Distinct from :meth:`skip_display_condition`, which
+        means "I normally show something, just not this cycle".
+        """
         raise NotImplementedError("generate_image must be implemented by subclasses")
+
+    def skip_display_condition(
+        self,
+        settings: Mapping[str, object],
+        device_config: "DeviceConfigLike",
+        current_dt: "datetime",
+    ) -> str | None:
+        """Optionally decline this playlist turn.
+
+        Most plugins should not implement this. It exists for plugins that have
+        legitimate periods with nothing worth showing — a sports scoreboard out
+        of season, a calendar with no events today, a feed with nothing new —
+        where rendering an empty frame is worse than yielding the turn. On an
+        e-ink panel the cheapest refresh is the one that never happens.
+
+        Returns:
+            ``None`` to render normally, or a short human-readable reason to
+            skip this cycle. The reason is recorded and shown against the
+            plugin, so a skip is visible rather than looking like a silent
+            failure.
+
+        Note:
+            If an implementation fetches data in order to decide and then
+            returns ``None``, cache what it fetched in *settings* under a
+            plugin-private, JSON-serialisable key so :meth:`generate_image` can
+            reuse it instead of repeating the request moments later.
+        """
+        return None
 
     # ---- Optional metadata hooks (for surfacing info in the web UI) ----
     def set_latest_metadata(self, metadata: dict[str, object] | None) -> None:
@@ -264,7 +300,7 @@ class BasePlugin:
             template = self.env.get_template(html_file)
             update_step(f"Rendering template with {len(template_params)} parameters")
             t0 = perf_counter()
-            rendered_html = cast(str, template.render(template_params))
+            rendered_html = template.render(template_params)
             elapsed_ms = int((perf_counter() - t0) * 1000)
             complete_step(
                 f"Template rendered successfully for {html_file} ({elapsed_ms}ms)"
@@ -296,8 +332,13 @@ class BasePlugin:
             timeout_desc = f" (timeout: {timeout_ms}ms)" if timeout_ms else ""
             update_step(f"Taking screenshot of rendered HTML{timeout_desc}")
             t1 = perf_counter()
-            screenshot_html = cast(Any, take_screenshot_html)
-            image = screenshot_html(rendered_html, dimensions, timeout_ms=timeout_ms)
+            # The `cast(Any, ...)` this replaces existed only because the real
+            # signature was invisible with imports skipped; it turned the
+            # already-correct `Image.Image | None` into Any and took the None
+            # check below with it.
+            image = take_screenshot_html(
+                rendered_html, dimensions, timeout_ms=timeout_ms
+            )
             elapsed_ms = int((perf_counter() - t1) * 1000)
             if image is None:
                 image = self._screenshot_fallback(dimensions, elapsed_ms)
