@@ -91,30 +91,77 @@ fi
 echo ""
 echo "First-boot customisation must still work:"
 
-# cmdline.txt lives in the FAT partition; grep the raw region rather than
-# implementing a FAT reader. Small files there are contiguous.
-# grep -c rather than -q: with -q grep exits on the first match, dd dies of
-# SIGPIPE, and pipefail turns that into a false "not found".
-CMDLINE_HITS=$(dd if="${IMG}" bs=1M skip=$((BOOT_OFF / 1048576)) count=512 status=none 2>/dev/null \
-     | grep -ac 'init=/usr/lib/raspberrypi-sys-mods/firstboot' || true)
-if [ "${CMDLINE_HITS:-0}" -gt 0 ]; then
-    ok "cmdline.txt still invokes firstboot (custom.toml will be read)"
+# Pi OS Trixie dropped the old custom.toml/raspberrypi-sys-mods firstboot
+# mechanism entirely — cmdline.txt no longer carries an init= hook for it, and
+# neither /usr/lib/raspberrypi-sys-mods/init_config nor python3-toml ship in
+# the image any more. First-boot customisation is now cloud-init: the boot
+# partition ships a stock user-data template (edited by hand, or rewritten by
+# Pi Imager's "advanced options"), applied by the cloud-init package via a
+# systemd generator rather than a static enable symlink.
+#
+# The boot partition still ships that user-data template; grep the raw FAT
+# region rather than implementing a FAT reader (small files there are
+# contiguous). grep -c rather than -q: with -q grep exits on the first match,
+# dd dies of SIGPIPE, and pipefail turns that into a false "not found".
+USERDATA_HITS=$(dd if="${IMG}" bs=1M skip=$((BOOT_OFF / 1048576)) count=512 status=none 2>/dev/null \
+     | grep -ac '#cloud-config' || true)
+if [ "${USERDATA_HITS:-0}" -gt 0 ]; then
+    ok "boot partition still ships the cloud-init user-data template"
 else
-    bad "cmdline.txt lost init=firstboot — custom.toml will be ignored entirely"
+    bad "cloud-init user-data template missing from the boot partition — Pi Imager's advanced options will have nothing to rewrite"
 fi
 
-if [ -n "$(d "ls /usr/lib/raspberrypi-sys-mods" | tr -s ' \n' '\n' | grep -x init_config || true)" ]; then
-    ok "init_config present"
+if absent /etc/cloud/cloud.cfg; then
+    bad "/etc/cloud/cloud.cfg missing — cloud-init cannot apply user-data"
 else
-    bad "init_config missing — custom.toml cannot be applied"
+    ok "cloud-init config present (user-data will be applied)"
 fi
 
-# firstboot bails out of applying custom.toml without this, and reports it via
-# a blocking whiptail msgbox that nobody sees on a headless Pi.
-if [ -n "$(d "ls /usr/lib/python3/dist-packages" | tr -s ' \n' '\n' | grep -x toml || true)" ]; then
-    ok "python3-toml present (firstboot needs it to parse custom.toml)"
+# sshswitch.service (raspberrypi-sys-mods) only enables+starts ssh if this
+# marker file exists on the boot partition — cloud-init/Imager never create
+# it, so without it sshd never starts. Matching on the padded 8.3 FAT
+# directory entry ("SSH" + 8 spaces, no extension) rather than a bare "ssh"
+# substring — that string shows up incidentally elsewhere on this partition
+# (ssh_config, doc text) often enough to make a plain substring match noisy.
+SSH_MARKER_HITS=$(dd if="${IMG}" bs=1M skip=$((BOOT_OFF / 1048576)) count=512 status=none 2>/dev/null \
+     | grep -ac 'SSH        ' || true)
+if [ "${SSH_MARKER_HITS:-0}" -gt 0 ]; then
+    ok "boot partition ships the /boot/firmware/ssh marker (sshswitch will enable ssh, belt-and-suspenders)"
 else
-    bad "python3-toml missing — firstboot silently refuses to apply custom.toml"
+    bad "/boot/firmware/ssh marker missing (harmless on its own, but check the runcmd below)"
+fi
+
+# The marker/sshswitch path above was found unreliable on real Trixie
+# hardware. Primary mechanism is a live cloud-init runcmd in user-data —
+# the same one Raspberry Pi Imager itself writes for official images. Grep
+# for the exact live line rather than just "runcmd" or "ssh", since the
+# stock template ships a commented-out `#runcmd:` example that would
+# false-positive a substring match.
+RUNCMD_SSH_HITS=$(dd if="${IMG}" bs=1M skip=$((BOOT_OFF / 1048576)) count=512 status=none 2>/dev/null \
+     | grep -ac -- '- \[ systemctl, enable, --now, ssh \]' || true)
+if [ "${RUNCMD_SSH_HITS:-0}" -gt 0 ]; then
+    ok "user-data carries a live runcmd enabling ssh (unconditional, matches Imager's own mechanism)"
+else
+    bad "user-data's runcmd enabling ssh is missing or still commented out — sshd will not listen on first boot"
+fi
+
+# Confirmed on real hardware: regenerate_ssh_host_keys.service's
+# ConditionFirstBoot=yes can lose a race against systemd-machine-id-commit
+# and silently skip, leaving sshd with no host keys to bind — the marker and
+# runcmd above only ask ssh.service to start, they don't guarantee it can.
+# This drop-in is what actually makes that reliable.
+if d "cat /etc/systemd/system/ssh.service.d/inkypi-hostkeys.conf" | grep -qxF -- 'ExecStartPre=/usr/bin/ssh-keygen -A'; then
+    ok "ssh.service.d drop-in generates its own host keys (independent of regenerate_ssh_host_keys.service)"
+else
+    bad "ssh.service.d hostkey drop-in missing — sshd will fail to start if regenerate_ssh_host_keys.service ever skips (confirmed to happen on real hardware)"
+fi
+
+# cloud-init enables its own units via this generator at boot, not via a
+# static multi-user.target.wants symlink — so that's what to check for here.
+if absent /usr/lib/systemd/system-generators/cloud-init-generator; then
+    bad "cloud-init-generator missing — nothing enables cloud-init's units at boot"
+else
+    ok "cloud-init-generator present (enables cloud-init units at boot)"
 fi
 
 # Pi OS ships raspi-config in /usr/bin, not /usr/sbin. /usr/local/sbin still
@@ -154,6 +201,16 @@ if d "cat /etc/modules" | grep -qx "i2c-dev"; then
     ok "i2c-dev registered in /etc/modules (Inky EEPROM will be readable)"
 else
     bad "i2c-dev not in /etc/modules — /dev/i2c-1 will not exist and inky.auto() fails with 'No EEPROM detected'"
+fi
+
+# Pi OS ships NetworkManager with WirelessEnabled=false in its persisted
+# state file — confirmed on real hardware to mean the wifi radio never comes
+# up at all, independent of any SSID/password/regulatory-domain setting.
+# build_pi_image.sh flips this; verify it stuck.
+if d "cat /var/lib/NetworkManager/NetworkManager.state" | grep -qx "WirelessEnabled=true"; then
+    ok "NetworkManager WirelessEnabled=true (wifi radio enabled by default)"
+else
+    bad "NetworkManager.state does not have WirelessEnabled=true — wifi radio will not come up on boot"
 fi
 
 CFG_DIR_LS="$(d "ls /opt/inkypi-src/src/config" | tr -s ' \n' '\n')"
