@@ -260,29 +260,46 @@ fi
 grep -qxF 'WirelessEnabled=true' "${NM_STATE}"
 echo "NetworkManager WirelessEnabled set to true"
 
-# --- enable ssh: gated behind the classic /boot/ssh marker file ------------
+# --- enable ssh -------------------------------------------------------------
 # openssh-server is installed and sshd_config is present, but ssh.service is
 # NOT in multi-user.target.wants — confirmed by inspecting the built image
-# directly. What IS enabled is sshswitch.service
-# (/usr/lib/raspberrypi-sys-mods/sshswitch), whose own description is
-# "Turn on SSH if /boot/ssh or /boot/firmware/ssh is present": it looks for
-# that marker file, and only if found does it `systemctl enable --now ssh`
-# (then deletes the marker). This is the classic Raspbian headless-SSH
-# mechanism, predating cloud-init entirely — Imager's cloud-init
-# customisation path (user-data/network-config) never creates it, so ssh
-# never starts. Same shape of bug as the wifi radio being off by default:
-# real-hardware testing found the Pi fully reachable (wifi fixed) but SSH
-# refusing connections outright — nothing was listening on port 22.
+# directly. sshswitch.service (/usr/lib/raspberrypi-sys-mods/sshswitch) IS
+# enabled and, on paper, does the right thing: if /boot/firmware/ssh exists it
+# `systemctl enable --now ssh`s and deletes the marker. We ship that marker
+# below. But real-hardware testing on Trixie found the Pi fully reachable
+# (wifi fixed) with SSH still refusing connections outright — nothing
+# listening on port 22 — despite the marker surviving to boot and the audit
+# below passing clean. sshswitch's own ordering (After=boot-firmware.mount)
+# looks correct in the unit file; the actual failure mode on real hardware
+# was never root-caused past that.
 #
-# Lower risk than the wifi fix: this doesn't touch authentication at all,
-# only whether sshd is listening. Whoever configured (or didn't configure) a
-# password/key via cloud-init's user-data still gates actual login exactly
-# as before — an unreachable daemon and a running-but-uncredentialed one are
-# equally inaccessible.
+# What settled it: flashing an *official* (non-custom) Trixie image through
+# Raspberry Pi Imager's own "cloudinit-rpi" customisation path and inspecting
+# what Imager itself writes. It does NOT create a /boot/ssh or
+# /boot/firmware/ssh marker at all — sshswitch is never involved. Instead it
+# puts a live command directly in user-data:
+#   runcmd:
+#     - [ systemctl, enable, --now, ssh ]
+# Raspberry Pi's own tooling routes around sshswitch entirely on Trixie. We
+# do the same: rewrite user-data's existing (harmless, always-commented-out)
+# `#runcmd:` example block into a live one carrying that exact command. This
+# runs regardless of whether the user (or Imager, which never touches our
+# sideloaded image — see below) supplies any other customisation at all, so
+# ssh reachability no longer depends on sshswitch, a marker file, or the user
+# editing anything. The marker file is kept too, as a free second path; it
+# just isn't trusted as the primary mechanism any more.
 banner "Enabling SSH via the classic /boot/ssh marker file"
 touch "${MNT}/boot/firmware/ssh"
 [ -f "${MNT}/boot/firmware/ssh" ]
-echo "/boot/firmware/ssh marker created (sshswitch.service will enable+start ssh on first boot)"
+echo "/boot/firmware/ssh marker created (sshswitch.service will enable+start ssh on first boot, belt-and-suspenders)"
+
+banner "Enabling SSH via a live cloud-init runcmd (the mechanism Imager itself uses)"
+USER_DATA="${MNT}/boot/firmware/user-data"
+[ -f "${USER_DATA}" ]
+grep -qF '#runcmd:' "${USER_DATA}"
+sed -i 's/^#runcmd:$/runcmd:\n- [ systemctl, enable, --now, ssh ]/' "${USER_DATA}"
+grep -qxF -- '- [ systemctl, enable, --now, ssh ]' "${USER_DATA}"
+echo "user-data now unconditionally enables+starts ssh on first boot via cloud-init runcmd"
 
 # --- first-boot instructions --------------------------------------------------
 banner "Writing first-boot instructions"
@@ -296,43 +313,48 @@ cat > "${MNT}/boot/firmware/inkypi-readme.txt" <<'NOTE'
 InkyPi pre-installed image (JTN-533)
 ====================================
 
-This image already has InkyPi installed and enabled. It has NO user
-password and NO SSH until you configure it, and isn't joined to any
-network until you give it Wi-Fi credentials (the radio itself is on).
+This image already has InkyPi installed and enabled, and SSH is already
+on (no marker file, no setup needed — it just works). It is NOT joined
+to any network and has NO login account until you set those up by hand.
 
-Set your Wi-Fi, hostname, username/password and SSH access in
-Raspberry Pi Imager's "Edit Settings" (gear icon) BEFORE flashing —
-Imager writes these into cloud-init's user-data and network-config
-files on this same (boot) partition, applied automatically on first
-boot.
+IMPORTANT: Raspberry Pi Imager's "Edit Settings" (gear icon) does NOT
+appear for this image. That dialog only exists for the official OS
+images Imager downloads itself — a sideloaded/custom .img.xz like this
+one gets none of it, on any version of Imager. Flashing this image
+writes it byte-for-byte with zero customisation; there is nothing to
+configure at flash time.
 
-Wi-Fi is enabled by default on this image (unlike stock Pi OS, which
-ships NetworkManager with wifi turned off until you set a regulatory
-domain / country — this image overrides that, since a headless device
-like this one has no way to show you Pi OS's usual "wifi is blocked,
-run raspi-config" login message). If the Pi still doesn't join your
-network, in order of how likely each is to actually work: (1) double
-check the SSID/password Imager wrote are correct; (2) set a Wi-Fi
-country anyway — edit network-config on this partition by hand and
-set `regulatory-domain:` under the wifi block (Imager 2.0+ does this
-for you automatically; earlier versions don't) — a confirmed country
-gets you full channel/power support rather than the conservative
-worldwide default; (3) as a last resort, add this to the end of
-cmdline.txt on this partition (one line, space-separated from the
-rest, no newline):
+Instead, before powering the Pi on for the first time, mount this same
+boot partition on your computer (Windows/Mac/Linux all read FAT32
+natively — no tools needed) and hand-edit two plain-text files already
+sitting here:
+
+    user-data       — create your login account (see the commented-out
+                      `#users:` example already in the file — uncomment
+                      it, set `name:`/`passwd:` or `ssh_authorized_keys:`)
+    network-config  — join Wi-Fi (see the commented-out `wifis:` example
+                      — uncomment it, set your SSID and password)
+
+Both are stock cloud-init NoCloud templates; everything in them is
+commented out by default (deliberately inert, so nothing half-applies).
+Uncomment only what you need — format details are in each file's own
+comments, or https://cloudinit.readthedocs.io/.
+
+Wi-Fi radio note: this image enables the radio itself by default
+(stock Pi OS ships NetworkManager with it off until a regulatory
+domain / country is set, which a headless device has no way to prompt
+for). Once you've set an SSID/password in network-config, if it still
+won't join: (1) double-check the SSID/password; (2) set a country —
+add `regulatory-domain: "US"` (your ISO code) under the wifi
+interface block in network-config, indented to match `dhcp4:`; (3) as
+a last resort, append this to the end of cmdline.txt on this partition
+(same line, space-separated, no newline):
     cfg80211.ieee80211_regdom=US
-(use your actual ISO country code).
-
-If you'd rather not use Imager, this partition already ships stock
-cloud-init templates you can edit by hand before first boot:
-    user-data        — hostname, user account, SSH
-    network-config    — Wi-Fi (see the note above about country)
-Both are commented-out examples; see the comments in each file, or
-https://cloudinit.readthedocs.io/ for the format.
 
 Once the Pi joins your network, visit:
     http://<hostname>.local/
-in a browser on the same LAN — the InkyPi web UI will be up.
+in a browser on the same LAN — the InkyPi web UI will be up. SSH in as
+whatever account you created in user-data.
 NOTE
 
 # --- remove everything the build added ----------------------------------------

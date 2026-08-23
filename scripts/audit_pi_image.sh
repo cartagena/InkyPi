@@ -126,9 +126,23 @@ fi
 SSH_MARKER_HITS=$(dd if="${IMG}" bs=1M skip=$((BOOT_OFF / 1048576)) count=512 status=none 2>/dev/null \
      | grep -ac 'SSH        ' || true)
 if [ "${SSH_MARKER_HITS:-0}" -gt 0 ]; then
-    ok "boot partition ships the /boot/firmware/ssh marker (sshswitch will enable ssh)"
+    ok "boot partition ships the /boot/firmware/ssh marker (sshswitch will enable ssh, belt-and-suspenders)"
 else
-    bad "/boot/firmware/ssh marker missing — sshswitch.service will never enable ssh, sshd will not listen"
+    bad "/boot/firmware/ssh marker missing (harmless on its own, but check the runcmd below)"
+fi
+
+# The marker/sshswitch path above was found unreliable on real Trixie
+# hardware. Primary mechanism is a live cloud-init runcmd in user-data —
+# the same one Raspberry Pi Imager itself writes for official images. Grep
+# for the exact live line rather than just "runcmd" or "ssh", since the
+# stock template ships a commented-out `#runcmd:` example that would
+# false-positive a substring match.
+RUNCMD_SSH_HITS=$(dd if="${IMG}" bs=1M skip=$((BOOT_OFF / 1048576)) count=512 status=none 2>/dev/null \
+     | grep -ac -- '- \[ systemctl, enable, --now, ssh \]' || true)
+if [ "${RUNCMD_SSH_HITS:-0}" -gt 0 ]; then
+    ok "user-data carries a live runcmd enabling ssh (unconditional, matches Imager's own mechanism)"
+else
+    bad "user-data's runcmd enabling ssh is missing or still commented out — sshd will not listen on first boot"
 fi
 
 # cloud-init enables its own units via this generator at boot, not via a
