@@ -145,6 +145,17 @@ else
     bad "user-data's runcmd enabling ssh is missing or still commented out — sshd will not listen on first boot"
 fi
 
+# Confirmed on real hardware: regenerate_ssh_host_keys.service's
+# ConditionFirstBoot=yes can lose a race against systemd-machine-id-commit
+# and silently skip, leaving sshd with no host keys to bind — the marker and
+# runcmd above only ask ssh.service to start, they don't guarantee it can.
+# This drop-in is what actually makes that reliable.
+if d "cat /etc/systemd/system/ssh.service.d/inkypi-hostkeys.conf" | grep -qxF -- 'ExecStartPre=/usr/bin/ssh-keygen -A'; then
+    ok "ssh.service.d drop-in generates its own host keys (independent of regenerate_ssh_host_keys.service)"
+else
+    bad "ssh.service.d hostkey drop-in missing — sshd will fail to start if regenerate_ssh_host_keys.service ever skips (confirmed to happen on real hardware)"
+fi
+
 # cloud-init enables its own units via this generator at boot, not via a
 # static multi-user.target.wants symlink — so that's what to check for here.
 if absent /usr/lib/systemd/system-generators/cloud-init-generator; then

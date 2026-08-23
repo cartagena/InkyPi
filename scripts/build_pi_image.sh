@@ -301,6 +301,40 @@ sed -i 's/^#runcmd:$/runcmd:\n- [ systemctl, enable, --now, ssh ]/' "${USER_DATA
 grep -qxF -- '- [ systemctl, enable, --now, ssh ]' "${USER_DATA}"
 echo "user-data now unconditionally enables+starts ssh on first boot via cloud-init runcmd"
 
+# --- guarantee ssh.service can actually start: host keys ------------------
+# The two fixes above only get ssh.service *asked* to start — on real
+# hardware it still failed, with the journal showing the actual culprit:
+#   Process: ExecStartPre=/usr/sbin/sshd -t (code=exited, status=1/FAILURE)
+#   sshd: no hostkeys available -- exiting
+# regenerate_ssh_host_keys.service (the raspberrypi-sys-mods unit that
+# generates them — this image intentionally ships none, so every card gets
+# its own) never ran: `systemctl status` showed
+#   Condition: start condition unmet
+#   ... skipped, unmet condition check
+# Its ConditionFirstBoot=yes evaluated false on what genuinely was the first
+# real boot — a known systemd race where systemd-machine-id-commit.service
+# can consume the /run/systemd/first-boot marker before other
+# ConditionFirstBoot=yes units get a turn. Confirmed on real hardware via
+# console + journalctl, not guessed from static analysis.
+#
+# Rather than fight that race, stop depending on it. A drop-in on
+# ssh.service itself generates any missing host keys as its own first
+# ExecStartPre — self-sufficient regardless of what triggers ssh.service
+# (sshswitch, our runcmd above, or a manual start later), and immune to the
+# user hand-editing or deleting user-data entirely, since it lives in the
+# rootfs, not the boot partition. `ExecStartPre=` with no value first clears
+# the inherited `sshd -t` entry so we can re-add it *after* our own step —
+# a plain drop-in only appends, which would run keygen after the config
+# test that's actually failing.
+mkdir -p "${MNT}/etc/systemd/system/ssh.service.d"
+cat > "${MNT}/etc/systemd/system/ssh.service.d/inkypi-hostkeys.conf" <<'DROPIN'
+[Service]
+ExecStartPre=
+ExecStartPre=/usr/bin/ssh-keygen -A
+ExecStartPre=/usr/sbin/sshd -t
+DROPIN
+echo "ssh.service now generates its own host keys before starting, independent of regenerate_ssh_host_keys.service"
+
 # --- first-boot instructions --------------------------------------------------
 banner "Writing first-boot instructions"
 # Pi OS Trixie dropped the old custom.toml/raspberrypi-sys-mods firstboot
