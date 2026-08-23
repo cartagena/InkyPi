@@ -1,6 +1,41 @@
 # CHANGELOG
 
 
+## v1.3.1 (2026-08-23)
+
+### Bug Fixes
+
+- Mask hardware-dependent units during boot verification
+  ([`1adcc65`](https://github.com/cartagena/InkyPi/commit/1adcc650672650ca201991ba75d9cd653caa2bd3))
+
+The v1.2.0 boot check exhausted its 600s budget without reaching multi-user.target. The serial log
+  shows where the time went:
+
+[ 57.7] Starting NetworkManager-wait-online.service ... [152.6] inkypi.service: Consumed 32.171s CPU
+  time. [224.6] inkypi.service: Consumed 4.742s CPU time. [284.8] Starting inkypi.service - InkyPi
+  App... [296.7] ... [368.4] ... [439.7] ... [500.0] Finished inkypi-failure.service - InkyPi
+  failure sentinel writer.
+
+inkypi.service drives an Inky e-paper HAT. Its driver calls inky.auto(), which identifies the panel
+  by reading an EEPROM over I2C, and qemu has no HAT — so it cannot start, ever. The unit is built
+  to keep trying: Restart=on-failure, RestartSec=60, StartLimitBurst=5. Roughly 350s of the budget
+  went to that loop before it tripped its start limit, with multi-user.target sitting behind it.
+  NetworkManager-wait-online adds to that by holding network-online.target open for a NIC raspi3b
+  does not emulate, and inkypi.service is ordered after network-online.target, so the two delays
+  stack.
+
+Mask both for the boot test. The gate exists to prove the image boots — that pishrink did not wreck
+  the rootfs, that fstab and cmdline.txt are intact — and a hardware-free boot cannot answer whether
+  an e-paper app talks to a panel that is not there.
+
+This is only safe because something else checks the app is wired up: audit_pi_image.sh already
+  verifies the src symlink resolves to a real checkout, the venv interpreter and launcher exist,
+  inkypi.service is enabled and i2c-dev is registered. A test asserts those checks stay in the
+  auditor, so masking here cannot quietly become a blind spot.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+
 ## v1.3.0 (2026-08-23)
 
 ### Bug Fixes
