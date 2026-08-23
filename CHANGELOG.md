@@ -1,6 +1,265 @@
 # CHANGELOG
 
 
+## v1.3.2 (2026-08-23)
+
+### Bug Fixes
+
+- Enable ssh by default (sshswitch needs a marker Imager never writes)
+  ([`bf4f73f`](https://github.com/cartagena/InkyPi/commit/bf4f73f3e66cef0cc7c1dcc11323434731e6b7ef))
+
+Same shape of bug as the wifi radio fix: real-hardware testing found the Pi fully reachable on the
+  network (wifi fixed) but SSH refusing connections outright ("Connection refused" — nothing
+  listening on port 22, not a network problem).
+
+Confirmed by inspecting the built image directly: openssh-server is installed and sshd_config is
+  present, but ssh.service is not in multi-user.target.wants. What IS enabled is sshswitch.service
+  (/usr/lib/raspberrypi-sys-mods/sshswitch), whose own description is "Turn on SSH if /boot/ssh or
+  /boot/firmware/ssh is present" — it's the classic Raspbian headless-SSH marker-file mechanism,
+  predating cloud-init entirely. Imager's cloud-init customisation path (user-data/network-config)
+  never creates that marker, so ssh never starts regardless of what SSH options were configured in
+  user-data.
+
+build_pi_image.sh now touches /boot/firmware/ssh at build time, which lets sshswitch.service do its
+  normal job on first boot (enable, start, delete the marker) — reusing the existing first-party
+  mechanism rather than reimplementing systemd enablement directly. audit_pi_image.sh gained a
+  matching check, matching on the padded 8.3 FAT directory entry ("SSH" + 8 spaces) rather than a
+  bare "ssh" substring, which showed up incidentally elsewhere on the boot partition often enough to
+  be a noisy match.
+
+Lower risk than the wifi fix: this doesn't touch authentication, only whether sshd is listening.
+  Whatever password/key cloud-init's user-data did or didn't configure still gates actual login
+  exactly as before.
+
+Verified end to end: rebuilt, audited (17/17 PASS, up from 16). Also hit and fixed an unrelated
+  local-testing hazard while verifying this: scripts/build_pi_image.sh hardcodes MNT=/mnt/pi-root
+  with no per-run isolation, so a mount left over from an earlier interrupted local run silently
+  produced a corrupted next build (audit failures across unrelated, earlier-in-the-script fixes)
+  even though that build's own log showed every step succeeding. Not fixed here — noted for whoever
+  touches this script next, since it'll bite local iteration again.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Enable ssh via a live cloud-init runcmd, not the sshswitch marker
+  ([`45b5f4c`](https://github.com/cartagena/InkyPi/commit/45b5f4c239a18ba42832358b5a319c35f05d1bec))
+
+The /boot/firmware/ssh marker (sshswitch.service) looked correct on paper and passed audit, but
+  real-hardware testing on Trixie kept refusing SSH connections outright. Flashing an official
+  Trixie image through Raspberry Pi Imager's own customisation path and inspecting what Imager
+  itself writes settled it: Imager never creates that marker at all. It puts `runcmd: [systemctl,
+  enable, --now, ssh]` directly in user-data instead — Raspberry Pi's own tooling routes around
+  sshswitch on Trixie entirely.
+
+Rewrite user-data's existing (harmless, commented-out) `#runcmd:` example into a live one carrying
+  that same command, unconditionally, independent of the marker file or anything the user
+  configures. Keep the marker as a free second path, just not the primary mechanism.
+
+Also confirmed, from the same real-image inspection, that Raspberry Pi Imager offers zero OS
+  customisation (no gear-icon dialog at all) for a sideloaded/custom image on any current version —
+  our earlier readme telling users to "set Wi-Fi/SSH in Imager before flashing" pointed at a dialog
+  that never appears for this image. Rewritten to describe the only path that actually exists:
+  hand-editing user-data/network-config on the boot partition before first power-on.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Enable wifi by default (NetworkManager ships it off) + calibrate readme
+  ([`33813c0`](https://github.com/cartagena/InkyPi/commit/33813c000fb3a450df2aaf02616607eda2c8a737))
+
+Root cause for "wifi never connects even with correct SSID/password on real hardware, despite Imager
+  writing cloud-init user-data/network-config correctly": confirmed by direct inspection that the
+  pristine Trixie base image ships /var/lib/NetworkManager/NetworkManager.state with
+  WirelessEnabled=false. Per NetworkManager's own docs (networkmanager.dev/docs/rfkill/), writing
+  WirelessEnabled also updates the kernel rfkill soft-block state for wifi, and a real-world
+  Raspberry Pi forum "[SOLVED]" thread independently confirms this exact mechanism ("rfkill is done
+  by NetworkManager at boot, regardless of regdom, based on the last NetworkManager.state") — so
+  this one persisted flag, wholly independent of any regulatory-domain/country setting, is why the
+  radio never came up at all on real-hardware testing (service started, e-paper refreshed, wifi
+  never did).
+
+build_pi_image.sh now flips WirelessEnabled=true at build time. audit_pi_image.sh gained a matching
+  regression check. Verified against the real pristine Trixie image before deciding this was even
+  the right file, and against the actual built+shrunk image after the fix — audit now reports 16/16
+  PASS.
+
+This is a deliberate override of Pi OS's conservative ship-wifi-disabled-until-configured default:
+  the world/00 regulatory domain still applies as a safety net (this does not touch
+  regulatory-domain), and InkyPi's headless deployment has no way to surface Pi OS's own "wifi
+  blocked" login warning to a user who can't get a shell in the first place. Worth reviewing given
+  the regulatory angle, even though the technical risk is narrow.
+
+Also recalibrated the wifi-country guidance already in inkypi-readme.txt after tracing rpi-imager's
+  actual source at the user's exact version (v1.9.6): confirmed via `git log`/`git show` across tags
+  that regulatory-domain writing into cloud-init's network-config was only added in v2.0.0-rc4
+  (commit 693927ef, Oct 2025) — v1.9.6 never writes it, even though it does (separately,
+  unconditionally) append cfg80211.ieee80211_regdom= to cmdline.txt whenever a country is entered.
+  Traced that through netplan's own source too (gen-networkd.c -> netplan-regdom.service -> `iw reg
+  set`) to confirm it's a real, functioning mechanism, not dead code — but since the WirelessEnabled
+  fix above addresses the actual reported failure directly, the readme now treats
+  regulatory-domain/country as secondary (affects channel/power compliance) rather than the primary
+  fix.
+
+Not included in this commit: a boot_verify_image.sh fix. Real hardware aside, this surfaced that the
+  qemu boot-verify path is currently unreliable against Trixie images for an unrelated reason — Pi
+  OS's own first-boot rootfs growfs triggers a hardware-watchdog reset early in boot (confirmed via
+  `qemu -d guest_errors`: last trace line before the guest disappears is `bcm2835_powermgt_write:
+  WDOG`), which happens independent of the `resize` cmdline token (still reproduces with it
+  stripped) and recurred on a retry rather than resolving after one restart, so a naive "retry once
+  on clean exit" patch was tried and reverted rather than committed once real-world runs proved it
+  insufficient — needs proper investigation, not a guess.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Generate ssh host keys unconditionally, don't rely on regenerate_ssh_host_keys.service
+  ([`387df8c`](https://github.com/cartagena/InkyPi/commit/387df8cf4ad422428c2b2694830e8c4dcf991319))
+
+Real device evidence (console + journalctl, not static analysis this time): the previous ssh fixes
+  were both correct but insufficient. ssh.service was being asked to start, and failing every time:
+
+Process: ExecStartPre=/usr/sbin/sshd -t (code=exited, status=1/FAILURE)
+
+sshd[965]: sshd: no hostkeys available -- exiting
+
+regenerate_ssh_host_keys.service — the unit that generates them, since this image intentionally
+  ships none so every card gets its own — never ran:
+
+Condition: start condition unmet regenerate_ssh_host_keys.service - Regenerate SSH host keys
+  skipped, unmet condition check
+
+Its ConditionFirstBoot=yes evaluated false on what genuinely was the first real boot. This is a
+  known systemd race: systemd-machine-id-commit.service can consume the /run/systemd/first-boot
+  marker before other ConditionFirstBoot=yes units get a turn. Rather than fight that race, stop
+  depending on it.
+
+Add a ssh.service.d drop-in that runs `ssh-keygen -A` as its own first ExecStartPre, ahead of the
+  existing `sshd -t` config check that was actually the one failing. `ExecStartPre=` with no value
+  first resets the inherited entry so ours can be re-added before it, not after (a plain drop-in
+  only appends). Lives in the rootfs, not the boot partition, so it's immune to the user
+  hand-editing or deleting user-data, and it doesn't care what triggers ssh.service — sshswitch, the
+  runcmd from the previous fix, or a manual start later all now work regardless of whether the flaky
+  condition above fires.
+
+Verified with systemd-analyze verify (offline, --root) against the built image, and functionally:
+  chrooted in, deleted host keys, ran the drop-in's exact merged command sequence (ssh-keygen -A;
+  sshd -t) starting from the same no-keys state a fresh flash ships in — keys generated, config test
+  passed.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Sync build_pi_image.sh's local-run pin defaults with the workflow
+  ([`dea4ee4`](https://github.com/cartagena/InkyPi/commit/dea4ee40a15773877c408ebc6d94bee9179fb12c))
+
+The previous commit bumped the PIN POINT block in build-pi-image.yml to Trixie but missed this
+  script's own fallback defaults (used when PI_OS_IMAGE_* isn't exported by the workflow) — its own
+  comment says they must stay in sync with the workflow. A plain local `sudo
+  ./scripts/build_pi_image.sh --tag vX.Y.Z` was still defaulting to the old Bookworm pin.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Verify+repair rootfs integrity after pishrink shrink
+  ([`54abf83`](https://github.com/cartagena/InkyPi/commit/54abf83df941b2c6489636e915f971fb63601c02))
+
+While rebuilding to test the ssh fix, an image came out of pishrink with real ext4 corruption on the
+  rootfs — inodes holding extents pointing at physical blocks beyond the filesystem's new,
+  post-shrink size. e2fsck -fy found and fixed thousands of these (bad extents, wrong
+  free-block/inode counts). pishrink's own internal fsck+resize2fs reported success, and the build
+  log showed every step succeeding; a plain `mount` even served most files fine (the kernel driver
+  tolerates the inconsistency well enough). Only a strict reader — debugfs, e2fsck — catches it,
+  which is exactly what audit_pi_image.sh and ultimately every user's device does.
+
+An earlier build of this exact same pipeline came out clean, so this looks like a non-deterministic
+  e2fsprogs 1.47.0 resize2fs-shrink bug (plausibly interacting with the newer orphan_file feature),
+  not something tied to any specific input. Rather than chase the root cause in resize2fs itself,
+  make the fix mandatory: run e2fsck -fy on the shrunk rootfs before packaging, fail the build
+  outright if it can't be fully repaired (exit >= 4), and re-run once more to require a genuinely
+  clean pass rather than trusting a single "errors corrected" exit code.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+### Chores
+
+- Bump prebuilt Pi image base to Raspberry Pi OS Trixie
+  ([`c8b339d`](https://github.com/cartagena/InkyPi/commit/c8b339ddc456d54e2f4a91676be924b12ba87d0c))
+
+Move PI_OS_IMAGE_URL/SHA256/FILENAME from the 2025-05-13 Bookworm lite image to the 2026-06-18
+  Trixie lite image. Verified against the real downloaded image: SHA256 matches the published
+  .sha256, partition layout is still FAT32 boot (p1) + ext4 root (p2), and the boot partition still
+  ships kernel8.img, bcm2710-rpi-3-b.dtb, cmdline.txt, and config.txt at the same paths this
+  pipeline already assumes.
+
+Note the dated directory (2026-06-19) no longer matches the date in the filename itself
+  (2026-06-18), unlike the previous pin where they were identical — documented inline so the next
+  bump doesn't assume they match.
+
+Also fix the fallout: Trixie drops the old custom.toml / raspberrypi-sys-mods firstboot mechanism
+  entirely in favor of cloud-init (confirmed empirically — cmdline.txt no longer carries
+  init=.../firstboot, and neither init_config nor python3-toml ship in the rootfs any more). Without
+  this fix audit_pi_image.sh's three checks for that mechanism would fail on every Trixie build:
+
+- scripts/audit_pi_image.sh: replace the firstboot/init_config/toml checks with cloud-init
+  equivalents (boot partition still ships the user-data template, /etc/cloud/cloud.cfg present, the
+  cloud-init-generator that enables its units at boot is present). Verified all three pass against
+  the real pristine Trixie image; the remaining failures reported are only the expected ones for an
+  unbuilt base image (no install.sh run yet). - scripts/build_pi_image.sh: rewrite the first-boot
+  README dropped on the boot partition — it told users to hand-write a custom.toml that Trixie will
+  now silently ignore. Points at Pi Imager's advanced options (which now write cloud-init user-data
+  / network-config) or hand-editing the stock templates already shipped there, instead of asking
+  users to invent a custom.toml from scratch.
+
+qemu-based boot verification (scripts/boot_verify_image.sh) could not be run in this environment (no
+  qemu-system-aarch64, no passwordless sudo for the loop-mount/chroot steps) and should be run for
+  real before this ships. That script's UART/cmdline console rewriting logic was deliberately left
+  untouched per the reactive-only plan — but note Trixie's stock cmdline.txt has also dropped the
+  init=.../firstboot clause that used to force a mid-boot reboot for the rootfs resize (a bare
+  `resize` keyword is used now instead), which may change boot timing/behavior under qemu in ways
+  only a real boot-verify run will show.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+### Documentation
+
+- Correct pre-built image install steps for Trixie, add config templates
+  ([`e30711a`](https://github.com/cartagena/InkyPi/commit/e30711ad699ea7e1421dfd48fd38a4d004fd03a6))
+
+The install steps still described the old assumption that Pi Imager's gear icon writes
+  Wi-Fi/SSH/user settings into this image at flash time. Confirmed by diffing Imager's own source
+  across versions: that's only true on Imager 1.9.6 and earlier — the "Use custom" flow's setSrc()
+  forced _initFormat = "auto" for any local non-ISO file there. Imager 2.0 rewrote the wizard and
+  dropped that override entirely; imageSupportsCustomization() now returns false unconditionally for
+  a sideloaded image, so the dialog never appears. Branch the install steps on Imager version
+  instead of assuming one behavior for both, and add a full walkthrough for the hand-edit path 2.0+
+  users actually need: user-data and network-config templates with instructions for hashing a Wi-Fi
+  password (wpa_passphrase), hashing a login password (mkpasswd --method=yescrypt matching Trixie's
+  own default, or openssl passwd -6 as a no-extra-package fallback), and choosing key- vs
+  password-based SSH.
+
+Also updates the SSH framing to match the real fix now in this branch: SSH is enabled
+  unconditionally on first boot (ssh.service.d hostkey drop-in + live cloud-init runcmd), not gated
+  on any user configuration.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Warn about the wifi rfkill/country gotcha in the first-boot readme
+  ([`3d9248a`](https://github.com/cartagena/InkyPi/commit/3d9248ac81e323774bb977b7a542da4ccdb0a0d3))
+
+Real-hardware testing surfaced this: the InkyPi service starts and the e-paper refreshes fine, but
+  wifi never connects even when Imager wrote SSID/password correctly, because Pi OS ships wifi
+  rfkill-blocked by default until a regulatory domain is set (confirmed via the image's own
+  /etc/modprobe.d/rfkill_default.conf and /etc/profile.d/wifi-check.sh) — and Raspberry Pi's own
+  cloud-init announcement confirms the country field only reliably threads into network-config's
+  regulatory-domain as of Imager 2.0; pre-2.0 (e.g. 1.9.x) moved it from the old Wi-Fi dialog into a
+  new Localisation step without a documented guarantee it was wired to cloud-init output before
+  that.
+
+This can't be caught by scripts/boot_verify_image.sh — qemu has no real radio to soft-block, so this
+  bug class is only visible on real hardware. Rather than change build/audit behavior (the safe
+  rfkill default is Pi OS's own regulatory-compliance choice, not something to override
+  unconditionally), document the fix: use Imager 2.0+, or set regulatory-domain by hand in
+  network-config, or add cfg80211.ieee80211_regdom=<CC> to cmdline.txt directly (confirmed
+  sufficient by the image's own wifi-check.sh logic).
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+
 ## v1.3.1 (2026-08-23)
 
 ### Bug Fixes
