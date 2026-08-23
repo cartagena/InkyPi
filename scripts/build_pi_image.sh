@@ -426,6 +426,45 @@ sha256sum -c pishrink.sha256
 chmod +x pishrink.sh
 ./pishrink.sh -s "${BASE_IMG}"
 
+# --- verify the shrink didn't corrupt the filesystem ------------------------
+# pishrink runs its own fsck+resize2fs internally and reported clean here, but
+# a real build was found to still come out of that step with dangling extents
+# on the rootfs (inodes pointing at physical blocks beyond the new, smaller
+# filesystem size) — e2fsprogs 1.47.0's resize2fs shrink interacting badly
+# with the orphan_file feature, non-deterministically: an earlier build of
+# the exact same pipeline came out clean, this one didn't. The corruption is
+# invisible to a build log (every step reports success) and to a casual
+# `mount` (the kernel driver tolerates it enough to serve most files) — it
+# only surfaces under a strict reader like debugfs or e2fsck, which is
+# exactly what ships to users. Confirmed fixable with e2fsck -fy; make that
+# fix mandatory rather than trusting pishrink's internal check.
+banner "Verifying rootfs integrity after shrink"
+# fdisk right-aligns the Start column, so rows can begin with spaces — match
+# on the field being numeric rather than on the line starting with a digit
+# (same approach audit_pi_image.sh uses).
+read -r _BOOT_START ROOT_START <<<"$(
+    fdisk -l -o Start,Type "${BASE_IMG}" 2>/dev/null \
+        | awk '$1 ~ /^[0-9]+$/ {printf "%d ", $1}'
+)"
+ROOT_PART_OFF=$(( ROOT_START * 512 ))
+FSCK_LOOP=$(losetup --show -f -o "${ROOT_PART_OFF}" "${BASE_IMG}")
+set +e
+e2fsck -fy "${FSCK_LOOP}"
+FSCK_STATUS=$?
+set -e
+if [ "${FSCK_STATUS}" -ge 4 ]; then
+    losetup -d "${FSCK_LOOP}"
+    echo "ERROR: e2fsck could not fully repair the rootfs after shrink (exit ${FSCK_STATUS})" >&2
+    exit 1
+fi
+# A pass that had to fix anything (exit 1/2) can still leave stale metadata
+# a strict reader flags; run again and require a genuinely clean exit 0.
+if [ "${FSCK_STATUS}" -ne 0 ]; then
+    e2fsck -fy "${FSCK_LOOP}"
+fi
+losetup -d "${FSCK_LOOP}"
+echo "rootfs integrity confirmed clean after shrink"
+
 # --- package ------------------------------------------------------------------
 banner "Packaging"
 IMG_NAME="inkypi-${VERSION}-pi-zero-2-w.img"
