@@ -1,24 +1,38 @@
 # CHANGELOG
 
 
-## v1.4.0 (2026-08-22)
-
-### Features
-
-- Add Android panel client (Inky OLED) under clients/android
-  ([#635](https://github.com/jtn0123/InkyPi/pull/635),
-  [`0de3118`](https://github.com/jtn0123/InkyPi/commit/0de3118799e2f20a825cccd50b5eabc506134f04))
-
-feat: add Android panel client (Inky OLED) under clients/android
-
-
-## v1.3.2 (2026-08-22)
+## v1.3.0 (2026-08-23)
 
 ### Bug Fixes
 
+- Correct refresh error accounting, sidebar nav clipping, and weather rendering; add unattended
+  update recovery ([#632](https://github.com/cartagena/InkyPi/pull/632),
+  [`577e6f8`](https://github.com/cartagena/InkyPi/commit/577e6f8a4ba820d7c106e7e0f747f6ec47f565b8))
+
+Upstream review of fatihak/InkyPi plus operational patterns ported from the ESP32-Garage-Fan and
+  halloween_esp firmware.
+
+Fixes: refresh error accounting counted every record as a failure; sidebar nav clipped the API Keys
+  entry; weather requested an invalid Kelvin unit, looked up icons in the wrong directory, and was a
+  day off on moon phase; plugin tiles truncated their names mid-word; image_upload hardcoded RGB and
+  crashed on L/1 uploads.
+
+Adds: watchdog gating on refresh-loop progress rather than a liveness bool, crash breadcrumbs with
+  plugin quarantine, automatic rollback after repeated start-limit events, and update verification
+  that distinguishes confirmed from unconfirmed from dark.
+
+Also fixes the crash-loop regression gate, which had never actually run — it hardcoded a cgroup v1
+  recipe and skipped silently on v2, so a skipped gate looked exactly like a passing one.
+
+Clears all 45 pip-audit findings across both lockfiles.
+
+Known remaining: SonarCloud S2083 on crash_breadcrumb.py is a documented false positive
+  (docs/security/sonar-s2083-crash-breadcrumb-tracking.md); Open-Meteo naive-timestamp normalisation
+  is deferred as A1d in the review doc.
+
 - Cron step syntax, assert-as-control-flow, and tests that could not fail
-  ([#636](https://github.com/jtn0123/InkyPi/pull/636),
-  [`085728f`](https://github.com/jtn0123/InkyPi/commit/085728f49f1d33c81a33fc0f642d20ade530d224))
+  ([#636](https://github.com/cartagena/InkyPi/pull/636),
+  [`085728f`](https://github.com/cartagena/InkyPi/commit/085728f49f1d33c81a33fc0f642d20ade530d224))
 
 Real bugs: `*/N` cron syntax parsed to the empty set (a schedule that never fires); `assert` used
   for control flow in a request handler, which vanishes under python -O and turned a failed
@@ -35,7 +49,7 @@ DevEx: macOS can get a green local run (the pixel snapshots honour SKIP_VISUAL a
   instructions that would have dropped the Linux-only packages.
 
 - **clients/android**: A daytime sky with blue in it, and a moon with seas
-  ([`5c7ce66`](https://github.com/jtn0123/InkyPi/commit/5c7ce660bee2e9e9d644635752630d2d36bf3841))
+  ([`5c7ce66`](https://github.com/cartagena/InkyPi/commit/5c7ce660bee2e9e9d644635752630d2d36bf3841))
 
 Three things a round of grading caught, and all three were the same mistake in different materials:
   a decision made once and then applied to the whole surface.
@@ -67,7 +81,7 @@ THE CARDS. In a storm, three hundred rain streaks were ruled across the Details 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: A moon with bowls in it, and a terminator that is not four steps
-  ([`e712ff9`](https://github.com/jtn0123/InkyPi/commit/e712ff9e0acfca703697276f465f17a0e63b4477))
+  ([`e712ff9`](https://github.com/cartagena/InkyPi/commit/e712ff9e0acfca703697276f465f17a0e63b4477))
 
 The shadow was painted four times at four phases a few thousandths apart, on the theory that
   stepping the geometry lays a soft band down for free. What it lays down is four countable steps
@@ -91,10 +105,10 @@ Both the face and the bowls now mirror at full moon, because the sun changes sid
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: Build proxy target from allowlisted host constant (CodeQL py/full-ssrf)
-  ([`0e83a9c`](https://github.com/jtn0123/InkyPi/commit/0e83a9cfad4a072882462fd82e3194c345845944))
+  ([`0e83a9c`](https://github.com/cartagena/InkyPi/commit/0e83a9cfad4a072882462fd82e3194c345845944))
 
 - **clients/android**: Countdown presets are not laps
-  ([`674f764`](https://github.com/jtn0123/InkyPi/commit/674f7649b96f49222a789e40d433e34099bd9caa))
+  ([`674f764`](https://github.com/cartagena/InkyPi/commit/674f7649b96f49222a789e40d433e34099bd9caa))
 
 The four preset chips shipped inside the LAPS section, under a sentence about splitting lap times —
   countdown presets filed under a heading about a different feature, which was the one thing on this
@@ -110,7 +124,7 @@ The slack is split two to one between the readout and the foot of the panel. Wit
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: Light that leaves the sun, and folds that are not scored lines
-  ([`1edcd2e`](https://github.com/jtn0123/InkyPi/commit/1edcd2e4bd1c9175fbf8d8cc29fb2a956f36faf2))
+  ([`1edcd2e`](https://github.com/cartagena/InkyPi/commit/1edcd2e4bd1c9175fbf8d8cc29fb2a956f36faf2))
 
 Two leftovers from the same grading, both of them edges that were too crisp for what they were
   drawing.
@@ -131,7 +145,7 @@ THE FOLDS on the cloud decks probed as a 26-level dip with a hard side on each o
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: One gradient sprite, not twenty-six duplicate ids
-  ([`adbc221`](https://github.com/jtn0123/InkyPi/commit/adbc221264ee97f7b60682543e1d6b14040e20ce))
+  ([`adbc221`](https://github.com/cartagena/InkyPi/commit/adbc221264ee97f7b60682543e1d6b14040e20ce))
 
 Every icon carried its own <defs>, which put twenty-six identical <linearGradient id="wxg-cloud">
   nodes in one document. A duplicate id resolves to whichever copy the browser saw first — and that
@@ -150,14 +164,14 @@ The Moon widget's disc had the same trap in a second form — a clipPath id on a
   the one phase it ever draws.
 
 - **clients/android**: Resolve CodeQL findings in widgets and simulator
-  ([`164f31b`](https://github.com/jtn0123/InkyPi/commit/164f31b7bf4e9735142c314a4c84942c8eb48e2c))
+  ([`164f31b`](https://github.com/cartagena/InkyPi/commit/164f31b7bf4e9735142c314a4c84942c8eb48e2c))
 
 - wx-news/wx-gallery: strip markup to a fixed point, decode &amp; last - sim-bridge: match
   Open-Meteo hosts by parsed hostname, not substring - sim/server.py: fixed file map for sim assets;
   outbound proxy host allowlist (SIM_ALLOW_HOSTS to extend, e.g. Home Assistant)
 
 - **clients/android**: Sim/shoot.sh needs more virtual time now the icons animate
-  ([`792780c`](https://github.com/jtn0123/InkyPi/commit/792780cb61eedcdf70a01e5f49e850733d04add0))
+  ([`792780c`](https://github.com/cartagena/InkyPi/commit/792780cb61eedcdf70a01e5f49e850733d04add0))
 
 Headless Chrome's virtual clock advances on every frame the page asks for, and the icon set now asks
   for frames continuously — so a page could burn the whole 9 s budget during boot and be captured
@@ -165,7 +179,7 @@ Headless Chrome's virtual clock advances on every frame the page asks for, and t
   as an empty sky with nothing on it. 20 s, and the whole contact sheet comes back consistent.
 
 - **clients/android**: Size the night moon from its lit area, not its total
-  ([`8247ba5`](https://github.com/jtn0123/InkyPi/commit/8247ba50eceddc91d36e19c0e94791a23ee19005))
+  ([`8247ba5`](https://github.com/cartagena/InkyPi/commit/8247ba50eceddc91d36e19c0e94791a23ee19005))
 
 Matching the cloud on TOTAL ink was the right rule applied to the wrong number. The unlit half of
   the disc is earthshine on a true-black panel: it registers as almost none of what the eye weighs,
@@ -180,7 +194,7 @@ The radius is exported as wxIcon.moonR so the "one sky, one moon" test compares 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: The AQI ramp reads as a scale, and keeps its caption
-  ([`c0784a0`](https://github.com/jtn0123/InkyPi/commit/c0784a00c7120369ed2d2cbb8a97ec0388aa6cba))
+  ([`c0784a0`](https://github.com/cartagena/InkyPi/commit/c0784a00c7120369ed2d2cbb8a97ec0388aa6cba))
 
 At a fifth strength on black the six EPA hues past yellow came out brown, dim maroon and desaturated
   purple: six smudges rather than a scale, which defeats the reason it is a ramp and not a number.
@@ -195,7 +209,7 @@ And the ramp and the line that says what the lit band covers are one object, so 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: The Calendar empty state fills the panel it is drawn for
-  ([`2279626`](https://github.com/jtn0123/InkyPi/commit/227962606f44d164d6041c35b3bc2450b264fcb9))
+  ([`2279626`](https://github.com/cartagena/InkyPi/commit/227962606f44d164d6041c35b3bc2450b264fcb9))
 
 Its body is an ordinary block, so an empty state with `flex: 1 1 auto` had nothing to grow into and
   sat in the top two thirds with ~350 px of black under it — the void it replaced, moved up the
@@ -205,7 +219,7 @@ Its body is an ordinary block, so an empty state with `flex: 1 1 auto` had nothi
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: The failure states truncated too, and Front Page had no empty state
-  ([`3bbea9e`](https://github.com/jtn0123/InkyPi/commit/3bbea9e8267b612c72c97e98a1de1101d04e03ee))
+  ([`3bbea9e`](https://github.com/cartagena/InkyPi/commit/3bbea9e8267b612c72c97e98a1de1101d04e03ee))
 
 The tile-row fit was checked against the happy path. With no bridge attached the same row shipped
   "no devic…" and "needs th…" — a state nobody can read is a state told badly. Every Device and
@@ -221,7 +235,7 @@ And Front Page's no-page body was the third copy of the void the Picture and Cal
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: The fog scene was a black rectangle captioned "Fog"
-  ([`383f79f`](https://github.com/jtn0123/InkyPi/commit/383f79f1b428092129d0f5945e257b27f1423f21))
+  ([`383f79f`](https://github.com/cartagena/InkyPi/commit/383f79f1b428092129d0f5945e257b27f1423f21))
 
 Fog is the one scene where the sky layer IS the weather: there are no clouds to draw and nothing
   falling, so at a 0.10 ceiling the whole frame came out black with a word on it. The ground
@@ -230,7 +244,7 @@ Fog is the one scene where the sky layer IS the weather: there are no clouds to 
   and still calm.
 
 - **clients/android**: The hourly plot pays for the caption's line
-  ([`eec317a`](https://github.com/jtn0123/InkyPi/commit/eec317a7c453214f385aba4e931d427cc8a13a83))
+  ([`eec317a`](https://github.com/cartagena/InkyPi/commit/eec317a7c453214f385aba4e931d427cc8a13a83))
 
 Every panel in this build is sized to fit its box rather than scrolled, so the 1.8vh the "% chance
   of rain" key took when it moved above the frame had to come from somewhere — it comes off the
@@ -240,7 +254,7 @@ Every panel in this build is sized to fit its box rather than scrolled, so the 1
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: The low callout and the dashed rule of rain stubs
-  ([`d771ef8`](https://github.com/jtn0123/InkyPi/commit/d771ef83ec446009cbc2dc4c4be4ef87b765cd71))
+  ([`d771ef8`](https://github.com/cartagena/InkyPi/commit/d771ef83ec446009cbc2dc4c4be4ef87b765cd71))
 
 The hourly chart's two remaining collisions with itself.
 
@@ -259,7 +273,7 @@ And the rain row drew a bar for any non-zero chance, so a dry day came out as tw
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: The sim's ?open= took one shot at a moving target
-  ([`18fe22d`](https://github.com/jtn0123/InkyPi/commit/18fe22d20cc31d50b7c92abdd19492cbc694859b))
+  ([`18fe22d`](https://github.com/cartagena/InkyPi/commit/18fe22d20cc31d50b7c92abdd19492cbc694859b))
 
 sim-harness.js opened the panel 250 ms after boot and read .panel.is-open in the same tick as open()
   — but the open class lands after a forced reflow, so on a slow load the query found nothing, the
@@ -274,7 +288,7 @@ Also: the icon pack stops entirely under prefers-reduced-motion (Android's "Remo
   stillness.
 
 - **clients/android**: The sky's rain stops wearing the UI's accent blue
-  ([`005471b`](https://github.com/jtn0123/InkyPi/commit/005471bb7bf6d0cf324819ec0c212c27d822ea27))
+  ([`005471b`](https://github.com/cartagena/InkyPi/commit/005471bb7bf6d0cf324819ec0c212c27d822ea27))
 
 --ic-rain (#5aa9ff) marks the wet numbers in the hourly strip; it is meant to be picked out at a
   glance. Three hundred streaks of it ruled across the clock, three card headers, the Details
@@ -289,7 +303,7 @@ Weather seen through glass is desaturated by the air in front of it, so the canv
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: The sun had a dark ring round it and a compass rose on top
-  ([`1447331`](https://github.com/jtn0123/InkyPi/commit/14473316179acfea4768574a23641d69fc83e662))
+  ([`1447331`](https://github.com/cartagena/InkyPi/commit/14473316179acfea4768574a23641d69fc83e662))
 
 The corona could only start outside the limb, because it was painted under the disc — so between the
   sun's edge and the first bright thing outside it there was nothing but the wide halo at a fifth of
@@ -315,7 +329,7 @@ Also here: the overcast deck met its own crown with two square corners, which is
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: The sun had lost its rays to a dropped argument
-  ([`c88d122`](https://github.com/jtn0123/InkyPi/commit/c88d12266429c2060380b5a875cc16812bbc713d))
+  ([`c88d122`](https://github.com/cartagena/InkyPi/commit/c88d12266429c2060380b5a875cc16812bbc713d))
 
 rayRing() was called with five arguments and declared with six, so every wedge came out as "M NaN
   NaN L x y L NaN NaN Z" — which SVG does not reject, it just drops what it cannot parse and draws
@@ -330,7 +344,7 @@ The corona also stopped painting its bright collar INSIDE the disc, where it was
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: The sun section at night, and a chart caption inside its own plot
-  ([`8f2cacc`](https://github.com/jtn0123/InkyPi/commit/8f2cacce795733daee04d01ec9c0befadfa2ac9f))
+  ([`8f2cacc`](https://github.com/cartagena/InkyPi/commit/8f2cacce795733daee04d01ec9c0befadfa2ac9f))
 
 With the sun down, SUN drew a hairline grey arc with no gold on it and two gold clock times printed
   underneath, as if something up there were pointing at them — a chart with a legend and no plot.
@@ -345,7 +359,7 @@ And the hourly chart's "% chance of rain" key hangs above the frame now. Inside 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: The three text-over-graphic and truncation defects
-  ([`fc4b590`](https://github.com/jtn0123/InkyPi/commit/fc4b59090d3217a6c39bf56d2ea0881ab3659894))
+  ([`fc4b590`](https://github.com/cartagena/InkyPi/commit/fc4b59090d3217a6c39bf56d2ea0881ab3659894))
 
 The tile row still shipped visible truncation after last round's fit: PAPER read "today's …" (93 px
   of copy in a 78 px box) and IMAGE read "nothing t…" (99 px). Both are now inside the box —
@@ -371,7 +385,7 @@ Sensors' y-axis labels were painted straight over the trace, so the blue line ra
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: The tile row is seven equal tiles, and the clock's day fits one line
-  ([`c044736`](https://github.com/jtn0123/InkyPi/commit/c044736e0c73880bd824a76a019032c9dc4c10a5))
+  ([`c044736`](https://github.com/cartagena/InkyPi/commit/c044736e0c73880bd824a76a019032c9dc4c10a5))
 
 Two defects visible in any 711 px capture.
 
@@ -405,7 +419,7 @@ THE CLOCK PANEL. "233 of 365" — ten glyphs with two spaces in them — wrapped
   it that can wrap.
 
 - **clients/android**: Three lines that were written for the build, not the room
-  ([`8691f74`](https://github.com/jtn0123/InkyPi/commit/8691f74c1cd717aa80877a2f292212337387cc4f))
+  ([`8691f74`](https://github.com/cartagena/InkyPi/commit/8691f74c1cd717aa80877a2f292212337387cc4f))
 
 The Clock hero's rule — a clock wears the light of its own hour — has "no tone" as its working-day
   case, so at two in the afternoon the one number that panel is about rendered in the same flat
@@ -427,7 +441,7 @@ And the storm fixture printed "RIGHT NOW 6.2 in" beside "TODAY 0 in" — an hour
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **deps**: Bump pip to 26.2 in dev lockfile (PYSEC-2026-3721)
-  ([`d549da9`](https://github.com/jtn0123/InkyPi/commit/d549da9d2ecfe52d1802020c99b906013580fa7b))
+  ([`d549da9`](https://github.com/cartagena/InkyPi/commit/d549da9d2ecfe52d1802020c99b906013580fa7b))
 
 pip-audit started failing the Security and SBOM job on every branch once PYSEC-2026-3721 was
   published against pip 26.1.2. Hash-pinned bump only; regenerating on macOS drops the Linux-only
@@ -436,19 +450,19 @@ pip-audit started failing the Security and SBOM job on every branch once PYSEC-2
 ### Chores
 
 - **clients/android**: Ignore build output and the local debug keystore
-  ([`8873ed1`](https://github.com/jtn0123/InkyPi/commit/8873ed187a0ea14a081c56dba06c1c5b11a808b2))
+  ([`8873ed1`](https://github.com/cartagena/InkyPi/commit/8873ed187a0ea14a081c56dba06c1c5b11a808b2))
 
 A local build drops debug.keystore, inkyoled.apk and its .idsig in the client root. The keystore is
   per-machine and this repo is public, so none of it should ever be staged.
 
 - **clients/android**: Sim ?scene= URL switch and sim/shoot.sh contact-sheet script for headless
   review
-  ([`8039f95`](https://github.com/jtn0123/InkyPi/commit/8039f95d5ab1a1c7e401b389c968a80206f89777))
+  ([`8039f95`](https://github.com/cartagena/InkyPi/commit/8039f95d5ab1a1c7e401b389c968a80206f89777))
 
 ### Documentation
 
 - **clients/android**: Optical mass, one moon, the fog's third attempt, and the plot gutter
-  ([`6070d94`](https://github.com/jtn0123/InkyPi/commit/6070d9438888a574022febd2e32f60626aa7c846))
+  ([`6070d94`](https://github.com/cartagena/InkyPi/commit/6070d9438888a574022febd2e32f60626aa7c846))
 
 The four decisions from this round that a reader of the code would otherwise have to reconstruct:
   why every hero subject in the icon pack carries the same area of ink rather than the same bounding
@@ -459,10 +473,10 @@ The four decisions from this round that a reader of the code would otherwise hav
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: Standalone by design — port plugins, not pixels; drop server-mode roadmap
-  ([`e0ce667`](https://github.com/jtn0123/InkyPi/commit/e0ce66776c62ba2bb359b84453997da94372fb0e))
+  ([`e0ce667`](https://github.com/cartagena/InkyPi/commit/e0ce66776c62ba2bb359b84453997da94372fb0e))
 
 - **clients/android**: The icon pack, its motion budget, and the sky's second pass
-  ([`f1dfdf8`](https://github.com/jtn0123/InkyPi/commit/f1dfdf846b48da75c36b38a1242df71726f9c494))
+  ([`f1dfdf8`](https://github.com/cartagena/InkyPi/commit/f1dfdf846b48da75c36b38a1242df71726f9c494))
 
 INTERACTIVE.md's colour section described a set that no longer exists (flat fills, four stylesheets)
   and README's one-line summary undersold what is now on the screen. Both now say what the pack is
@@ -470,15 +484,21 @@ INTERACTIVE.md's colour section described a set that no longer exists (flat fill
 
 ### Features
 
+- Add Android panel client (Inky OLED) under clients/android
+  ([#635](https://github.com/cartagena/InkyPi/pull/635),
+  [`0de3118`](https://github.com/cartagena/InkyPi/commit/0de3118799e2f20a825cccd50b5eabc506134f04))
+
+feat: add Android panel client (Inky OLED) under clients/android
+
 - Add Inky OLED Android panel client under clients/android
-  ([`30c968b`](https://github.com/jtn0123/InkyPi/commit/30c968b98901437c4846257b8fe66d5f747146f1))
+  ([`30c968b`](https://github.com/cartagena/InkyPi/commit/30c968b98901437c4846257b8fe66d5f747146f1))
 
 Imported from jtn0123/tab-s6-kiosk inky-oled/ (split tip f467af3be9bd; the 21-commit history stays
   in that repo). Added as a plain commit rather than a subtree merge so the PR has no root commit —
   gitleaks-action cannot range-scan a PR whose oldest commit is a root.
 
 - **clients/android**: A real second tier where four panels were black
-  ([`33d409d`](https://github.com/jtn0123/InkyPi/commit/33d409dca4cecb9efdf2fc487af95cf206658cd0))
+  ([`33d409d`](https://github.com/cartagena/InkyPi/commit/33d409dca4cecb9efdf2fc487af95cf206658cd0))
 
 Four screens reserved most of their body for content that was not there, and at 2-4 m a reserved
   band of black is indistinguishable from a screen that failed to draw.
@@ -506,7 +526,7 @@ The two charts move to their own stylesheet. The hourly curve and the daily bars
   reason.
 
 - **clients/android**: A real weather icon pack, and a richer sky
-  ([`fd3edae`](https://github.com/jtn0123/InkyPi/commit/fd3edaeae9cddb46f47e6aee323b0b6b1c140f7b))
+  ([`fd3edae`](https://github.com/cartagena/InkyPi/commit/fd3edaeae9cddb46f47e6aee323b0b6b1c140f7b))
 
 The icons were flat: three circles and a slab for a cloud, eight straight lines for a sun, four
   crossed strokes for a flake. Flat fill is what makes art read as a placeholder — the eye gets a
@@ -537,7 +557,7 @@ The sky layer behind the cards gets the same pass: a horizon glow that only exis
 Palette gains a lit/body/shadow trio per material in style-theme.css.
 
 - **clients/android**: A sun with rays, a moon with air around it, and depth that is not a coin toss
-  ([`9a3befe`](https://github.com/jtn0123/InkyPi/commit/9a3befeece0fe530b7009a48dfe0245764246c04))
+  ([`9a3befe`](https://github.com/cartagena/InkyPi/commit/9a3befeece0fe530b7009a48dfe0245764246c04))
 
 The sun's two ray rings were drawn under the corona — painted and then painted over — so the icon
   was a glowing ball. Air first, then the light through it, and the corona's collar now sits outside
@@ -561,7 +581,7 @@ And the populations stratify their depth instead of sampling it. Seven fog banks
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: An illustrated empty state for Calendar, and copy that says what happens
-  ([`28782dc`](https://github.com/jtn0123/InkyPi/commit/28782dc83326ca58ae8103834dd7fb1bad21abc7))
+  ([`28782dc`](https://github.com/cartagena/InkyPi/commit/28782dc83326ca58ae8103834dd7fb1bad21abc7))
 
 Calendar was the worst screen in the product: three lines of grey type over ~900 device px of black,
   which at three metres is indistinguishable from a screen that failed to draw. The Picture panel
@@ -584,7 +604,7 @@ Copy, in three places where the words described the plumbing rather than the pan
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: Calendar widget — InkyPi calendar plugin on glass
-  ([`9a8abfd`](https://github.com/jtn0123/InkyPi/commit/9a8abfdc7bb246d6e5a7458d6acf7d67a535a7ec))
+  ([`9a8abfd`](https://github.com/cartagena/InkyPi/commit/9a8abfdc7bb246d6e5a7458d6acf7d67a535a7ec))
 
 Read-only ICS feeds from config.calendar.urls, fetched through the shell like the news. New ics.js:
   pure parser + recurrence expander (folded lines, DATE/UTC/ TZID/floating via Intl, DURATION, RRULE
@@ -597,7 +617,7 @@ Read-only ICS feeds from config.calendar.urls, fetched through the shell like th
   public US-holidays feed in the sim (317 VEVENTs).
 
 - **clients/android**: Choose the location on the tablet, and a second home screen
-  ([`18b62cb`](https://github.com/jtn0123/InkyPi/commit/18b62cbdc9224d7f331b02d31b30cbe4c948753d))
+  ([`18b62cb`](https://github.com/cartagena/InkyPi/commit/18b62cbdc9224d7f331b02d31b30cbe4c948753d))
 
 Two changes that between them stop the wall panel needing a PC.
 
@@ -628,7 +648,7 @@ Verified on the tablet: search, pick, and the whole dashboard following to the n
   ways; the keyboard behaving. 407 tests.
 
 - **clients/android**: Clouds with a light on them, and a sky with a back to it
-  ([`daded64`](https://github.com/jtn0123/InkyPi/commit/daded642f0d113d36212779b14dfd6b63777d986))
+  ([`daded64`](https://github.com/cartagena/InkyPi/commit/daded642f0d113d36212779b14dfd6b63777d986))
 
 Round B, first half. The pack was a professional DRAWN weather product and the verdict was that it
   is not yet a REAL one; everything here is realism, done the illustrated way, because raster art is
@@ -675,7 +695,7 @@ sim: a night scene is now night for the sky as well as for the glyph. Every nigh
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: Colour on the last monochrome panel, and a hero that is one object
-  ([`cd2164d`](https://github.com/jtn0123/InkyPi/commit/cd2164d40fcbbbc4353692be5c0f1600a07f851e))
+  ([`cd2164d`](https://github.com/cartagena/InkyPi/commit/cd2164d40fcbbbc4353692be5c0f1600a07f851e))
 
 Device was the last fully monochrome screen in the build — white hero, grey bars, three-column
   label/value blocks — on a dashboard where seven other panels now say something in colour. Nothing
@@ -700,7 +720,7 @@ And Settings' two segmented groups were separated by 2vw where the chips inside 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: Conditions stops being a spec sheet
-  ([`fe44c4c`](https://github.com/jtn0123/InkyPi/commit/fe44c4c7be5894f2292fe25a1662af5ebacd554d))
+  ([`fe44c4c`](https://github.com/cartagena/InkyPi/commit/fe44c4c7be5894f2292fe25a1662af5ebacd554d))
 
 SUN was SUNRISE / SUNSET / DAYLIGHT — three grey caps over three white figures, the same shape as
   WIND above it and AIR above that, which is what kept this panel reading as a labelled table
@@ -716,7 +736,7 @@ The lit arc is the same quadratic split at t with de Casteljau rather than a das
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: Finish the cloud's silhouette, and soften the terminator
-  ([`7d1311f`](https://github.com/jtn0123/InkyPi/commit/7d1311fe5a95f8b9f769b71b2e9acae77ed535a4))
+  ([`7d1311f`](https://github.com/cartagena/InkyPi/commit/7d1311fe5a95f8b9f769b71b2e9acae77ed535a4))
 
 The icon pack's last two tells that it was drawn rather than lit.
 
@@ -741,7 +761,7 @@ The moon body moves to wx-icons-moon.js: wx-icons.js was at the 500-line ceiling
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: Normalise the icon pack's optical mass, and give fog a floor
-  ([`6a38e03`](https://github.com/jtn0123/InkyPi/commit/6a38e030fde2dbfd508ea64b3dfcbed85e954abe))
+  ([`6a38e03`](https://github.com/cartagena/InkyPi/commit/6a38e030fde2dbfd508ea64b3dfcbed85e954abe))
 
 The pack's loudest "not a pack yet" tell was scale: the clear-day sun measured 44px against the
   cloud family's 67 in the daily hero, and the clear-night crescent 32 against 106 in the Conditions
@@ -772,7 +792,7 @@ Fog was the sky layer's failure: brightened four times over for inspection it wa
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: Rain that is rain, and snow that is not dust on the glass
-  ([`2cf4485`](https://github.com/jtn0123/InkyPi/commit/2cf44850fcaabd3fb004d776056c17373b48c192))
+  ([`2cf4485`](https://github.com/cartagena/InkyPi/commit/2cf44850fcaabd3fb004d776056c17373b48c192))
 
 Two populations on the sky layer were read as faults rather than weather.
 
@@ -791,7 +811,7 @@ The snow was ninety round dots on a nearly flat alpha ramp, and they landed on D
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 - **clients/android**: The five monochrome panels join the colour language
-  ([`40c40e3`](https://github.com/jtn0123/InkyPi/commit/40c40e322940bd17d31caf12a3e535d526fd5477))
+  ([`40c40e3`](https://github.com/cartagena/InkyPi/commit/40c40e322940bd17d31caf12a3e535d526fd5477))
 
 Conditions, Clock, News, Timer and Year were plain white on black while Hourly, Daily and Air two
   taps away spoke in temperature tones, accent blue and a warm amber. Same tokens, spent the same
@@ -827,7 +847,7 @@ The hourly chart's CSS moves next to the daily chart's in style-widgets.css. The
   it buys style-theme.css back under the 500-line budget.
 
 - **clients/android**: Year widget — InkyPi year_progress + countdown on glass
-  ([`e079345`](https://github.com/jtn0123/InkyPi/commit/e0793457a4e1e6a6be7492fe483f71442dec24d2))
+  ([`e079345`](https://github.com/cartagena/InkyPi/commit/e0793457a4e1e6a6be7492fe483f71442dec24d2))
 
 Year share gone on the tile, days left or the nearest configured countdown on its sub-line; panel
   with year / quarter / month bars and every countdown from config.countdowns (same title+date
@@ -835,14 +855,53 @@ Year share gone on the tile, days left or the nearest configured countdown on it
   years, DST days, month ends, local-date parsing, junk rows). Sits on the clock's line — zero added
   height; the content tile row was already ellipsizing at four tiles.
 
+### Refactoring
+
+- Make the type checker real, and fix the six bugs it found
+  ([#643](https://github.com/cartagena/InkyPi/pull/643),
+  [`deb4110`](https://github.com/cartagena/InkyPi/commit/deb4110a0728c45b1773ed2b762bac34fae18daa))
+
+mypy ran with `follow_imports = skip`, so it never read an imported module and every cross-module
+  call resolved to Any. src/ reported a comforting zero while whole classes of mismatch were
+  unreportable. Turning it on surfaced 214 pre-existing errors; src/ is now genuinely clean, and
+  tests/ went 7506 -> 630.
+
+Six real bugs it found, each with a regression test verified by reverting only the fix:
+
+* A control-only plugin crashed the playlist path — PlaylistRefresh.execute called image.save() on a
+  None return. The PluginLike Protocol still declared -> Image.Image after the base class was
+  widened, so callers type-checked against a contract the implementation no longer honoured. *
+  ImageColor.getrgb returns a 4-tuple for alpha colours, so pasting #ff000080 as a calendar colour
+  raised ValueError and failed the whole render. * dotenv_values yields None for a bare key, which
+  reached consumers that iterate the value as TypeError and broke the API-keys page. *
+  Clock.draw_clock_center defaulted width to None, which PIL rejects. * A clock face with no
+  renderer returned None, which the refresh task reads as 'control-only plugin, nothing to display'
+  — so the clock silently stopped updating instead of erroring. * Seven deprecated Pillow constants
+  that break on the <13 bump the pin allows.
+
+Two None checks had been disabled by the casts meant to help them: cast(Any, take_screenshot) and
+  cast(Any, take_screenshot_html) each erased an already-correct Optional return. One cast on
+  AdaptiveImageLoader forced seven more downstream.
+
+Every module now has one identity: utils.http_utils and src.utils.http_utils were two distinct
+  module objects, so test_http_utils.py had been exercising a second copy with its own HTTP session
+  singleton rather than the one the app imports.
+
+Also annotates the test suite (6326 parameters, 5752 return types across 411 files) with real
+  fixture types, and adds types-PyYAML, without which mypy aborts the entire tests/ run.
+
+The mypy baselines are calibrated to CI, not to a local macOS run — CI is Linux and installs the
+  sys_platform=='linux' dependencies, and lints under 3.12 rather than 3.13. Both differences change
+  mypy's results; the baseline file records this.
+
 ### Testing
 
 - **clients/android**: Exact-match the allowlist origin (CodeQL
   js/incomplete-url-substring-sanitization)
-  ([`18a7a78`](https://github.com/jtn0123/InkyPi/commit/18a7a78afa93def90812000f80af568aaa1cc56a))
+  ([`18a7a78`](https://github.com/cartagena/InkyPi/commit/18a7a78afa93def90812000f80af568aaa1cc56a))
 
 - **clients/android**: Pin the rule that the top of the sky is cold
-  ([`6788039`](https://github.com/jtn0123/InkyPi/commit/6788039b093792b6ed818a9ddc798ed40a6f60f6))
+  ([`6788039`](https://github.com/cartagena/InkyPi/commit/6788039b093792b6ed818a9ddc798ed40a6f60f6))
 
 The fault the last round shipped could not have been caught by any assertion in the file: the wash
   was one colour, and one colour ramped over a frame is a legal model that renders as a
@@ -855,138 +914,7 @@ The fault the last round shipped could not have been caught by any assertion in 
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
 
 
-## v1.3.1 (2026-08-21)
-
-### Bug Fixes
-
-- Correct refresh error accounting, sidebar nav clipping, and weather rendering; add unattended
-  update recovery ([#632](https://github.com/jtn0123/InkyPi/pull/632),
-  [`577e6f8`](https://github.com/jtn0123/InkyPi/commit/577e6f8a4ba820d7c106e7e0f747f6ec47f565b8))
-
-Upstream review of fatihak/InkyPi plus operational patterns ported from the ESP32-Garage-Fan and
-  halloween_esp firmware.
-
-Fixes: refresh error accounting counted every record as a failure; sidebar nav clipped the API Keys
-  entry; weather requested an invalid Kelvin unit, looked up icons in the wrong directory, and was a
-  day off on moon phase; plugin tiles truncated their names mid-word; image_upload hardcoded RGB and
-  crashed on L/1 uploads.
-
-Adds: watchdog gating on refresh-loop progress rather than a liveness bool, crash breadcrumbs with
-  plugin quarantine, automatic rollback after repeated start-limit events, and update verification
-  that distinguishes confirmed from unconfirmed from dark.
-
-Also fixes the crash-loop regression gate, which had never actually run — it hardcoded a cgroup v1
-  recipe and skipped silently on v2, so a skipped gate looked exactly like a passing one.
-
-Clears all 45 pip-audit findings across both lockfiles.
-
-Known remaining: SonarCloud S2083 on crash_breadcrumb.py is a documented false positive
-  (docs/security/sonar-s2083-crash-breadcrumb-tracking.md); Open-Meteo naive-timestamp normalisation
-  is deferred as A1d in the review doc.
-
-### Continuous Integration
-
-- Point Dependabot at uv.lock instead of the generated requirements.txt
-  ([#627](https://github.com/jtn0123/InkyPi/pull/627),
-  [`c80da30`](https://github.com/jtn0123/InkyPi/commit/c80da309938ff22bd6bc9c739d3747af73d09616))
-
-* ci: point Dependabot at uv.lock instead of the generated requirements.txt
-
-install/requirements.txt is autogenerated by 'uv export' from pyproject.toml and uv.lock, but
-  Dependabot's only pip ecosystem targeted /install. That made it edit a generated file, which fails
-  the lockfile drift check by construction and duplicated every security bump across the root and
-  /install paths.
-
-The uv ecosystem updates pyproject.toml and uv.lock together, keeping 'uv lock --check' green. Also
-  skips SonarCloud on Dependabot PRs, which cannot read SONAR_TOKEN.
-
-Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
-
-* ci: key the Dependabot guard on pull_request.user.login, not github.actor
-
-github.actor is whoever triggered the current run, so a manual re-run of a Dependabot PR sets it to
-  the human who clicked the button. The guard would then silently stop applying and the check would
-  fail again, which is exactly the case these workflows are meant to handle.
-
-pull_request.user.login is the PR author and does not change on re-run. It is empty on push events,
-  so those still run normally.
-
----------
-
-Co-authored-by: Claude Opus 5 <noreply@anthropic.com>
-
-
-## v1.3.0 (2026-07-07)
-
-### Features
-
-- Implement History v2 design (day grouping, source filter, lightbox)
-  ([#619](https://github.com/jtn0123/InkyPi/pull/619),
-  [`56e12f3`](https://github.com/jtn0123/InkyPi/commit/56e12f3e0e26f2be3a1e320263610e2f9e7ca9fc))
-
-* feat: implement History v2 design (day grouping, source filter, lightbox)
-
-Implements the History v2 handoff from the polish-and-improve design bundle:
-
-- Group renders into per-day sections (Today / Yesterday / date) with a mono uppercase day label and
-  per-day render count - Add an All / Playlist / Manual source filter toolbar with a live "shown of
-  total" count, a no-match empty state, and filter state that survives HTMX pagination swaps -
-  Replace the generic image lightbox with a render-preview sheet showing filename, timestamp/size,
-  source, and Display / Download / Delete actions wired to the existing endpoints - Give the Refresh
-  header button a leading arrows-clockwise icon that spins while the page reloads - Render
-  thumbnails at the panel's exact aspect ratio (5:3 default, driven by the device resolution via
-  --history-thumb-ratio) on the design's paper tint so renders are never cropped - Lay the latency
-  metric strip out as a fixed 4-up band (2-up on narrow viewports)
-
-Backend adds date_key/day_label/category to history entries and a consecutive day-grouping helper;
-  templates/JS/CSS follow the handoff markup. New coverage in tests/integration/test_history_v2.py;
-  the UI handler audit now recognises data-history-filter as a delegated marker.
-
-Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>
-
-Claude-Session: https://claude.ai/code/session_01Mma8m5wiFvcP941DZHM7C6
-
-* test: annotate History v2 tests to keep mypy tests ratchet at baseline
-
-The new test file added 33 no-untyped-def/no-untyped-call errors, pushing the mypy tests/ ratchet to
-  7483 against the 7450 baseline. Fully annotate helpers and test functions (Any-typed fixtures per
-  existing convention).
-
-* style: extract e-ink paper tint into --eink-paper-bg token
-
-Addresses CodeRabbit review: the thumb and lightbox backgrounds shared a hardcoded #dedbd2; promote
-  it to a theme-independent token so the two usages can't drift.
-
-* refactor: extract history page context helpers
-
-Addresses Sonar S3776 on this PR: history_page() exceeded the cognitive complexity budget after the
-  History v2 additions. Pull the latest-metrics, storage-usage, and panel thumb-ratio computations
-  into module helpers so the route reads as pagination + context assembly.
-
-* fix: bump CVE-flagged dependency pins (pip-audit clean)
-
-The required Security and SBOM job fails on main and on this PR because pip-audit flags newly
-  published advisories against pinned versions. Upgrade via `uv lock --upgrade-package` + `uv
-  export` (runtime) and pip-compile --upgrade-package (dev):
-
-- cryptography 46.0.7 -> 49.0.0 (GHSA-537c-gmf6-5ccf, fixed >= 48.0.1) - idna 3.11 -> 3.18
-  (PYSEC-2026-215, fixed >= 3.15) - urllib3 2.6.3 -> 2.7.0 (PYSEC-2026-141/142) - gitpython 3.1.47
-  -> 3.1.50 (GHSA-mv93-w799-cj2w, dev-only) - pip 26.1 -> 26.1.2 (PYSEC-2026-196, dev-only) -
-  msgpack 1.1.2 -> 1.2.1 (GHSA-6v7p-g79w-8964, dev-only)
-
-The dev-only advisories never surfaced in CI before because the runtime audit failed first and
-  aborted the step. Regenerating requirements-dev.txt also restores the missing watchdog==6.0.0
-  entry (declared in requirements-dev.in but absent from the stale committed lockfile).
-
-Both pip-audit runs now report no known vulnerabilities and scripts/check_requirements_drift.sh
-  passes.
-
----------
-
-Co-authored-by: Claude <noreply@anthropic.com>
-
-
-## v1.2.1 (2026-04-29)
+## v1.2.0 (2026-08-21)
 
 ### Bug Fixes
 
