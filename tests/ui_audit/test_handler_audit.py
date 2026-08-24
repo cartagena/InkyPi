@@ -402,7 +402,13 @@ def test_findings_inventory_matches_snapshot(findings_snapshot: list[Finding]) -
     someone fixes one, they edit the snapshot down and the test stays honest.
     """
 
-    expected_values: set[tuple[str, str, str]] = set()
+    expected_values: set[tuple[str, str, str]] = {
+        # Not a dead handler — allowlisted in tests/ui_audit/allowlist.yml.
+        # It's wired via an inline <script> in the same template, which the
+        # audit's ScriptScan (external JS under src/static/scripts/ only)
+        # structurally cannot see. See the allowlist entry for detail.
+        ("orphan-button", "src/templates/composite_screen.html", "#addRegionBtn"),
+    }
     # As of L1 landing, the static audit finds zero dead handlers. This is the
     # baseline — any new entry here should be a deliberate, reasoned allowance
     # during a regression window. See the epic (JTN-677) for context.
