@@ -17,6 +17,7 @@ from model import COMPOSITE_PLUGIN_ID, PluginInstance
 from refresh_task.actions import RefreshAction
 
 if TYPE_CHECKING:
+    from refresh_task.actions import PluginInstanceLike
     from refresh_task.context import RefreshContext
     from refresh_task.recorder import RefreshRecorder
 
@@ -81,7 +82,9 @@ def test_skip_display_reason_short_circuits_for_composite(
 
     dm = DisplayManager(device_config_dev)
     task = RefreshTask(device_config_dev, dm)
-    action = PlaylistRefresh(_PlaylistStub(), _composite_plugin_instance())
+    action = PlaylistRefresh(
+        _PlaylistStub(), cast("PluginInstanceLike", _composite_plugin_instance())
+    )
 
     with patch(
         "refresh_task.task.get_plugin_instance",
@@ -131,7 +134,9 @@ def test_perform_refresh_renders_composite_screen(
     )
 
     plugin_instance = _composite_plugin_instance()
-    action = PlaylistRefresh(_PlaylistStub(), plugin_instance, force=True)
+    action = PlaylistRefresh(
+        _PlaylistStub(), cast("PluginInstanceLike", plugin_instance), force=True
+    )
     latest = RefreshInfo("Playlist", COMPOSITE_PLUGIN_ID, None, None)
 
     info, used_cached, _metrics = task._perform_refresh(
