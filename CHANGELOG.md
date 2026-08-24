@@ -1,6 +1,23 @@
 # CHANGELOG
 
 
+## v1.3.3 (2026-08-24)
+
+### Bug Fixes
+
+- Render calendar plugin instead of blank white image
+  ([`78aab24`](https://github.com/cartagena/InkyPi/commit/78aab24049b83a8691b19bbd4c5a955f1469a182))
+
+The calendar template referenced an undefined `static_dir` Jinja variable for its FullCalendar
+  `<script>` tag, so the vendored JS never loaded in the offline file:// screenshot context and the
+  plugin rendered as a blank frame regardless of the configured ICS feed. Wire static_dir into
+  render_image() (this also fixes the weather plugin's Chart.js tag, which had the same bug).
+  Separately, the calendar grid depended on a height:100% ancestor chain that was never established,
+  collapsing the grid to zero height even once the script loaded.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+
 ## v1.3.2 (2026-08-23)
 
 ### Bug Fixes
