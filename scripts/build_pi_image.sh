@@ -99,6 +99,7 @@ banner() {
 }
 
 LOOP=""
+# shellcheck disable=SC2317 # only invoked indirectly via `trap ... EXIT` below
 cleanup() {
     # Ordering matters: nested mounts before the ones they sit inside, or the
     # loop device stays busy and the image is left mounted.
@@ -108,7 +109,9 @@ cleanup() {
     umount "${MNT}/sys" 2>/dev/null || true
     umount "${MNT}/boot/firmware" 2>/dev/null || true
     umount "${MNT}" 2>/dev/null || true
-    [ -n "${LOOP}" ] && losetup -d "${LOOP}" 2>/dev/null || true
+    if [ -n "${LOOP}" ]; then
+        losetup -d "${LOOP}" 2>/dev/null || true
+    fi
 }
 trap cleanup EXIT
 
