@@ -1117,7 +1117,7 @@ class TestCommonWheelhouseFunctions:
         # since that's where our release workflow publishes artifacts.
         body = self._fetch_fn_body()
         # Default repo value lives just above the function definition.
-        assert "jtn0123/InkyPi" in self.content
+        assert "cartagena/InkyPi" in self.content
         # URL is assembled from the repo variable so it tracks overrides.
         assert "WHEELHOUSE_REPO" in body
         assert "releases/download" in body
@@ -3979,13 +3979,20 @@ class TestPiImageShipsNoBuildScaffolding:
             )
             assert "not* what makes this work" in self.build_sh
 
-    def test_readme_documents_custom_toml_not_cloud_init(self):
-        # Raspberry Pi OS does not ship cloud-init; the note used to send users
-        # to /boot/firmware/user-data, which nothing on the image reads.
-        assert "custom.toml" in self.build_sh
-        assert "user-data" not in self.build_sh
-        # The defaults-to-true trap that silently breaks logins and wifi.
-        assert "password_encrypted = false" in self.build_sh
+    def test_readme_documents_cloud_init_not_custom_toml(self):
+        # Pi OS Trixie dropped the old custom.toml/raspberrypi-sys-mods
+        # firstboot mechanism entirely (see the "chore: bump prebuilt Pi
+        # image base to Raspberry Pi OS Trixie" commit, verified against a
+        # real downloaded image); first-boot customisation is cloud-init now,
+        # via the boot partition's user-data/network-config templates. The
+        # README used to send users to a custom.toml Trixie silently ignores
+        # — it must document the files that actually get read instead.
+        assert "user-data" in self.build_sh
+        assert "network-config" in self.build_sh
+        # The other live trap: Pi Imager's "Edit Settings" dialog does not
+        # apply to a sideloaded image at all, unlike the official OS entries
+        # it's built for — silently doing nothing rather than erroring.
+        assert "Edit Settings" in self.build_sh
 
     def test_build_keeps_the_source_checkout(self):
         # /opt/inkypi-src looks like build residue and is not: install.sh does
@@ -4040,7 +4047,12 @@ class TestPiImageShipsNoBuildScaffolding:
             "qemu-aarch64-static",
             "machine-id",
             "127",
-            "init=/usr/lib/raspberrypi-sys-mods/firstboot",
+            # Pi OS Trixie dropped custom.toml/raspberrypi-sys-mods firstboot
+            # (init=.../firstboot no longer appears in cmdline.txt); first-boot
+            # customisation now runs through cloud-init instead, verified
+            # by checking the boot partition still ships the user-data
+            # template — see scripts/audit_pi_image.sh.
+            "#cloud-config",
             "python3",
         ):
             assert probe in self.audit_sh, f"audit must check {probe}"

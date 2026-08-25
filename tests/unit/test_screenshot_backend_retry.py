@@ -15,6 +15,9 @@ bare ``None`` return would bubble up as.
 
 from __future__ import annotations
 
+import os
+import subprocess
+import time
 from pathlib import Path
 from typing import Any
 
@@ -23,6 +26,12 @@ from PIL import Image
 
 import utils.image_utils as image_utils
 from utils.plugin_errors import ScreenshotBackendError
+
+# `image_utils.time`/`.os`/`.subprocess` are the same stdlib module objects
+# these names reference here (Python caches modules in sys.modules), so
+# patching through the directly-imported names below has an identical effect
+# on the shared module and avoids mypy's "does not explicitly export
+# attribute" complaint about reaching through image_utils's namespace.
 
 # Capture the real ``take_screenshot`` at module-import time, *before* the
 # conftest autouse ``mock_screenshot`` fixture runs and replaces it with a
@@ -52,7 +61,7 @@ class _AttemptRecorder:
     def __init__(self, outcomes: Any):
         # outcomes is a list of (image, transient) -> None -> None tuples returned in order.
         self._outcomes = list(outcomes)
-        self.calls: list[tuple] = []
+        self.calls: list[tuple[Any, Any, Any, Any]] = []
 
     def __call__(
         self,
@@ -87,7 +96,7 @@ def _restore_real_take_screenshot(monkeypatch: pytest.MonkeyPatch) -> None:
         image_utils, "take_screenshot", _REAL_TAKE_SCREENSHOT, raising=True
     )
     # Collapse the inter-attempt backoff so the tests run fast.
-    monkeypatch.setattr(image_utils.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(time, "sleep", lambda _s: None)
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +116,7 @@ class TestTakeScreenshotRetry:
         monkeypatch.setattr(image_utils, "_take_screenshot_once", rec)
 
         slept: list[float] = []
-        monkeypatch.setattr(image_utils.time, "sleep", lambda s: slept.append(s))
+        monkeypatch.setattr(time, "sleep", lambda s: slept.append(s))
 
         result = image_utils.take_screenshot("http://example.com", (80, 60))
 
@@ -179,7 +188,7 @@ class TestTakeScreenshotRetry:
         monkeypatch.setattr(image_utils, "_take_screenshot_once", rec)
 
         slept: list[float] = []
-        monkeypatch.setattr(image_utils.time, "sleep", lambda s: slept.append(s))
+        monkeypatch.setattr(time, "sleep", lambda s: slept.append(s))
 
         image_utils.take_screenshot("http://example.com", (80, 60))
 
@@ -263,7 +272,7 @@ class TestRunSingleAttemptTransientDetection:
                 f.write(write_bytes)
             return SimpleNamespace(returncode=returncode, stderr=b"", stdout=b"")
 
-        monkeypatch.setattr(iu.subprocess, "run", fake_run)
+        monkeypatch.setattr(subprocess, "run", fake_run)
         return iu._take_screenshot_once(
             target="http://example.invalid",
             dimensions=(800, 480),
@@ -342,7 +351,7 @@ class TestTakeScreenshotOnceBranchCoverage:
         def fake_run(*args: Any, **kwargs: Any) -> None:
             raise subprocess.TimeoutExpired(cmd="chromium", timeout=1)
 
-        monkeypatch.setattr(iu.subprocess, "run", fake_run)
+        monkeypatch.setattr(subprocess, "run", fake_run)
         image, transient = iu._take_screenshot_once(
             "http://example.invalid", (800, 480), None, attempt=1
         )
@@ -359,7 +368,7 @@ class TestTakeScreenshotOnceBranchCoverage:
         def fake_run(*args: Any, **kwargs: Any) -> None:
             raise FileNotFoundError("browser")
 
-        monkeypatch.setattr(iu.subprocess, "run", fake_run)
+        monkeypatch.setattr(subprocess, "run", fake_run)
         image, transient = iu._take_screenshot_once(
             "http://example.invalid", (800, 480), None, attempt=1
         )
@@ -377,7 +386,7 @@ class TestTakeScreenshotOnceBranchCoverage:
         def fake_run(command: Any, **kwargs: Any) -> Any:
             return SimpleNamespace(returncode=0, stderr=b"", stdout=b"")
 
-        monkeypatch.setattr(iu.subprocess, "run", fake_run)
+        monkeypatch.setattr(subprocess, "run", fake_run)
         image, transient = iu._take_screenshot_once(
             "http://example.invalid", (800, 480), None, attempt=1
         )
@@ -398,7 +407,7 @@ class TestTakeScreenshotOnceBranchCoverage:
                 f.write(b"some bytes")
             return SimpleNamespace(returncode=0, stderr=b"", stdout=b"")
 
-        monkeypatch.setattr(iu.subprocess, "run", fake_run)
+        monkeypatch.setattr(subprocess, "run", fake_run)
         monkeypatch.setattr(iu, "load_image_from_path", lambda p: None)
         image, transient = iu._take_screenshot_once(
             "http://example.invalid", (800, 480), None, attempt=1
@@ -424,7 +433,7 @@ class TestTakeScreenshotOnceBranchCoverage:
         def boom(_path: Any) -> None:
             raise RuntimeError("decoder exploded")
 
-        monkeypatch.setattr(iu.subprocess, "run", fake_run)
+        monkeypatch.setattr(subprocess, "run", fake_run)
         monkeypatch.setattr(iu, "load_image_from_path", boom)
         image, transient = iu._take_screenshot_once(
             "http://example.invalid", (800, 480), None, attempt=1
@@ -469,7 +478,7 @@ class TestTempfileIsEmpty:
         def raise_os(_path: Any) -> None:
             raise OSError("fake permission error")
 
-        monkeypatch.setattr(iu.os.path, "getsize", raise_os)
+        monkeypatch.setattr(os.path, "getsize", raise_os)
         p = tmp_path / "content.png"
         p.write_bytes(b"anything")
         assert iu._tempfile_is_empty(str(p)) is True

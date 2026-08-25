@@ -21,6 +21,7 @@ command -v debugfs >/dev/null 2>&1 || {
     echo "ERROR: debugfs not found (package e2fsprogs)" >&2; exit 2; }
 
 WORK=""
+# shellcheck disable=SC2317 # only invoked indirectly via `trap ... EXIT` below
 cleanup() { [ -n "${WORK}" ] && rm -rf "${WORK}"; }
 trap cleanup EXIT
 
@@ -40,8 +41,10 @@ read -r BOOT_OFF ROOT_OFF <<<"$(
     fdisk -l -o Start,Type "${IMG}" 2>/dev/null \
         | awk '$1 ~ /^[0-9]+$/ {printf "%d ", $1 * 512}'
 )"
-[ -n "${ROOT_OFF:-}" ] && [ "${ROOT_OFF}" -gt 0 ] || {
-    echo "ERROR: could not read partition table from ${IMG}" >&2; exit 2; }
+if [ -z "${ROOT_OFF:-}" ] || [ "${ROOT_OFF}" -le 0 ]; then
+    echo "ERROR: could not read partition table from ${IMG}" >&2
+    exit 2
+fi
 
 FS="${IMG}?offset=${ROOT_OFF}"
 d() { debugfs -R "$1" "${FS}" 2>/dev/null; }

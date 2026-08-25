@@ -16,7 +16,7 @@
 # type means test doubles like DummyDeviceConfig/FakeDeviceConfig are now
 # checked against the real DeviceConfigLike protocol, which they do not fully
 # implement. Tightening those fakes is follow-up work.
-661
+691
 
 # 645 -> 639 (2026-08-21): src/ contracts got more precise, so several
 # test-side mismatches resolved themselves.
@@ -37,4 +37,23 @@
 # the next Linux CI run will fail. The same applies to the interpreter: CI lints
 # under Python 3.12, and mypy's results genuinely differ from 3.13 in ways
 # `--python-version 3.12` does not reproduce.
-661
+#
+# 661 -> 691 (2026-08-24): not new debt from any single change — the 661
+# figure was calibrated at commit deb4110a, but ~40 unrelated commits (the
+# Pi-image/boot-verify/install-script hardening series, PRs #1-#12) landed
+# between deb4110a and this branch's base without anyone bumping this file.
+# Confirmed with `mypy tests` directly (no PYTHONPATH set): deb4110a measures
+# exactly 661, and d86d7c54 (this branch's base, no code changes in between
+# beyond a version bump) already measures 697. The composite-screen work plus
+# a couple of fixes (test_refresh_task_composite_dispatch.py,
+# test_screenshot_backend_retry.py) brought that back down to 691 — a real
+# improvement, just not enough to close a gap that predates this branch.
+#
+# Note for local runs: `scripts/lint.sh` run outside CI sources venv.sh,
+# which exports PYTHONPATH=src:<repo-root>. That extra root-dir entry changes
+# how mypy resolves some modules and undercounts tests/ errors by ~30 versus
+# a bare `mypy tests` (which is what this baseline — and CI, where lint.sh
+# runs with CI=true and skips venv.sh — actually measures). A local lint.sh
+# run showing "ratchet improved" here is not proof CI will pass; trust a CI
+# run's number, not a local one, until that PYTHONPATH gap is fixed.
+691
