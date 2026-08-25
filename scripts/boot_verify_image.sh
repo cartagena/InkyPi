@@ -157,6 +157,7 @@ CMDLINE=$(tr -d '\n' < cmdline.txt \
     | sed -E 's/console=[^ ]*//g
               s#init=/usr/lib/raspberrypi-sys-mods/firstboot##g
               s/(^| )quiet( |$)/ /g
+              s/(^| )resize( |$)/ /g
               s/  +/ /g
               s/^ //; s/ $//')
 # earlycon writes straight to the PL011 MMIO window before any device probing,
