@@ -3875,7 +3875,7 @@ class TestBootVerifyScript:
         assert "Reached target multi-user.target" in self.script
         assert "login:" in self.script
 
-    def test_strips_trixie_resize_token(self):
+    def test_strips_trixie_resize_token(self) -> None:
         assert "s/(^| )resize( |$)/ /g" in self.script
 
     def test_pads_sd_to_power_of_two(self):
@@ -3972,12 +3972,12 @@ class TestPiImageShipsNoBuildScaffolding:
         rm_emu = self.build_sh.index('rm -f "${MNT}/usr/bin/qemu-aarch64-static"')
         assert last_chroot < rm_emu, "emulator must outlive the last chroot"
 
-    def test_mount_point_is_unique_per_run_by_default(self):
-        assert "MNT=\"${MNT:-/mnt/pi-root}\"" not in self.build_sh
+    def test_mount_point_is_unique_per_run_by_default(self) -> None:
+        assert 'MNT="${MNT:-/mnt/pi-root}"' not in self.build_sh
         assert "mktemp -d" in self.build_sh
         assert 'if [ -n "${MNT:-}" ]; then' in self.build_sh
 
-    def test_auto_generated_mount_point_is_removed_on_cleanup(self):
+    def test_auto_generated_mount_point_is_removed_on_cleanup(self) -> None:
         cleanup_start = self.build_sh.index("cleanup() {")
         cleanup_end = self.build_sh.index("\n}\n", cleanup_start)
         cleanup = self.build_sh[cleanup_start:cleanup_end]
@@ -4077,7 +4077,7 @@ class TestPiImageShipsNoBuildScaffolding:
         ):
             assert probe in self.audit_sh, f"audit must check {probe}"
 
-    def test_audit_gates_on_shipped_image_size(self):
+    def test_audit_gates_on_shipped_image_size(self) -> None:
         assert "MAX_SHIPPED_BYTES" in self.audit_sh
         assert re.search(r"MAX_SHIPPED_BYTES=\d+", self.audit_sh) is not None
 
