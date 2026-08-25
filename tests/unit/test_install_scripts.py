@@ -1649,9 +1649,11 @@ class TestPiImageBuildWorkflow:
         # manual rebuilds should attach (see build-wheelhouse.yml), so
         # workflow_dispatch is not a dry run either.
         attach = yaml.safe_load(self.content)["jobs"]["attach-release"]
-        assert "github.event_name" not in attach["if"], (
-            "attach-release must not gate on github.event_name — under "
-            "workflow_call that is the caller's event, not 'release'"
+        assert "github.event_name == 'release'" not in attach["if"], (
+            "attach-release must not require github.event_name == 'release' "
+            "— under workflow_call that is the caller's event ('push'), not "
+            "'release', so an equality gate against it skips the only path "
+            "that actually cuts releases"
         )
         assert "needs.verify-boot.outputs.verified == 'true'" in attach["if"]
 
@@ -1663,6 +1665,26 @@ class TestPiImageBuildWorkflow:
         assert (
             "needs.build-image.outputs.tag" in tag_name
         ), f"attach-release must upload against the resolved tag, got {tag_name!r}"
+
+    def test_workflow_boot_tests_pin_changes_before_merge(self) -> None:
+        doc = yaml.safe_load(self.content)
+        on = doc.get("on", doc.get(True))
+        assert "pull_request" in on, (
+            "build-pi-image.yml must boot-test PRs that touch the pinned "
+            "base-image/pishrink versions before they can merge"
+        )
+        paths = on["pull_request"]["paths"]
+        assert ".github/workflows/build-pi-image.yml" in paths
+        assert "scripts/build_pi_image.sh" in paths
+
+    def test_workflow_attach_release_skips_on_pull_request(self) -> None:
+        attach = yaml.safe_load(self.content)["jobs"]["attach-release"]
+        assert "github.event_name != 'pull_request'" in attach["if"]
+
+    def test_workflow_resolves_tag_from_head_ref_on_pull_request(self) -> None:
+        resolve = yaml.safe_load(self.content)["jobs"]["build-image"]["steps"][1]
+        assert resolve["name"] == "Resolve release tag"
+        assert "github.head_ref" in resolve["env"]["RELEASE_TAG"]
 
 
 class TestReleaseWorkflow:
@@ -3853,6 +3875,9 @@ class TestBootVerifyScript:
         assert "Reached target multi-user.target" in self.script
         assert "login:" in self.script
 
+    def test_strips_trixie_resize_token(self) -> None:
+        assert "s/(^| )resize( |$)/ /g" in self.script
+
     def test_pads_sd_to_power_of_two(self):
         # qemu's raspi machines reject an SD image whose size is not a power
         # of two, and pishrink deliberately leaves the image at minimum size.
@@ -3947,6 +3972,18 @@ class TestPiImageShipsNoBuildScaffolding:
         rm_emu = self.build_sh.index('rm -f "${MNT}/usr/bin/qemu-aarch64-static"')
         assert last_chroot < rm_emu, "emulator must outlive the last chroot"
 
+    def test_mount_point_is_unique_per_run_by_default(self) -> None:
+        assert 'MNT="${MNT:-/mnt/pi-root}"' not in self.build_sh
+        assert "mktemp -d" in self.build_sh
+        assert 'if [ -n "${MNT:-}" ]; then' in self.build_sh
+
+    def test_auto_generated_mount_point_is_removed_on_cleanup(self) -> None:
+        cleanup_start = self.build_sh.index("cleanup() {")
+        cleanup_end = self.build_sh.index("\n}\n", cleanup_start)
+        cleanup = self.build_sh[cleanup_start:cleanup_end]
+        assert "MNT_AUTO" in cleanup
+        assert "rmdir" in cleanup
+
     def test_install_chroot_reads_stdin_from_devnull(self):
         # install.sh ends with `read -r -p "Would you like to restart ..."` and
         # sets no `set -e`, so at EOF it takes its "Unknown input" branch and
@@ -4040,6 +4077,10 @@ class TestPiImageShipsNoBuildScaffolding:
         ):
             assert probe in self.audit_sh, f"audit must check {probe}"
 
+    def test_audit_gates_on_shipped_image_size(self) -> None:
+        assert "MAX_SHIPPED_BYTES" in self.audit_sh
+        assert re.search(r"MAX_SHIPPED_BYTES=\d+", self.audit_sh) is not None
+
     def test_audit_checks_every_scaffolding_class(self):
         for probe in (
             "/usr/local/sbin/raspi-config",
@@ -4053,6 +4094,6 @@ class TestPiImageShipsNoBuildScaffolding:
             # by checking the boot partition still ships the user-data
             # template — see scripts/audit_pi_image.sh.
             "#cloud-config",
-            "python3",
+            "cloud-init-generator",
         ):
             assert probe in self.audit_sh, f"audit must check {probe}"

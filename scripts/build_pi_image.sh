@@ -31,7 +31,12 @@ PISHRINK_SHA256="${PISHRINK_SHA256:-71026f0c02ac099e588a3eb8f70760c1b680aa8ea3ac
 
 SRC_REPO="${INKYPI_SRC_REPO:-https://github.com/cartagena/InkyPi.git}"
 BUILD_DIR="${BUILD_DIR:-build}"
-MNT="${MNT:-/mnt/pi-root}"
+if [ -n "${MNT:-}" ]; then
+    MNT_AUTO=0
+else
+    MNT="$(mktemp -d /tmp/pi-image-root.XXXXXX)"
+    MNT_AUTO=1
+fi
 TAG=""
 FAST=0
 
@@ -111,6 +116,9 @@ cleanup() {
     umount "${MNT}" 2>/dev/null || true
     if [ -n "${LOOP}" ]; then
         losetup -d "${LOOP}" 2>/dev/null || true
+    fi
+    if [ "${MNT_AUTO:-0}" -eq 1 ]; then
+        rmdir "${MNT}" 2>/dev/null || true
     fi
 }
 trap cleanup EXIT
