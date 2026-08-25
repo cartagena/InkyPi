@@ -1,6 +1,188 @@
 # CHANGELOG
 
 
+## v1.4.0 (2026-08-25)
+
+### Bug Fixes
+
+- Bump mypy tests/ ratchet baseline from 661 to 691
+  ([`ee01447`](https://github.com/cartagena/InkyPi/commit/ee014470d2617f9491bcddc37e69cf741bc743ae))
+
+The 661 figure was calibrated at commit deb4110a, but ~40 unrelated commits (the
+  Pi-image/boot-verify/install-script hardening series, PRs #1-#12) landed between there and this
+  branch's base without anyone bumping this file. Verified with `mypy tests` directly: deb4110a
+  measures exactly 661, and d86d7c54 (this branch's base, no code changes beyond a version bump)
+  already measures 697 — this is pre-existing debt, not something introduced by composite-screens.
+
+Also documented a real local/CI discrepancy discovered while tracking this down: scripts/lint.sh run
+  outside CI sources venv.sh, which exports PYTHONPATH=src:<repo-root>. That extra PYTHONPATH entry
+  changes mypy's module resolution and undercounts tests/ errors by ~30 versus a bare `mypy tests`
+  (what CI actually measures, since its lint job sets CI=true and skips venv.sh). A local lint.sh
+  "ratchet improved" is not proof CI will pass until that gap is fixed.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Preserve plugin settings when only editing refresh schedule
+  ([`0761756`](https://github.com/cartagena/InkyPi/commit/0761756c1e46ac92c132206e70cfae15a121dfbd))
+
+The playlist page's "Edit refresh settings" modal posts only plugin_id and refresh_settings, no
+  plugin-specific fields. update_plugin_instance unconditionally overwrote plugin_instance.settings
+  with that empty dict, silently deleting every real setting the instance had on any schedule-only
+  edit — confirmed against a plain clock instance, not specific to any one plugin. Only replace
+  settings when the request actually carried some.
+
+- Refresh playlist layout snapshots for the composite-screen link
+  ([`4899c33`](https://github.com/cartagena/InkyPi/commit/4899c33912205d401d7bcdadd62cc87b35bf2b7e))
+
+The Playlist page's "Add composite screen" link (feat: add composite screen editor UI) is an
+  intentional layout change, but the visual regression baselines were never refreshed for it:
+
+Layout snapshot mismatch for playlist/desktop: 4.8385% changed pixels exceeds allowed 1.5000%
+
+Regenerated via the dedicated refresh-visual-baselines.yml workflow (renders on the same
+  ubuntu-24.04 runner + font set CI compares against, since these are documented as not reproducible
+  from a local checkout otherwise). Verified the new desktop baseline shows exactly the expected
+  "Add composite screen" button and nothing else changed; confirmed locally against the new
+  baselines.
+
+Other pages (settings/history/dashboard) also rendered with tiny diffs in this same refresh run, but
+  those are just the sidebar's dynamic "X.XX avg" load-average text — already within the 1.5%
+  tolerance (CI never flagged them) — so left untouched rather than committing baseline churn with
+  no signal behind it.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Resolve 5 failing tests — merge regression + stale Trixie/cloud-init tests + UI-audit false
+  positive
+  ([`9d379fe`](https://github.com/cartagena/InkyPi/commit/9d379fe44d5daa39f9958c10c060248f35c9fe84))
+
+Verified each failure against source history rather than trusting an AI-generated summary at face
+  value (it suggested changes that would have actively broken things — see below).
+
+test_downloads_from_release_fork: reverted by "Merge remote-tracking branch 'upstream/main'"
+  (69c37ca0), which silently undid a deliberate fork-specific fix from 8c3ff3ca ("chore: point
+  release and update paths at cartagena/InkyPi"). install/_common.sh's WHEELHOUSE_REPO default is
+  still correctly cartagena/InkyPi — only the test regressed. Restored the assertion; did NOT follow
+  the suggestion to point the *source* at jtn0123/InkyPi, which would have broken wheelhouse
+  downloads for this fork's own release artifacts.
+
+test_audit_checks_every_scaffolding_class / test_readme_documents_custom_toml_not_cloud_init: both
+  assert Bookworm-era custom.toml/init=firstboot behavior that commit c8b339dd ("chore: bump
+  prebuilt Pi image base to Raspberry Pi OS Trixie") deliberately and verifiably replaced with
+  cloud-init (confirmed against a real downloaded Trixie image — Trixie ships no
+  init_config/python3-toml and cmdline.txt carries no init=firstboot hook).
+  scripts/audit_pi_image.sh and scripts/build_pi_image.sh were already updated correctly by that
+  commit; only these two tests were left behind, asserting the removed mechanism. Updated the
+  scaffolding probe to the cloud-init equivalent (#cloud-config) and rewrote the README test
+  (renamed to test_readme_documents_cloud_init_not_custom_toml) to check for
+  user-data/network-config and the "Edit Settings doesn't apply to this image" trap instead of the
+  now-absent custom.toml/ password_encrypted assertions.
+
+test_no_orphan_buttons / test_findings_inventory_matches_snapshot: composite_screen.html's
+  #addRegionBtn *is* wired (getElementById('addRegionBtn').addEventListener(...) at line 774) — just
+  via an inline <script> in the same template. The UI audit's ScriptScan only parses external JS
+  under src/static/scripts/, so it structurally cannot see inline wiring; this is a real gap in the
+  audit tool, not a missing handler. Allowlisted with a reason (tests/ui_audit/allowlist.yml) and
+  updated the raw-findings snapshot, which deliberately checks pre-allowlist output.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Resolve new mypy tests/ ratchet debt from composite-screen tests
+  ([`3c28e60`](https://github.com/cartagena/InkyPi/commit/3c28e601829f76d513395bd327bf7e06f6550a4a))
+
+test_refresh_task_composite_dispatch.py constructs a real model.PluginInstance and passes it where
+  PlaylistRefresh expects the PluginInstanceLike protocol; PluginInstance.settings is dict[str, Any]
+  and the protocol declares Mapping[str, object], which mypy's invariant attribute matching rejects
+  even though it's safe. Cast at the two call sites rather than widening PluginInstance's declared
+  type project-wide, matching the same tolerated pattern already present elsewhere in the suite
+  (test_refresh_task.py, test_refresh_task_execute.py).
+
+test_screenshot_backend_retry.py reached into image_utils.time/.os/.subprocess to monkeypatch stdlib
+  modules through the tested module's namespace, which mypy flags as an implicit re-export. Import
+  time/os/subprocess directly and patch those instead — same module objects via sys.modules, so
+  identical runtime effect (verified: all 20 tests still pass). Also added a missing type argument
+  on list[tuple].
+
+Net effect: mypy tests/ ratchet improves from 661 to 659 issues.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Resolve shellcheck findings in the Pi image scripts
+  ([`aa8b05f`](https://github.com/cartagena/InkyPi/commit/aa8b05f55f1e5ca011eebd7c91658a5cd3d119dd))
+
+ci.yml's shellcheck job runs with no --severity flag (unlike scripts/lint.sh's --severity=warning),
+  so it also surfaces info-level findings that were previously invisible locally:
+
+- SC2317 (three EXIT-trap cleanup functions read as "unreachable"): a known shellcheck limitation
+  for functions only called indirectly via `trap`. Suppressed with a rule-scoped comment on each,
+  per the same policy this repo already applies to CodeQL suppressions. - SC2015 (`A && B || C` in
+  audit_pi_image.sh and build_pi_image.sh): not actually a live bug in either case, but genuinely
+  fragile — C silently runs if A succeeds and B fails, not just when A fails. Rewritten as explicit
+  if/fi so the control flow can't be misread and doesn't depend on shellcheck's disclaimer to be
+  correct.
+
+`shellcheck install/*.sh scripts/*.sh install/inkypi` (the exact ci.yml invocation) is clean.
+
+### Features
+
+- Add composite screen editor UI
+  ([`7aed743`](https://github.com/cartagena/InkyPi/commit/7aed74310236d50aa31b95c6e3fa5e6dcf55eb9a))
+
+Adds a region editor reached from the Playlist page's new "Add composite screen" link, alongside the
+  existing single-plugin picker:
+
+- POST /add_composite_screen and GET /composite_screen/new create a composite screen — playlist,
+  instance name, and refresh cadence fields match the plugin settings page's own schedule form
+  exactly. - GET /composite_screen/edit/<name> and PUT /update_composite_screen edit an existing
+  screen's regions. Refresh cadence isn't duplicated here — it's edited through the same generic
+  "Edit refresh settings" modal every plugin instance already uses (now safe for a composite
+  instance too, after the settings-preservation fix in the prior commit). - Each region gets the
+  target plugin's own real settings form — fetched from /plugin/<id>, the same
+  [data-settings-schema] markup that plugin's page renders, namespaced per region so N regions on
+  the same plugin don't collide, with InkyPiPluginSchema.initWidgetsIn driving any hybrid widgets
+  (clock face picker, weather map, etc.). Falls back to a raw JSON textarea for a plugin with no
+  schema-driven settings. - The canvas supports drag-to-move and drag-to-resize: regions can't
+  overlap (dragging into a neighbor stops at its edge rather than passing through, with regions that
+  already overlapped before the gesture exempt so nothing gets permanently stuck), edges snap to the
+  canvas border or a neighboring region so screens tile with no gaps, and each region's size is
+  shown live as a percentage or pixels (toggle, default percentage). - A newly-added region defaults
+  to the largest free rectangle instead of the full canvas, via coordinate compression + the
+  standard maximal-rectangle-in-a-binary-matrix algorithm — correct even when the remaining free
+  space is L-shaped, not just a plain rectangle. - The "Add region" button is sticky at the top of
+  the region list so it stays reachable with many regions configured.
+
+Validation (region shape, canvas bounds, target plugin actually installed) happens server-side in
+  playlist_workflows.py, reusing CompositeScreenRenderer's own checks — unlike a real plugin's
+  validate_settings(settings), this workflow layer does receive device_config, so it can reject an
+  out-of-bounds region at save time instead of only on the next refresh.
+
+- Add native composite screen rendering and scheduling dispatch
+  ([`b049938`](https://github.com/cartagena/InkyPi/commit/b049938a2c1e78da9c6aa3f83993d2f6f7444309))
+
+Composes several existing plugins into named rectangular regions on one canvas, rendered as a single
+  playlist entry — not a plugin. A composite screen is a PluginInstance with a reserved sentinel
+  plugin_id (model.COMPOSITE_PLUGIN_ID), storing its region list in the instance's own
+  settings["regions"], so it rides the existing playlist rotation, refresh scheduling, snooze, and
+  circuit-breaker machinery unmodified.
+
+CompositeScreenRenderer (refresh_task/composite_render.py) does the actual work: parses and
+  validates regions, resolves each region's target plugin via plugins.plugin_registry the same way a
+  normal refresh does, scopes a child plugin's device_config to the region's own pixel size
+  (_RegionDeviceConfig) so its layout logic adapts instead of getting cropped, composites the
+  results onto one canvas, and caches each region's render on disk so a slow child isn't re-invoked
+  more often than its own refresh_minutes.
+
+Four call sites in task.py/executor.py/worker.py branch on the sentinel plugin_id to dispatch to
+  this renderer instead of resolving a real plugin, covering both in-process and subprocess plugin
+  isolation. PIL.ImageDraw and BasePlugin are imported lazily inside the render path rather than at
+  module load, since executor.py/worker.py import this module unconditionally at startup and
+  BasePlugin's own import chain (jinja2, screenshot tooling) is exactly the class of "heavy module
+  at startup" cost the lazy-imports guard exists to catch.
+
+plugin.py's instance_image route (thumbnail rendering) gets the same composite branch so a composite
+  screen's thumbnail renders instead of 404ing before its first scheduled refresh.
+
+
 ## v1.3.3 (2026-08-24)
 
 ### Bug Fixes
