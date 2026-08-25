@@ -62,6 +62,24 @@ absent() { ! d "stat $1" | grep -q "Inode:"; }
 echo ""
 echo "Auditing $(basename "${1}")  (rootfs at offset ${ROOT_OFF})"
 echo ""
+
+echo "Shipped artifact size:"
+MAX_SHIPPED_BYTES=943718400
+case "$1" in
+    *.xz)
+        SHIPPED_BYTES=$(stat -c %s "$1")
+        if [ "${SHIPPED_BYTES}" -gt "${MAX_SHIPPED_BYTES}" ]; then
+            bad "$(basename "$1") is $(numfmt --to=iec "${SHIPPED_BYTES}"), over the $(numfmt --to=iec "${MAX_SHIPPED_BYTES}") ceiling — unexpected bloat?"
+        else
+            ok "$(basename "$1") is $(numfmt --to=iec "${SHIPPED_BYTES}"), under the $(numfmt --to=iec "${MAX_SHIPPED_BYTES}") ceiling"
+        fi
+        ;;
+    *)
+        echo "  (skipped — not a .img.xz)"
+        ;;
+esac
+echo ""
+
 echo "Build scaffolding must not ship:"
 
 for stub in /usr/local/sbin/raspi-config /usr/local/sbin/systemctl; do
