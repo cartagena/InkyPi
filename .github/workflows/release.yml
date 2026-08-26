@@ -39,9 +39,13 @@ jobs:
       - name: Semantic Release — version & publish
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # scripts/run_semantic_release.py wraps the CLI to work around
+        # python-semantic-release still depending on git.Actor.name_email_regex,
+        # which GitPython removed while fixing a ReDoS (GHSA-g5vv-9gxw-82hx) —
+        # see that script for the full explanation.
         run: |
-          semantic-release version
-          semantic-release publish
+          python scripts/run_semantic_release.py version
+          python scripts/run_semantic_release.py publish
 
       - name: Resolve released tag
         id: resolve_tag
