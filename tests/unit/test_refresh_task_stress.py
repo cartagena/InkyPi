@@ -331,6 +331,16 @@ def test_manual_update_returns_metrics_after_update(
     monkeypatch.setattr(
         "refresh_task.task.get_plugin_instance", lambda cfg: mock_plugin, raising=True
     )
+    # manual_update() only returns "request_ms" once the background thread's
+    # `done` signal fires within its grace window (default 0.25s) — before
+    # that it returns the partial "image_saved" metrics, which deliberately
+    # omit request_ms (see display_pipeline.py's on_image_saved callback).
+    # FastPlugin has no artificial delay, so 0.25s is normally plenty, but on
+    # a loaded runner (e.g. the sequential multi-phase pre-flash-validate
+    # job) thread scheduling alone can exceed it, and the test starts
+    # asserting on the wrong code path. Widen the window so this test
+    # exercises the completed-request path deterministically.
+    monkeypatch.setenv("INKYPI_MANUAL_UPDATE_DONE_GRACE_S", "5")
 
     try:
         task.start()

@@ -105,7 +105,7 @@ jobs:
 
       - name: Checkout
         if: steps.skip.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Assert debian-requirements.txt resolves on this OS
         id: apt_check
@@ -196,7 +196,7 @@ jobs:
 
       - name: Upload drift artifacts
         if: always() && steps.skip.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: os-drift-${{ matrix.codename }}
           path: artifacts/
@@ -216,7 +216,7 @@ jobs:
         codename: [trixie, bookworm, bullseye]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Skip leg if not selected (workflow_dispatch)
         id: skip
@@ -236,7 +236,7 @@ jobs:
 
       - name: Set up QEMU for arm64 emulation
         if: steps.skip.outputs.skip != 'true'
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
         with:
           platforms: arm64
 
@@ -257,7 +257,7 @@ jobs:
 
       - name: Upload install sim log
         if: always() && steps.skip.outputs.skip != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: install-sim-${{ matrix.codename }}
           path: artifacts/install-sim-${{ matrix.codename }}.log
@@ -273,16 +273,16 @@ jobs:
       issues: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download drift artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: artifacts/
         continue-on-error: true
 
       - name: Summarise failures and file issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           DRIFT_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         with:
