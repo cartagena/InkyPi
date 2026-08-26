@@ -74,6 +74,10 @@ done
 [ "$(id -u)" -eq 0 ] || { echo "ERROR: must run as root (loop-mount + chroot)" >&2; exit 2; }
 
 VERSION="${TAG#v}"
+# Defensive: VERSION feeds a flat filename below, so a slash in TAG would
+# make mv() treat it as a subdirectory. Release tags never contain one, but
+# --tag is also a public flag for manual/local runs.
+VERSION="${VERSION//\//-}"
 
 for tool in curl xz truncate parted losetup e2fsck resize2fs chroot sha256sum; do
     command -v "${tool}" >/dev/null 2>&1 || {
@@ -523,7 +527,7 @@ sha256sum "${IMG_NAME}.xz" > "${IMG_NAME}.xz.sha256"
 ls -la "${IMG_NAME}.xz" "${IMG_NAME}.xz.sha256"
 
 # Hand the packaging results to the workflow when running under Actions; the
-# verify-boot and attach-release jobs key off these.
+# attach-release job keys off these.
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
     {
         echo "image_name=${IMG_NAME}.xz"
