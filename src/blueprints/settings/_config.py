@@ -20,7 +20,9 @@ def _isolation_state() -> tuple[Any, list[Any], set[Any]]:
     isolated = device_config.get_config("isolated_plugins", default=[])
     if not isinstance(isolated, list):
         isolated = []
-    registered_ids = {plugin["id"] for plugin in device_config.get_plugins()}
+    registered_ids = {
+        plugin["id"] for plugin in device_config.get_plugins(include_disabled=True)
+    }
     return device_config, isolated, registered_ids
 
 

@@ -208,7 +208,7 @@ def import_plugins() -> (
     # Build set of installed plugin_ids for fast lookup
     installed_ids: set[str] = {
         p["id"]
-        for p in device_config.get_plugins()
+        for p in device_config.get_plugins(include_disabled=True)
         if isinstance(p, dict) and "id" in p
     }
 

@@ -287,13 +287,46 @@ def ai_image_random_prompt() -> Any:
 @plugin_bp.route("/plugins", methods=["GET"])
 def plugins_page() -> Any:
     device_config = current_app.config[_CONFIG_KEY]
-    plugins = device_config.get_plugins()
+    all_plugins = device_config.get_plugins(include_disabled=True)
+    plugins = [p for p in all_plugins if not p.get("disabled")]
+    disabled_plugins = [p for p in all_plugins if p.get("disabled")]
 
     return render_template(
         "plugins.html",
         plugins=plugins,
+        disabled_plugins=disabled_plugins,
         config=device_config.get_config(),
         active_nav="plugins",
+    )
+
+
+@plugin_bp.route("/plugin/<string:plugin_id>/disable", methods=["POST"])
+def disable_plugin(plugin_id: str) -> Any:
+    return _set_plugin_disabled_route(plugin_id, True)
+
+
+@plugin_bp.route("/plugin/<string:plugin_id>/enable", methods=["POST"])
+def enable_plugin(plugin_id: str) -> Any:
+    return _set_plugin_disabled_route(plugin_id, False)
+
+
+def _set_plugin_disabled_route(plugin_id: str, disabled: bool) -> Any:
+    device_config = current_app.config[_CONFIG_KEY]
+    verb = "disable" if disabled else "enable"
+    with route_error_boundary(
+        f"{verb} plugin",
+        logger=logger,
+        hint="Ensure plugin_id refers to an installed plugin.",
+    ):
+        known_ids = {p["id"] for p in device_config.get_plugins(include_disabled=True)}
+        if plugin_id not in known_ids:
+            raise ResourceLookupError(_ERR_PLUGIN_NOT_FOUND, status=404)
+        device_config.set_plugin_disabled(plugin_id, disabled)
+
+    past = "disabled" if disabled else "enabled"
+    return json_success(
+        f"Plugin {past}.",
+        disabled_plugins=sorted(device_config.get_disabled_plugin_ids()),
     )
 
 

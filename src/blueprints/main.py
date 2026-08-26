@@ -346,7 +346,7 @@ def _plugin_display_name_map() -> dict[str, str]:
         device_config = current_app.config["DEVICE_CONFIG"]
         return {
             p["id"]: p.get("display_name") or p["id"]
-            for p in device_config.get_plugins()
+            for p in device_config.get_plugins(include_disabled=True)
         }
     except Exception:
         return {}

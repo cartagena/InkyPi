@@ -646,7 +646,7 @@ def playlists() -> Any:
     device_config = current_app.config["DEVICE_CONFIG"]
     playlist_manager = device_config.get_playlist_manager()
     refresh_info = device_config.get_refresh_info()
-    plugins_list = device_config.get_plugins()
+    plugins_list = device_config.get_plugins(include_disabled=True)
 
     # Include latest metrics for badge rendering
     metrics = None
