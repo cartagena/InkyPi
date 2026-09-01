@@ -1,6 +1,53 @@
 # CHANGELOG
 
 
+## v1.4.4 (2026-09-01)
+
+### Bug Fixes
+
+- Collect and submit repeater fields correctly in composite regions
+  ([`d08a026`](https://github.com/cartagena/InkyPi/commit/d08a0261ad09dc3b6f8ea17f4b4529beec2efbf8))
+
+A composite screen region's settings editor only read fields tagged with data-field-name, an
+  attribute stamped once when the plugin's settings fragment is first embedded. Hybrid widgets that
+  rebuild their own rows from saved config after that point (e.g. the calendar plugin's URL
+  repeater) produce inputs without that tag, so their values were silently dropped from the saved
+  region settings - calendar.py then rejects the save for missing a URL. Repeater-style fields also
+  collapsed multiple same-named inputs down to a single value, so a second calendar entry was
+  discarded even once collected.
+
+collectFieldsByName now falls back to the live name attribute when data-field-name is absent, and
+  getFieldGroupValue returns an array for any field whose name ends in "[]", matching what the
+  backend expects.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_014GwQhqAmPfbbiJWE3yH3D9
+
+- Stamp data-field-name after widget init, not before
+  ([`769ee17`](https://github.com/cartagena/InkyPi/commit/769ee17b1c1976394128958e2652669b57938df1))
+
+The previous fix's data-field-name/[]-array-value change still broke the exact scenario it targeted:
+  opening an existing composite region that already has a saved Calendar config.
+  initCalendarRepeater wipes and rebuilds its rows from existingSettings on init, and those rebuilt
+  rows never carried data-field-name. namespaceFragment then permanently prefixes their .name (e.g.
+  to "region-3-calendarURLs[]"), so collectFieldsByName's name-attribute fallback picked up the
+  prefixed name instead of the plain one calendar.py's validate_settings expects, and the save was
+  rejected exactly as before.
+
+Move the data-field-name stamping pass to after initWidgetsIn (querying the container, since
+  appendChild already moved the fragment's children) so widget-rebuilt rows get tagged with their
+  real name before namespacing touches them. Rows a widget appends later, via its own "Add" button,
+  are never namespaced at all, so their plain name still matches correctly via the existing
+  fallback.
+
+Found by /code-review on PR #21.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_014GwQhqAmPfbbiJWE3yH3D9
+
+
 ## v1.4.3 (2026-09-01)
 
 ### Bug Fixes
