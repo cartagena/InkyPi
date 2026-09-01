@@ -454,6 +454,15 @@ class Calendar(BasePlugin):
         try:
             response = get_http_session().get(calendar_url, timeout=30)
             response.raise_for_status()
+            if not response.text.strip():
+                # A 200 with an empty body is a valid (if pointless) ICS feed,
+                # not a fetch failure — treat it as a calendar with no events
+                # rather than aborting every other calendar_url in this instance.
+                logger.warning(
+                    "Calendar url returned empty content, treating as no events: %s",
+                    calendar_url,
+                )
+                return icalendar.Calendar()
             return icalendar.Calendar.from_ical(response.text)
         except Exception as e:
             raise RuntimeError(f"Failed to fetch iCalendar url: {str(e)}") from e

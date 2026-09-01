@@ -63,6 +63,29 @@ def test_calendar_malformed_ics(monkeypatch: pytest.MonkeyPatch) -> None:
         p.fetch_calendar("http://example.com/bad.ics")
 
 
+def test_calendar_empty_content(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 200 response with an empty body is treated as a calendar with no
+    events, not a fatal error (JTN empty-ICS regression)."""
+    p = _make_calendar_plugin()
+
+    class FakeResp:
+        text = ""
+        status_code = 200
+
+        def raise_for_status(self) -> None:
+            pass
+
+    mock_session = type(
+        "S", (), {"get": staticmethod(lambda url, **kwargs: FakeResp())}
+    )()
+    monkeypatch.setattr(
+        "plugins.calendar.calendar.get_http_session", lambda: mock_session
+    )
+
+    cal = p.fetch_calendar("http://example.com/empty.ics")
+    assert cal.subcomponents == []
+
+
 def test_calendar_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     """ICS URL request times out."""
     p = _make_calendar_plugin()
