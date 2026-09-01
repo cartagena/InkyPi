@@ -312,6 +312,12 @@ def enable_plugin(plugin_id: str) -> Any:
 
 
 def _set_plugin_disabled_route(plugin_id: str, disabled: bool) -> Any:
+    """Shared handler for the disable/enable plugin routes.
+
+    Validates that ``plugin_id`` refers to a known (installed) plugin, then
+    persists the new disabled state and returns the resulting set of
+    disabled plugin ids.
+    """
     device_config = current_app.config[_CONFIG_KEY]
     verb = "disable" if disabled else "enable"
     with route_error_boundary(

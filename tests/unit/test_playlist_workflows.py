@@ -97,15 +97,22 @@ class _PlaylistManager:
 
 class _DeviceConfig:
     def __init__(
-        self, plugin_config: Any = None, env_keys: dict[str, str] | None = None
+        self,
+        plugin_config: Any = None,
+        env_keys: dict[str, str] | None = None,
+        disabled_plugin_ids: set[str] | None = None,
     ) -> None:
         self.plugin_config = plugin_config
         self.env_keys = env_keys or {}
         self.playlist_manager = _PlaylistManager()
         self.update_calls: list[dict[str, Any]] = []
+        self.disabled_plugin_ids = disabled_plugin_ids or set()
 
     def get_plugin(self, plugin_id: str) -> Any:
         return self.plugin_config
+
+    def get_disabled_plugin_ids(self) -> set[str]:
+        return self.disabled_plugin_ids
 
     def load_env_key(self, key: str) -> Any:
         return self.env_keys.get(key)
@@ -225,6 +232,34 @@ def test_prepare_add_plugin_workflow_happy_path() -> None:
         "name": "Morning Weather",
     }
     assert manager.find_plugin("weather", "Morning Weather") is not None
+
+
+def test_prepare_add_plugin_workflow_rejects_disabled_plugin() -> None:
+    playlist_workflows_mod = _playlist_workflows_mod()
+    device_config = _DeviceConfig(
+        plugin_config={"id": "weather"}, disabled_plugin_ids={"weather"}
+    )
+    manager = device_config.playlist_manager
+    manager.add_playlist("Morning")
+
+    result = playlist_workflows_mod.prepare_add_plugin_workflow(
+        "weather",
+        {"city": "London"},
+        {
+            "playlist": "Morning",
+            "instance_name": "Morning Weather",
+            "refreshType": "interval",
+            "unit": "minute",
+            "interval": "10",
+        },
+        playlist_manager=manager,
+        device_config=device_config,
+    )
+
+    assert result.ok is False
+    assert result.error is not None
+    assert result.error.status == 409
+    assert manager.find_plugin("weather", "Morning Weather") is None
 
 
 def test_prepare_add_plugin_workflow_rejects_duplicate_instance() -> None:

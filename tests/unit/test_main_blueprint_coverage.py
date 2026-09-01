@@ -392,3 +392,35 @@ def test_plugin_order_unknown_ids_not_reflected(client: FlaskClient) -> None:
         body_text = resp.get_data(as_text=True)
         assert payload not in body_text, f"Payload reflected: {payload!r}"
         assert resp.headers.get("Content-Type", "").startswith("application/json")
+
+
+def test_plugin_order_preserves_disabled_plugin_position(
+    client: FlaskClient, device_config_dev: Any
+) -> None:
+    """A disabled plugin's remembered slot must survive a reorder save.
+
+    The dashboard drag-and-drop UI only submits enabled plugin ids, so
+    persisting that list verbatim would silently drop a disabled plugin from
+    plugin_order -- it would land wherever get_plugins() happens to append
+    unordered entries once re-enabled, instead of back where the user left it.
+    """
+    all_ids = [p["id"] for p in device_config_dev.get_plugins(include_disabled=True)]
+    assert len(all_ids) >= 2, "Need at least two plugins for this test"
+    disabled_id, kept_id = all_ids[0], all_ids[1]
+
+    # Seed an initial order with the plugin that will be disabled in the middle.
+    device_config_dev.set_plugin_order(all_ids)
+    device_config_dev.set_plugin_disabled(disabled_id, True)
+
+    enabled_order = [pid for pid in all_ids if pid != disabled_id]
+    reversed_order = list(reversed(enabled_order))
+    resp = client.post("/api/plugin_order", json={"order": reversed_order})
+    assert resp.status_code == 200
+
+    device_config_dev.set_plugin_disabled(disabled_id, False)
+    persisted = device_config_dev.get_config("plugin_order")
+    assert disabled_id in persisted
+    assert kept_id in persisted
+    # disabled_id preceded kept_id in the seeded order and has no other
+    # enabled anchor before it, so it should land at the front.
+    assert persisted[0] == disabled_id

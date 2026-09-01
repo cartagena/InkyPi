@@ -211,6 +211,7 @@ def main_page() -> Any:
         "inky.html",
         config=device_config.get_config(),
         plugins=device_config.get_plugins(),
+        plugin_names=_plugin_display_name_map(),
         refresh_info=refresh_info,
         next_up=next_up,
         has_preview=has_preview,
@@ -443,8 +444,36 @@ def save_plugin_order() -> Any:
             "Order must include every plugin ID exactly once",
             status=400,
         )
-    device_config.set_plugin_order(order)
+    device_config.set_plugin_order(_merge_disabled_plugin_order(device_config, order))
     return json_success()
+
+
+def _merge_disabled_plugin_order(device_config: Any, order: list[str]) -> list[str]:
+    """Reinsert disabled plugin ids into a freshly-submitted enabled-only order.
+
+    The dashboard's drag-and-drop UI only shows enabled plugins, so a saved
+    ``order`` never mentions disabled ones. Persisting it verbatim would drop
+    a disabled plugin's remembered position, so each disabled id already
+    present in the stored order is reinserted right after whichever enabled
+    plugin previously preceded it (or at the front, if none did).
+    """
+    old_order = device_config.get_config("plugin_order") or []
+    disabled_ids = device_config.get_disabled_plugin_ids()
+    merged = list(order)
+    for pid in old_order:
+        if pid not in disabled_ids or pid in merged:
+            continue
+        anchor = next(
+            (
+                prev_id
+                for prev_id in reversed(old_order[: old_order.index(pid)])
+                if prev_id in merged
+            ),
+            None,
+        )
+        insert_at = merged.index(anchor) + 1 if anchor is not None else 0
+        merged.insert(insert_at, pid)
+    return merged
 
 
 @main_bp.route("/sw.js", methods=["GET"])

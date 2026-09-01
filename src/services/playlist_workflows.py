@@ -257,6 +257,13 @@ def prepare_add_plugin_workflow(
     device_config: Any,
 ) -> AddPluginWorkflowResult:
     """Validate and execute the add-plugin workflow used by ``/add_plugin``."""
+    if plugin_id in device_config.get_disabled_plugin_ids():
+        return _failure(
+            "Plugin is disabled",
+            status=409,
+            field="plugin_id",
+        )
+
     playlist = refresh_settings.get("playlist")
     if not playlist:
         return _failure(
