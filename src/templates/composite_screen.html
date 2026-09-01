@@ -214,8 +214,17 @@
 
         function collectFieldsByName(root) {
             const groups = {};
-            root.querySelectorAll('[data-field-name]').forEach((el) => {
-                const name = el.dataset.fieldName;
+            // Query [name] rather than [data-field-name]: a hybrid widget
+            // (e.g. the calendar repeater) may wipe and rebuild its own
+            // rows from saved config after data-field-name was stamped on
+            // the initial server-rendered fragment, and rows added later
+            // by the user (its "Add" button) never get that attribute at
+            // all. Those elements still carry the real field name, so fall
+            // back to it when data-field-name is absent — data-field-name
+            // remains authoritative where it exists because it preserves
+            // the pre-namespacing name.
+            root.querySelectorAll('[name]').forEach((el) => {
+                const name = el.dataset.fieldName || el.name;
                 (groups[name] = groups[name] || []).push(el);
             });
             return groups;
@@ -232,6 +241,13 @@
             if (first.type === 'radio') {
                 const checked = elements.find((el) => el.checked);
                 return checked ? checked.value : undefined;
+            }
+            // Repeater fields (e.g. calendarURLs[], calendarColors[]) submit
+            // multiple inputs sharing one name and the backend expects a
+            // list for them — collapsing to elements[0].value would drop
+            // every entry past the first.
+            if (first.name.endsWith('[]')) {
+                return elements.map((el) => el.value);
             }
             return first.value;
         }
