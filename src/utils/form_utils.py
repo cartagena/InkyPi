@@ -8,8 +8,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from html import escape
 from typing import Any
+
+from markupsafe import escape
 
 logger = logging.getLogger(__name__)
 
@@ -40,9 +41,14 @@ def sanitize_response_value(value: Any) -> str:
     """Sanitize a user-controlled value before reflecting it in a JSON response.
 
     Applies :func:`sanitize_log_field` for control-character stripping, then
-    HTML-escapes the result to prevent XSS when the string is embedded in HTML
-    contexts.  Angle brackets and ampersands are escaped; quotes are left
-    unescaped so JSON serialisers can still handle the string normally.
+    HTML-escapes the result via ``markupsafe.escape`` (the same escaping
+    MarkupSafe/Flask use) to prevent XSS when the string is embedded in HTML
+    contexts. Angle brackets, ampersands, and quotes are all escaped.
+
+    ``markupsafe.escape`` is used instead of the stdlib ``html.escape``
+    because CodeQL's ``py/reflective-xss`` sanitizer model recognizes it as
+    an escaping barrier, while a bare ``html.escape`` call does not break its
+    taint-tracking here.
 
     Args:
         value: The value to sanitize.  Will be coerced to ``str``.
@@ -50,7 +56,7 @@ def sanitize_response_value(value: Any) -> str:
     Returns:
         A sanitized, HTML-escaped string.
     """
-    return escape(sanitize_log_field(str(value)), quote=False)
+    return str(escape(sanitize_log_field(str(value))))
 
 
 # Canonical alias so callers can use the more descriptive name.

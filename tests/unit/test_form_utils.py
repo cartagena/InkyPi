@@ -88,10 +88,11 @@ class TestSanitizeResponseValue:
     def test_escapes_ampersand(self) -> None:
         assert "&amp;" in sanitize_response_value("a&b")
 
-    def test_quotes_not_escaped(self) -> None:
-        # quote=False means single and double quotes pass through
+    def test_quotes_escaped(self) -> None:
+        # markupsafe.escape HTML-escapes quotes too, unlike stdlib html.escape's default
         result = sanitize_response_value('say "hi"')
-        assert '"' in result
+        assert '"' not in result
+        assert "&#34;" in result
 
     def test_strips_control_chars(self) -> None:
         result = sanitize_response_value("foo\nbar")
