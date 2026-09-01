@@ -276,7 +276,14 @@ def _execute_refresh_attempt_worker(
         # `get_plugin_instance` raise a clear ValueError below.
         get_plugins = getattr(child_config, "get_plugins", None)
         if callable(get_plugins):
-            load_plugins(get_plugins())
+            # include_disabled=True so an already-configured playlist instance
+            # of a UI-disabled plugin still resolves; force disabled=False on
+            # each entry so plugin_registry.load_plugins()'s own (unrelated,
+            # legacy) "disabled" key doesn't skip registering it.
+            plugins_for_registry = get_plugins(include_disabled=True)
+            for _p in plugins_for_registry:
+                _p["disabled"] = False
+            load_plugins(plugins_for_registry)
         if plugin_config.get("id") == COMPOSITE_PLUGIN_ID:
             # A composite screen has no plugins/<id>/ directory to register —
             # it's rendered natively rather than resolved through the plugin

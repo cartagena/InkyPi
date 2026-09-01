@@ -474,39 +474,73 @@ class Config:
             return self.config.get(key, default)
         return self.config.copy()
 
-    def get_plugins(self) -> list[dict[str, Any]]:
-        """Returns the list of plugin configurations, sorted by custom order if set."""
+    def get_plugins(self, *, include_disabled: bool = False) -> list[dict[str, Any]]:
+        """Returns the list of plugin configurations, sorted by custom order if set.
+
+        Each returned dict is annotated with a ``disabled`` bool. By default,
+        disabled plugins are excluded — this is the list surfaced to the
+        dashboard, the plugin catalog, and playlist/composite-screen plugin
+        pickers, so a disabled plugin can't be newly selected anywhere in the
+        UI. Pass ``include_disabled=True`` to get the full list (used by the
+        Plugins page to render the disabled section, and by the plugin
+        loader/registry so already-configured playlist instances of a
+        disabled plugin keep working).
+        """
         plugin_order = self.config.get("plugin_order", [])
         if not isinstance(plugin_order, list):
             plugin_order = []
 
         if not plugin_order:
-            return self.plugins_list
+            ordered = list(self.plugins_list)
+        else:
+            # Create a dict for quick lookup
+            plugins_dict = {
+                str(p["id"]): p
+                for p in self.plugins_list
+                if isinstance(p.get("id"), str)
+            }
 
-        # Create a dict for quick lookup
-        plugins_dict = {
-            str(p["id"]): p for p in self.plugins_list if isinstance(p.get("id"), str)
-        }
+            # Build ordered list
+            ordered = []
+            for plugin_id in plugin_order:
+                if not isinstance(plugin_id, str):
+                    logger.warning(
+                        "Skipping invalid plugin_order entry (non-string): %r",
+                        plugin_id,
+                    )
+                    continue
+                if plugin_id in plugins_dict:
+                    ordered.append(plugins_dict.pop(plugin_id))
 
-        # Build ordered list
-        ordered = []
-        for plugin_id in plugin_order:
-            if not isinstance(plugin_id, str):
-                logger.warning(
-                    "Skipping invalid plugin_order entry (non-string): %r", plugin_id
-                )
-                continue
-            if plugin_id in plugins_dict:
-                ordered.append(plugins_dict.pop(plugin_id))
+            # Append any remaining plugins not in the order (new plugins)
+            ordered.extend(plugins_dict.values())
 
-        # Append any remaining plugins not in the order (new plugins)
-        ordered.extend(plugins_dict.values())
-
-        return ordered
+        disabled_ids = self.get_disabled_plugin_ids()
+        annotated = [{**p, "disabled": p.get("id") in disabled_ids} for p in ordered]
+        if include_disabled:
+            return annotated
+        return [p for p in annotated if not p["disabled"]]
 
     def set_plugin_order(self, order: list[str]) -> None:
         """Sets the custom plugin display order."""
         self.update_value("plugin_order", order, write=True)
+
+    def get_disabled_plugin_ids(self) -> set[str]:
+        """Returns the set of plugin IDs the user has disabled."""
+        disabled = self.config.get("disabled_plugins", [])
+        if not isinstance(disabled, list):
+            return set()
+        return {p for p in disabled if isinstance(p, str)}
+
+    def set_plugin_disabled(self, plugin_id: str, disabled: bool) -> None:
+        """Marks a plugin as disabled or enabled and persists the change."""
+        with self._config_lock:
+            current = self.get_disabled_plugin_ids()
+            if disabled:
+                current.add(plugin_id)
+            else:
+                current.discard(plugin_id)
+            self.update_value("disabled_plugins", sorted(current), write=True)
 
     def get_plugin(self, plugin_id: str) -> dict[str, Any] | None:
         """Finds and returns a plugin config by its ID."""

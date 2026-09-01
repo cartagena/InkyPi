@@ -369,7 +369,15 @@ def _init_core_services(app: Flask) -> Config:
         except Exception:
             pass
 
-    load_plugins(device_config.get_plugins())
+    # include_disabled=True so already-configured playlist instances of a
+    # UI-disabled plugin keep working; force disabled=False on each entry so
+    # plugin_registry.load_plugins()'s own (unrelated, legacy) "disabled" key
+    # doesn't skip registering it — UI-level disable must not affect the
+    # module registry.
+    plugins_for_registry = device_config.get_plugins(include_disabled=True)
+    for _p in plugins_for_registry:
+        _p["disabled"] = False
+    load_plugins(plugins_for_registry)
 
     app.config["DEVICE_CONFIG"] = device_config
     app.config["DISPLAY_MANAGER"] = display_manager
@@ -487,7 +495,7 @@ def _compute_now_showing(device_config: Config) -> dict[str, object] | None:
     # Resolve the display name from the plugin registry when possible.
     display_name = plugin_id
     try:
-        for plugin in device_config.get_plugins() or []:
+        for plugin in device_config.get_plugins(include_disabled=True) or []:
             if plugin.get("id") == plugin_id and plugin.get("display_name"):
                 display_name = plugin["display_name"]
                 break

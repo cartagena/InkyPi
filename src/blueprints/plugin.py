@@ -33,6 +33,7 @@ from utils.backend_errors import (
 from utils.fallback_image import render_error_image
 from utils.form_utils import (
     sanitize_log_field,
+    sanitize_response_value,
     validate_plugin_required_fields,
 )
 from utils.http_utils import json_error, json_success
@@ -287,13 +288,55 @@ def ai_image_random_prompt() -> Any:
 @plugin_bp.route("/plugins", methods=["GET"])
 def plugins_page() -> Any:
     device_config = current_app.config[_CONFIG_KEY]
-    plugins = device_config.get_plugins()
+    all_plugins = device_config.get_plugins(include_disabled=True)
+    plugins = [p for p in all_plugins if not p.get("disabled")]
+    disabled_plugins = [p for p in all_plugins if p.get("disabled")]
 
     return render_template(
         "plugins.html",
         plugins=plugins,
+        disabled_plugins=disabled_plugins,
         config=device_config.get_config(),
         active_nav="plugins",
+    )
+
+
+@plugin_bp.route("/plugin/<string:plugin_id>/disable", methods=["POST"])
+def disable_plugin(plugin_id: str) -> Any:
+    return _set_plugin_disabled_route(plugin_id, True)
+
+
+@plugin_bp.route("/plugin/<string:plugin_id>/enable", methods=["POST"])
+def enable_plugin(plugin_id: str) -> Any:
+    return _set_plugin_disabled_route(plugin_id, False)
+
+
+def _set_plugin_disabled_route(plugin_id: str, disabled: bool) -> Any:
+    """Shared handler for the disable/enable plugin routes.
+
+    Validates that ``plugin_id`` refers to a known (installed) plugin, then
+    persists the new disabled state and returns the resulting set of
+    disabled plugin ids.
+    """
+    device_config = current_app.config[_CONFIG_KEY]
+    verb = "disable" if disabled else "enable"
+    with route_error_boundary(
+        f"{verb} plugin",
+        logger=logger,
+        hint="Ensure plugin_id refers to an installed plugin.",
+    ):
+        known_ids = {p["id"] for p in device_config.get_plugins(include_disabled=True)}
+        if plugin_id not in known_ids:
+            raise ResourceLookupError(_ERR_PLUGIN_NOT_FOUND, status=404)
+        device_config.set_plugin_disabled(plugin_id, disabled)
+
+    past = "disabled" if disabled else "enabled"
+    return json_success(
+        f"Plugin {past}.",
+        disabled_plugins=[
+            sanitize_response_value(pid)
+            for pid in sorted(device_config.get_disabled_plugin_ids())
+        ],
     )
 
 

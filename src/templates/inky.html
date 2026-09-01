@@ -12,8 +12,6 @@
        does not emit. If that drifts, consider migrating to `{% call
        pageheader(...) %}` for consistency with the other pages in this PR. #}
     {% from 'macros/plugin_catalog.html' import plugin_catalog %}
-    {% set plugin_names = {} %}
-    {% for p in plugins %}{% if p.display_name %}{% set _ = plugin_names.update({p.id: p.display_name}) %}{% endif %}{% endfor %}
     <!-- Subtle frame container -->
     <div class="frame">
         {% from 'macros/icons.html' import icon, theme_toggle, empty_state %}
