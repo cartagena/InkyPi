@@ -110,7 +110,7 @@ jobs:
           fi
       - name: Upload benchmark artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results
           path: |
@@ -226,7 +226,7 @@ jobs:
           pytest --cov --cov-report=xml -q -m "not container"
       - name: Upload coverage
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ matrix.python-version }}
           path: coverage.xml
@@ -492,7 +492,7 @@ jobs:
           scripts/preflash_validate.sh
       - name: Upload coverage gate artifact
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-gate
           path: coverage.xml
@@ -530,7 +530,7 @@ jobs:
             -o artifacts/security/sbom.json
       - name: Upload security artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: security-artifacts
           path: artifacts/security
@@ -657,7 +657,7 @@ jobs:
           mutmut results || true
       - name: Upload mutmut cache
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: mutmut-cache-${{ matrix.label }}
           path: .mutmut-cache
@@ -718,21 +718,21 @@ jobs:
             -q
       - name: Upload browser smoke artifacts
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: browser-smoke-failures
           path: runtime/mock_display_output/browser_smoke_failures
           if-no-files-found: ignore
       - name: Upload snapshot failure artifacts
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: snapshot-failures
           path: tests/snapshots/actual/
           if-no-files-found: ignore
       - name: Upload layout snapshot failure artifacts
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: layout-snapshot-failures
           path: tests/snapshots/layout/actual/
@@ -758,7 +758,7 @@ jobs:
 
       - name: Upload container logs on failure
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: install-smoke-memcap-logs
           path: /tmp/inkypi-smoke-logs
