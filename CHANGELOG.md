@@ -1,6 +1,60 @@
 # CHANGELOG
 
 
+## v1.5.0 (2026-09-01)
+
+### Bug Fixes
+
+- Address post-review gaps in plugin disable/enable feature
+  ([`68b11cb`](https://github.com/cartagena/InkyPi/commit/68b11cbb044fe1b32a3abd04b2661dc92c4e45a1))
+
+- Dashboard "Now Showing"/"Next Up" resolved plugin display names from an enabled-only plugin list,
+  so a disabled-but-still-playlisted plugin's instance showed its raw id instead of its friendly
+  name. Reuse the existing _plugin_display_name_map() helper (already fixed for this same reason
+  elsewhere) instead of duplicating the lookup. - /add_plugin let a disabled plugin be added to a
+  playlist as a brand new instance, even though the UI pickers hide it -- a direct request bypassed
+  the "can't be newly selected anywhere" contract. Reject disabled plugin ids in
+  prepare_add_plugin_workflow. - Saving a custom dashboard plugin order while a plugin was disabled
+  permanently dropped that plugin from plugin_order, since the drag-and-drop UI only submits enabled
+  ids. Reinsert previously-known disabled ids at their old relative position when persisting. -
+  Added the docstring _set_plugin_disabled_route was missing per this repo's private-helper
+  convention.
+
+- Sanitize reflected plugin ids in disable/enable response
+  ([`c84690e`](https://github.com/cartagena/InkyPi/commit/c84690e74ca894f4447ede772affa90ce6b0435b))
+
+CodeQL flagged py/reflective-xss on the disable/enable plugin routes: plugin_id from the URL flows
+  into disabled_plugins, persisted config, and back out in the JSON response. HTML-escape each id
+  before it is reflected, matching the existing sanitize_response_value convention used elsewhere
+  for user-derived values in JSON responses.
+
+- Use markupsafe.escape for reflected-response sanitization
+  ([`5b58f46`](https://github.com/cartagena/InkyPi/commit/5b58f46a30e21d93d7177c818345f25b68afbe47))
+
+CodeQL's py/reflective-xss check kept flagging the new plugin disable/enable routes (and every other
+  json_success/json_error call site) because the request_id echoed from X-Request-Id flows through
+  sanitize_response_value() into every JSON response body. Tracing the alert's SARIF code flow
+  showed CodeQL walking straight through the existing html.escape() call without treating it as a
+  sanitizer barrier -- html.escape is not in CodeQL's recognized escaping-barrier set for this
+  query, while markupsafe.escape (what Flask/Jinja2 use internally) is. Swapping the sanitizer
+  breaks the taint flow at its recognized model instead of chasing it call-site by call-site.
+
+markupsafe.escape also escapes quotes (html.escape's default does not), so sanitize_response_value's
+  contract changes slightly -- updated the test and docstring to match.
+
+### Features
+
+- Add plugin disable/enable
+  ([`962db77`](https://github.com/cartagena/InkyPi/commit/962db7742d05fab0b33c0c52801861ef77646cdf))
+
+Adds a disabled_plugins list to device config, filters disabled plugins out of the
+  dashboard/playlist/composite pickers by default, and adds a collapsible disabled section with
+  enable on the Plugins page. Boot/worker loading still registers disabled plugins so existing
+  playlist instances keep working.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+
 ## v1.4.4 (2026-09-01)
 
 ### Bug Fixes
