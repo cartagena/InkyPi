@@ -33,6 +33,7 @@ from utils.backend_errors import (
 from utils.fallback_image import render_error_image
 from utils.form_utils import (
     sanitize_log_field,
+    sanitize_response_value,
     validate_plugin_required_fields,
 )
 from utils.http_utils import json_error, json_success
@@ -326,7 +327,10 @@ def _set_plugin_disabled_route(plugin_id: str, disabled: bool) -> Any:
     past = "disabled" if disabled else "enabled"
     return json_success(
         f"Plugin {past}.",
-        disabled_plugins=sorted(device_config.get_disabled_plugin_ids()),
+        disabled_plugins=[
+            sanitize_response_value(pid)
+            for pid in sorted(device_config.get_disabled_plugin_ids())
+        ],
     )
 
 
