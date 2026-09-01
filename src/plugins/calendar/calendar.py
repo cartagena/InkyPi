@@ -308,6 +308,15 @@ class Calendar(BasePlugin):
 
         if view == "timeGridWeek" and settings.get("displayPreviousDays") != "true":
             view = "timeGrid"
+        elif view == "listMonth":
+            # FullCalendar's built-in "listMonth" view clips its visible range
+            # to the calendar month containing `now`, discarding any fetched
+            # events that fall in the following month even though they're in
+            # the `events` array — e.g. on the last day of the month, almost
+            # nothing renders. Use the generic "list" base view instead, with
+            # an explicit duration matching the 5-week window already fetched
+            # in get_view_range(), so it isn't bounded by the calendar month.
+            view = "list"
 
         font_size_key = settings.get("fontSize", "normal")
         font_scale = FONT_SIZES.get(
