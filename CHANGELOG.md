@@ -1,6 +1,26 @@
 # CHANGELOG
 
 
+## v1.4.3 (2026-09-01)
+
+### Bug Fixes
+
+- Stop calendar List view from clipping events to the current month
+  ([`25d92ca`](https://github.com/cartagena/InkyPi/commit/25d92ca46ed94317426a756cb96bfa5d1edabf19))
+
+FullCalendar's built-in "listMonth" view has a hardcoded month-length duration and clips its visible
+  range to the calendar month containing `now`. The server already fetches a rolling 5-week (today
+  -> +5 weeks) event window, but on days near month-end the view discarded nearly all of it
+  client-side, since most fetched events fell in the next month.
+
+Map "listMonth" to the generic "list" base view with an explicit 5-week duration, mirroring the
+  existing timeGridWeek -> timeGrid and dayGrid duration-override pattern.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_014GwQhqAmPfbbiJWE3yH3D9
+
+
 ## v1.4.2 (2026-09-01)
 
 ### Bug Fixes
