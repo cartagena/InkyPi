@@ -23,7 +23,7 @@ pytest-flask>=1.3,<2
 hypothesis>=6.0,<7
 
 # Type checking
-mypy>=1.0,<2
+mypy>=2.3.1,<3
 # Stub packages. Without types-PyYAML mypy aborts the entire tests/ run on
 # the four modules that import yaml, so it is a hard requirement for the
 # type-check job rather than a nicety.
