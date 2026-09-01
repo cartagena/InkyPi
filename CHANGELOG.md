@@ -1,6 +1,21 @@
 # CHANGELOG
 
 
+## v1.4.2 (2026-09-01)
+
+### Bug Fixes
+
+- Treat empty ICS calendar feed as zero events instead of a fatal error
+  ([`28a9cac`](https://github.com/cartagena/InkyPi/commit/28a9cac1066d6a17b45b79dd4a81adeb958e2a0b))
+
+A 200 response with an empty body is a valid (if pointless) ICS feed, not a fetch failure.
+  icalendar.Calendar.from_ical("") raises ValueError, which was being wrapped into a fatal
+  RuntimeError and aborting the entire plugin instance, including any other, non-empty calendarURLs
+  configured alongside the empty one.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+
 ## v1.4.1 (2026-08-26)
 
 ### Bug Fixes
