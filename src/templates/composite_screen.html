@@ -214,8 +214,17 @@
 
         function collectFieldsByName(root) {
             const groups = {};
-            root.querySelectorAll('[data-field-name]').forEach((el) => {
-                const name = el.dataset.fieldName;
+            // Query [name] rather than [data-field-name]: a hybrid widget
+            // (e.g. the calendar repeater) may wipe and rebuild its own
+            // rows from saved config after data-field-name was stamped on
+            // the initial server-rendered fragment, and rows added later
+            // by the user (its "Add" button) never get that attribute at
+            // all. Those elements still carry the real field name, so fall
+            // back to it when data-field-name is absent — data-field-name
+            // remains authoritative where it exists because it preserves
+            // the pre-namespacing name.
+            root.querySelectorAll('[name]').forEach((el) => {
+                const name = el.dataset.fieldName || el.name;
                 (groups[name] = groups[name] || []).push(el);
             });
             return groups;
@@ -232,6 +241,13 @@
             if (first.type === 'radio') {
                 const checked = elements.find((el) => el.checked);
                 return checked ? checked.value : undefined;
+            }
+            // Repeater fields (e.g. calendarURLs[], calendarColors[]) submit
+            // multiple inputs sharing one name and the backend expects a
+            // list for them — collapsing to elements[0].value would drop
+            // every entry past the first.
+            if (first.name.endsWith('[]')) {
+                return elements.map((el) => el.value);
             }
             return first.value;
         }
@@ -303,9 +319,6 @@
             }
 
             const fragment = schemaEl.cloneNode(true);
-            fragment.querySelectorAll('[name]').forEach((el) => {
-                if (!el.dataset.fieldName) el.dataset.fieldName = el.name;
-            });
             container.appendChild(fragment);
 
             // Widgets need real, un-namespaced ids to find their own
@@ -319,6 +332,20 @@
                     console.debug('Composite screen: widget init failed for', pluginId, error);
                 }
             }
+
+            // Stamp data-field-name after widget init, not before: a
+            // hybrid widget (e.g. the calendar repeater) may wipe and
+            // rebuild its own rows from existingSettings during
+            // initWidgetsIn, and those rebuilt elements need tagging too —
+            // stamping only the pre-widget-init DOM would miss them, and
+            // they'd fall back to their post-namespacing (prefixed) name
+            // instead of the plain one the backend expects. Rows a widget
+            // adds later, after this runs (e.g. its own "Add" button),
+            // never get namespaced at all, so their plain `name` already
+            // matches what the backend expects without a tag.
+            container.querySelectorAll('[name]').forEach((el) => {
+                if (!el.dataset.fieldName) el.dataset.fieldName = el.name;
+            });
 
             namespaceFragment(container, regionUidFor(row));
             applySchemaSettings(container, existingSettings);
