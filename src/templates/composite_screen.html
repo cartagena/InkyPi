@@ -319,9 +319,6 @@
             }
 
             const fragment = schemaEl.cloneNode(true);
-            fragment.querySelectorAll('[name]').forEach((el) => {
-                if (!el.dataset.fieldName) el.dataset.fieldName = el.name;
-            });
             container.appendChild(fragment);
 
             // Widgets need real, un-namespaced ids to find their own
@@ -335,6 +332,20 @@
                     console.debug('Composite screen: widget init failed for', pluginId, error);
                 }
             }
+
+            // Stamp data-field-name after widget init, not before: a
+            // hybrid widget (e.g. the calendar repeater) may wipe and
+            // rebuild its own rows from existingSettings during
+            // initWidgetsIn, and those rebuilt elements need tagging too —
+            // stamping only the pre-widget-init DOM would miss them, and
+            // they'd fall back to their post-namespacing (prefixed) name
+            // instead of the plain one the backend expects. Rows a widget
+            // adds later, after this runs (e.g. its own "Add" button),
+            // never get namespaced at all, so their plain `name` already
+            // matches what the backend expects without a tag.
+            container.querySelectorAll('[name]').forEach((el) => {
+                if (!el.dataset.fieldName) el.dataset.fieldName = el.name;
+            });
 
             namespaceFragment(container, regionUidFor(row));
             applySchemaSettings(container, existingSettings);
