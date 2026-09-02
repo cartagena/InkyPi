@@ -28,9 +28,11 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pytest
 from flask import Flask
+from flask.testing import FlaskClient
 from playwright.sync_api import Page
 from tests.integration.browser_helpers import (
     RuntimeCollector,
@@ -77,6 +79,48 @@ def _discover_plugin_ids() -> tuple[str, ...]:
 
 
 _PLUGIN_IDS: tuple[str, ...] = _discover_plugin_ids()
+
+
+def _seed_composite_screen_for_plugin(
+    client: FlaskClient, device_config_dev: Any, plugin_id: str
+) -> str:
+    """Create a single-region composite screen running ``plugin_id`` and return its instance name.
+
+    Region settings are deliberately empty (``{}``) — ``/add_composite_screen``
+    only checks region shape/bounds and that the plugin is registered, it
+    never calls the plugin's own ``validate_settings``, so this works
+    uniformly for every stock plugin regardless of what fields it would
+    normally require on its own settings form.
+    """
+    playlist_manager = device_config_dev.get_playlist_manager()
+    if not playlist_manager.get_playlist("Default"):
+        playlist_manager.add_playlist("Default", "00:00", "24:00")
+        device_config_dev.write_config()
+
+    instance_name = f"clicksweep_composite_{plugin_id}"
+    regions = [
+        {"plugin_id": plugin_id, "x": 0, "y": 0, "w": 800, "h": 480, "settings": {}}
+    ]
+    resp = client.post(
+        "/add_composite_screen",
+        data={
+            "regionsJson": json.dumps(regions),
+            "refresh_settings": json.dumps(
+                {
+                    "playlist": "Default",
+                    "instance_name": instance_name,
+                    "refreshType": "interval",
+                    "interval": "60",
+                    "unit": "minute",
+                }
+            ),
+        },
+    )
+    assert resp.status_code == 200, (
+        f"failed to seed composite screen for plugin '{plugin_id}': "
+        f"{resp.get_data(as_text=True)}"
+    )
+    return instance_name
 
 
 @dataclass(frozen=True)
@@ -154,6 +198,14 @@ _PLUGIN_MAX_CLICKS_PER_PAGE = 15
 # initial JTN-698 landing — these plugins have real handler bugs the sweep
 # surfaced, tracked separately so the infra lands green.
 _PLUGIN_XFAIL: dict[str, str] = {}
+
+# Per-plugin xfails for the composite-region sweep below. Separate from
+# _PLUGIN_XFAIL because a plugin's standalone /plugin/<id> page and its
+# settings panel embedded inside a composite region are rendered by two
+# different code paths (plugin.html's own form vs composite_screen.html
+# fetching and cloning that same schema fragment) — a bug can affect one
+# without the other. New entries MUST link to a JTN issue.
+_COMPOSITE_PLUGIN_XFAIL: dict[str, str] = {}
 
 
 _ENUMERATE_JS = """
@@ -656,6 +708,73 @@ def test_click_sweep_plugin_pages(
         label=f"plugin_{plugin_id}",
         path=f"/plugin/{plugin_id}",
         ready_marker="#settingsForm",
+    )
+    _run_click_sweep(
+        browser_page,
+        live_server,
+        sweep,
+        max_clicks=_PLUGIN_MAX_CLICKS_PER_PAGE,
+        flask_app=flask_app,
+        authenticated=(auth_state == "post_auth"),
+    )
+
+
+# Composite-mode counterpart to test_click_sweep_plugin_pages above. Every
+# stock plugin's settings form gets embedded a second time inside a
+# composite screen region (composite_screen.html fetches /plugin/<id> and
+# clones its [data-settings-schema] fragment client-side — see
+# refreshRegionSettingsEditor) instead of being rendered directly by
+# plugin.html. That second code path silently dropped plugin_schema.js
+# entirely (composite_screen.html never populated base.html's `head`
+# block), so every hybrid widget's buttons — calendar's "Add Calendar",
+# weather's map picker, todo/github/newspaper/ai-image's repeaters, clock's
+# face picker — were dead inside composite regions even though the exact
+# same markup worked fine standalone. Sweeping every plugin's composite
+# region here the same way test_click_sweep_plugin_pages sweeps its
+# standalone page catches that class of regression for all of them, not
+# just the one (calendar) that happened to get manually reported.
+@pytest.mark.plugin_sweep
+@pytest.mark.parametrize("auth_state", _AUTH_STATES, ids=list(_AUTH_STATES))
+@pytest.mark.parametrize("plugin_id", _PLUGIN_IDS, ids=list(_PLUGIN_IDS))
+def test_click_sweep_composite_plugin_regions(
+    live_server: str,
+    flask_app: Flask,
+    client: FlaskClient,
+    device_config_dev: Any,
+    browser_page: Page,
+    plugin_id: str,
+    auth_state: str,
+) -> None:
+    """Sweep every stock plugin's settings panel when embedded in a composite region.
+
+    Seeds a single-region composite screen running ``plugin_id`` (see
+    :func:`_seed_composite_screen_for_plugin`), opens its region editor, and
+    runs the same click-sweep body used for the plugin's standalone page —
+    the composite region's settings container renders before the sweep
+    starts because ``ready_marker`` waits for a named field to appear inside
+    it, which only happens once the client-side schema fetch + widget init
+    (or the raw-JSON textarea fallback) has completed.
+    """
+    if plugin_id in _COMPOSITE_PLUGIN_XFAIL:
+        pytest.xfail(_COMPOSITE_PLUGIN_XFAIL[plugin_id])
+
+    instance_name = _seed_composite_screen_for_plugin(
+        client, device_config_dev, plugin_id
+    )
+    sweep = SweepPage(
+        label=f"composite_{plugin_id}",
+        path=f"/composite_screen/edit/{instance_name}",
+        # Excludes `[type="hidden"]`: wait_for_selector resolves a
+        # comma-separated selector to the first DOM-order match overall (not
+        # the first *visible* one) and then waits for visibility of that one
+        # element — clock's first `[name]` field is a hidden
+        # `selectedClockFace` input that never becomes visible, so an
+        # unfiltered selector here hangs until timeout even though the
+        # widget initialized correctly and its visible fields are ready.
+        ready_marker=(
+            ".region-settings-container [name]:not([type='hidden']), "
+            ".region-settings-container textarea"
+        ),
     )
     _run_click_sweep(
         browser_page,

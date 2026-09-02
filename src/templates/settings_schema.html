@@ -235,7 +235,7 @@
     {% endif %}
 {%- endmacro %}
 
-<div class="settings-schema" data-settings-schema>
+<div class="settings-schema" data-settings-schema data-api-key-services='{{ (api_key.services if api_key is defined and api_key and api_key.services else []) | tojson }}'>
     {% for section in settings_schema.sections %}
     <section class="settings-card schema-section">
         <div class="settings-card-title">{{ section.title }}</div>
