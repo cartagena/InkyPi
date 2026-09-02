@@ -56,7 +56,7 @@ def test_playlist_name_input_matches_client_validation_limits() -> None:
     html = PLAYLIST_HTML.read_text(encoding="utf-8")
     assert 'id="playlist_name"' in html
     assert 'maxlength="64"' in html
-    assert 'pattern="[A-Za-z0-9 _-]+"' in html
+    assert 'pattern="[A-Za-z0-9 _\\-]+"' in html
 
     form_js = (ROOT / "src" / "static" / "scripts" / "playlist" / "form.js").read_text(
         encoding="utf-8"

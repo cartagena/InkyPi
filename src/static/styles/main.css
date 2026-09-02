@@ -6825,6 +6825,9 @@ a.pl-add-row:hover {
 }
 
 .logs-icon {
+    width: var(--icon-lg);
+    height: var(--icon-lg);
+    flex-shrink: 0;
     color: var(--text);
 }
 

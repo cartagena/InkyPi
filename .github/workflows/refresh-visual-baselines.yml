@@ -37,8 +37,8 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+        uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
           cache: 'pip'
@@ -82,7 +82,7 @@ jobs:
       - name: Show what changed
         run: git --no-pager diff --stat -- tests/snapshots/ || true
       - name: Upload refreshed baselines
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: refreshed-visual-baselines
           path: tests/snapshots/**/*.png

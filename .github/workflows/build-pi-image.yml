@@ -100,7 +100,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout InkyPi repo (workflow + pishrink.sh)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Resolve release tag
         id: tag
@@ -155,7 +155,7 @@ jobs:
         # Always uploaded (even on workflow_dispatch) so maintainers can
         # inspect it before the boot-verification job decides whether to
         # attach it to the release.
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: inkypi-pi-image-${{ steps.tag.outputs.version }}
           path: |
@@ -182,7 +182,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download image artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: inkypi-pi-image-${{ needs.build-image.outputs.version }}
           path: build
