@@ -612,13 +612,13 @@ gitpython==3.1.58 \
 glob2==0.7 \
     --hash=sha256:85c3dbd07c8aa26d63d7aacee34fa86e9a91a3873bc30bf62ec46e531f92ab8c
     # via mutmut
-google-auth[requests]==2.49.2 \
-    --hash=sha256:c1ae38500e73065dcae57355adb6278cf8b5c8e391994ae9cbadbcb9631ab409 \
-    --hash=sha256:c2720924dfc82dedb962c9f52cabb2ab16714fd0a6a707e40561d217574ed6d5
+google-auth[requests]==2.57.0 \
+    --hash=sha256:180dafe015cfb62193bea26b677500fab5b9fd51a1e825ebf3ad9b182047ae59 \
+    --hash=sha256:9b4f96d6a1feb5f7201231f47cfb3de08d8f176f8a61f9e461555116e95a8789
     # via google-genai
-google-genai==1.72.0 \
-    --hash=sha256:abe7d3aecfafb464b904e3a09c81b626fb425e160e123e71a5125a7021cea7b2 \
-    --hash=sha256:ea861e4c6946e3185c24b40d95503e088fc230a73a71fec0ef78164b369a8489
+google-genai==2.20.0 \
+    --hash=sha256:49bddeccd29a4e6bf1706c5de67735f7115f537f08b6c36a70b8023c99399095 \
+    --hash=sha256:d382186f024e9050a7a4b25af6eacba9aa16c6e09594f5d1b530f22ff7f9d76f
     # via -r install/requirements-dev.in
 greenlet==3.4.0 \
     --hash=sha256:04403ac74fe295a361f650818de93be11b5038a78f49ccfb64d3b1be8fbf1267 \
