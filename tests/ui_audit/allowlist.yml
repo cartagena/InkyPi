@@ -17,11 +17,11 @@
 entries:
   - rule: orphan-button
     template: src/templates/composite_screen.html
-    line: 85
+    line: 88
     value: "#addRegionBtn"
     reason: >
       Wired via document.getElementById('addRegionBtn').addEventListener(...)
-      in this same template's inline <script> block (composite_screen.html:774).
+      in this same template's inline <script> block (composite_screen.html:804).
       The UI audit's ScriptScan only covers external JS under
       src/static/scripts/, so it can't see wiring done inline in a template —
       a real coverage gap in the audit, not a missing handler.
