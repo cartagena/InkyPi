@@ -199,6 +199,70 @@ def test_custom_pin_is_used_for_gpio_lookup(monkeypatch: pytest.MonkeyPatch) -> 
         task.stop()
 
 
+def test_default_pins_uses_gpio_16_for_c_without_resolution() -> None:
+    from button_task import default_pins
+
+    assert default_pins(_FakeDeviceConfig({})) == {"A": 5, "B": 6, "C": 16, "D": 24}
+
+
+def test_default_pins_uses_gpio_16_for_c_on_smaller_panels() -> None:
+    from button_task import default_pins
+
+    # 7.3"/5.7" both report 800x480.
+    device_config = _FakeDeviceConfig({"resolution": [800, 480]})
+    assert default_pins(device_config)["C"] == 16
+
+
+def test_default_pins_uses_gpio_25_for_c_on_13_3_inch_panel() -> None:
+    from button_task import default_pins
+
+    device_config = _FakeDeviceConfig({"resolution": [1600, 1200]})
+    pins = default_pins(device_config)
+    assert pins["C"] == 25
+    # A/B/D are unaffected by panel size.
+    assert pins == {"A": 5, "B": 6, "C": 25, "D": 24}
+
+
+def test_default_pins_tolerates_malformed_resolution() -> None:
+    from button_task import default_pins
+
+    assert default_pins(_FakeDeviceConfig({"resolution": "not-a-list"}))["C"] == 16
+    assert default_pins(_FakeDeviceConfig({"resolution": ["x", "y"]}))["C"] == 16
+    assert default_pins(_FakeDeviceConfig({"resolution": [1600]}))["C"] == 16
+
+
+def test_explicit_pin_c_config_overrides_13_3_inch_auto_detection() -> None:
+    """An explicit buttons.pins.C always wins over the resolution guess."""
+    task, _ = _make_button_task(
+        {
+            "resolution": [1600, 1200],
+            "buttons": {"pins": {"C": 99}},
+        }
+    )
+    assert task._pins()["C"] == 99
+
+
+def test_pins_auto_detect_gpio_25_for_c_on_13_3_inch_panel_without_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = MagicMock()
+    request.wait_edge_events.return_value = False
+    _install_fake_gpiod(monkeypatch, request)
+
+    task, _ = _make_button_task(
+        {
+            "display_type": "inky",
+            "resolution": [1600, 1200],
+            "buttons": {"actions": {"C": "refresh_now"}},
+        }
+    )
+    task.start()
+    try:
+        assert task._offset_labels == {5: "A", 25: "C"}
+    finally:
+        task.stop()
+
+
 def test_debounce_suppresses_rapid_presses_per_button() -> None:
     from button_task import ButtonTask
 

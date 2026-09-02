@@ -484,6 +484,24 @@ class TestSettingsPages:
         assert b"Physical buttons" in resp.data
         assert b'name="buttonAAction"' in resp.data
 
+    def test_settings_page_defaults_button_c_pin_to_25_on_13_3_inch_panel(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        device_config_dev.update_value("display_type", "inky")
+        device_config_dev.update_value("resolution", [1600, 1200])
+        resp = client.get("/settings")
+        assert resp.status_code == 200
+        assert b'name="buttonCPin" class="form-input" min="0" value="25"' in resp.data
+
+    def test_settings_page_defaults_button_c_pin_to_16_on_smaller_panels(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        device_config_dev.update_value("display_type", "inky")
+        device_config_dev.update_value("resolution", [800, 480])
+        resp = client.get("/settings")
+        assert resp.status_code == 200
+        assert b'name="buttonCPin" class="form-input" min="0" value="16"' in resp.data
+
     def test_settings_page_hides_buttons_section_for_mock(
         self, client: FlaskClient, device_config_dev: Any
     ) -> None:

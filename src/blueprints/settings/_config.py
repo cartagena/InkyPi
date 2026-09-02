@@ -128,7 +128,7 @@ def safe_reset() -> Any:
 
 @_mod.settings_bp.route("/settings", methods=["GET"])
 def settings_page() -> Any:
-    from button_task import DEFAULT_ACTIONS, DEFAULT_PINS
+    from button_task import DEFAULT_ACTIONS, default_pins
 
     device_config = current_app.config["DEVICE_CONFIG"]
     timezones = sorted(available_timezones())
@@ -137,7 +137,7 @@ def settings_page() -> Any:
         device_settings=device_config.get_config(),
         timezones=timezones,
         active_nav="settings",
-        default_button_pins=DEFAULT_PINS,
+        default_button_pins=default_pins(device_config),
         default_button_actions=DEFAULT_ACTIONS,
     )
 
@@ -156,7 +156,7 @@ def diagnostics_redirect() -> Any:
 
 @_mod.settings_bp.route("/settings/backup", methods=["GET"])
 def backup_restore_page() -> Any:
-    from button_task import DEFAULT_ACTIONS, DEFAULT_PINS
+    from button_task import DEFAULT_ACTIONS, default_pins
 
     device_config = current_app.config["DEVICE_CONFIG"]
     # For now, reuse the main settings page and anchor to a section; separate template can be added later
@@ -165,7 +165,7 @@ def backup_restore_page() -> Any:
         device_settings=device_config.get_config(),
         timezones=sorted(available_timezones()),
         active_nav="settings",
-        default_button_pins=DEFAULT_PINS,
+        default_button_pins=default_pins(device_config),
         default_button_actions=DEFAULT_ACTIONS,
     )
 

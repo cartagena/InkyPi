@@ -28,9 +28,41 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 #: BCM GPIO numbers for buttons A-D on Inky Impression boards (4", 5.7",
-#: 7.3"). The 13.3" variant uses GPIO 25 for C instead of 16 — override via
-#: config (``buttons.pins.C``). See examples/spectra6/buttons.py upstream.
+#: 7.3"). The 13.3" variant uses GPIO 25 for C instead of 16 — see
+#: ``default_pins()`` below for the auto-detected override, or set
+#: ``buttons.pins.C`` in config directly. See examples/spectra6/buttons.py
+#: upstream.
 DEFAULT_PINS: dict[str, int] = {"A": 5, "B": 6, "C": 16, "D": 24}
+
+#: Resolution (width, height) unique to the 13.3" Inky Impression — every
+#: other size (4", 5.7", 7.3") reports something smaller. Stored in
+#: device_config by InkyDisplay.initialize_display() once the panel has been
+#: auto-detected via ``inky.auto()``. Source: pimoroni/inky's auto.py, which
+#: constructs the 13.3" driver as ``InkyEL133UF1(resolution=(1600, 1200))``.
+_LARGE_PANEL_RESOLUTION = (1600, 1200)
+
+
+def default_pins(device_config: Any) -> dict[str, int]:
+    """Return default GPIO pins for buttons A-D, adjusted for panel size.
+
+    Every Inky Impression size agrees on A/B/D, but the 13.3" wires button C
+    to GPIO 25 instead of 16. Detected from ``device_config``'s stored
+    ``resolution`` — falls back to the common default (16) when the
+    resolution isn't yet known (e.g. before the display has initialized) or
+    doesn't match the 13.3"'s. An explicit ``buttons.pins.C`` in config
+    always overrides this.
+    """
+    pins = dict(DEFAULT_PINS)
+    resolution = device_config.get_config("resolution") if device_config else None
+    if isinstance(resolution, list | tuple) and len(resolution) == 2:
+        try:
+            width, height = int(resolution[0]), int(resolution[1])
+        except (TypeError, ValueError):
+            return pins
+        if (width, height) == _LARGE_PANEL_RESOLUTION:
+            pins["C"] = 25
+    return pins
+
 
 #: Only button A does anything out of the box; B-D are opt-in.
 DEFAULT_ACTIONS: dict[str, str] = {
@@ -81,7 +113,7 @@ class ButtonTask:
 
     def _pins(self) -> dict[str, int]:
         configured = self._buttons_config().get("pins")
-        pins = dict(DEFAULT_PINS)
+        pins = default_pins(self.device_config)
         if isinstance(configured, dict):
             for label, pin in configured.items():
                 if label in pins:
