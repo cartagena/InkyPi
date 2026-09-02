@@ -100,7 +100,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout InkyPi repo (workflow + pishrink.sh)
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Resolve release tag
         id: tag
