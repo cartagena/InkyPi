@@ -187,7 +187,18 @@
 
     button.addEventListener("click", async () => {
       const provider = document.querySelector("[name='provider']")?.value || "openai";
-      const services = window.__INKYPI_PLUGIN_BOOT__?.apiKeyServices || [];
+      // Prefer the schema fragment's own baked-in api-key-services data over
+      // window.__INKYPI_PLUGIN_BOOT__: that global is only set by plugin.html's
+      // inline script, so a caller that fetches and clones this same markup
+      // elsewhere (e.g. composite_screen.html embedding a region's settings)
+      // would otherwise see an empty services list, skip this pre-flight
+      // check, and let a missing-API-key click fall through to a raw fetch
+      // failure instead of the friendly modal below.
+      const schemaRoot = widget.closest("[data-settings-schema]");
+      const services =
+        schemaRoot && schemaRoot.dataset.apiKeyServices !== undefined
+          ? parseJson(schemaRoot.dataset.apiKeyServices, [])
+          : window.__INKYPI_PLUGIN_BOOT__?.apiKeyServices || [];
       if (Array.isArray(services) && services.length) {
         const providerName = provider === "google" ? "Google" : "OpenAI";
         const providerKeyLabel = provider === "google" ? "Google AI" : "OpenAI";

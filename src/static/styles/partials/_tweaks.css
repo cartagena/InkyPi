@@ -11,7 +11,9 @@ body[data-page="dashboard"] .tweaks-panel,
 body[data-page="playlist"] .tweaks-fab,
 body[data-page="playlist"] .tweaks-panel,
 body[data-page="plugin"] .tweaks-fab,
-body[data-page="plugin"] .tweaks-panel {
+body[data-page="plugin"] .tweaks-panel,
+body[data-page="composite-screen"] .tweaks-fab,
+body[data-page="composite-screen"] .tweaks-panel {
   display: none;
 }
 

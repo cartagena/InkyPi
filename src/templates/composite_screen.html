@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}InkyPi - {{ 'Edit' if edit_instance_name else 'New' }} composite screen{% endblock %}
+{% block head %}
+    <script src="{{ url_for('static', filename='scripts/plugin_schema.js') }}" defer></script>
+{% endblock %}
 {% block body_attrs %} data-page="composite-screen"{% endblock %}
 {% block body %}
     {% from 'macros/icons.html' import icon, breadcrumb %}
