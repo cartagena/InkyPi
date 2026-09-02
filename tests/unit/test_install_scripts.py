@@ -944,6 +944,42 @@ class TestInstallScript:
                 f"--timeout behavior (JTN-534): {line.strip()!r}"
             )
 
+    def test_install_uv_pip_install_caps_concurrency(self) -> None:
+        # JTN-536 parity: --require-hashes forces an on-device compile for any
+        # package with no published PyPI wheel (e.g. spidev — its lockfile
+        # entry has exactly one hash, the sdist's — so the JTN-604
+        # wheelhouse's locally-built wheel, which has a different hash, is
+        # always rejected). Left at uv's defaults, that compile runs
+        # concurrently with every other wheel download/install, which is what
+        # pushes peak RSS over the 512 MB Pi Zero 2 W cap and gets the
+        # process OOM-killed mid-install (the install-matrix trixie CI flake).
+        # Every uv pip install invocation in create_venv() must cap
+        # UV_CONCURRENT_DOWNLOADS / UV_CONCURRENT_BUILDS / UV_CONCURRENT_INSTALLS
+        # on the same source line as the command.
+        fn_start = self.content.index("create_venv(){")
+        fn_end = self.content.index("\n}", fn_start)
+        fn_body = self.content[fn_start:fn_end]
+
+        lines = fn_body.splitlines()
+        uv_install_line_indices = [
+            i for i, line in enumerate(lines) if "-m uv pip install" in line
+        ]
+        assert (
+            uv_install_line_indices
+        ), "create_venv() must have at least one 'uv pip install' invocation (JTN-605)"
+        for idx in uv_install_line_indices:
+            line = lines[idx]
+            for env_var in (
+                "UV_CONCURRENT_DOWNLOADS",
+                "UV_CONCURRENT_BUILDS",
+                "UV_CONCURRENT_INSTALLS",
+            ):
+                assert env_var in line, (
+                    f"uv pip install invocation must prefix {env_var} to cap "
+                    "install-time concurrency under the 512 MB Pi Zero 2 W "
+                    f"cap (JTN-536): {line.strip()!r}"
+                )
+
     def test_install_has_pip_fallback_path(self):
         # JTN-605: if uv cannot be installed or run (e.g. unsupported arch,
         # wheel download failure), install.sh must cleanly fall back to plain
@@ -1058,6 +1094,72 @@ class TestInstallScript:
         ), f"Expected at least 2 pip install calls in create_venv(), found {len(pip_calls)}"
         # Suppress unused variable warning — fn_body used as context in debugging
         _ = fn_body
+
+    def test_create_venv_dependency_installs_check_exit_status(self) -> None:
+        # JTN-665 parity: update.sh already checks the exit status of its
+        # requirements install so a failure (e.g. an OOM-killed uv/pip
+        # process) aborts instead of silently continuing with a broken venv.
+        # create_venv() previously backgrounded these same installs (`&`) and
+        # discarded the result into show_loader, which always returns 0
+        # regardless of whether the wrapped command succeeded — install.sh
+        # then reported "Installation Complete!" over a partially-empty venv.
+        # Regression guard: every pip/setuptools/wheel upgrade, main
+        # requirements, and Waveshare requirements install inside
+        # create_venv() must run in the foreground and be guarded by an
+        # `if !`/`exit 1` check, never backgrounded behind show_loader.
+        fn_start = self.content.index("create_venv(){")
+        fn_end = self.content.index("\n}", fn_start)
+        fn_body = self.content[fn_start:fn_end]
+
+        # show_loader must not be *invoked* in create_venv() — it always
+        # returns 0 regardless of whether the backgrounded command it wraps
+        # succeeded, so it cannot propagate a real exit status to the caller.
+        # (Explanatory comments mentioning show_loader by name are fine —
+        # strip comment-only lines before checking for an actual call.)
+        code_only = "\n".join(
+            "" if line.strip().startswith("#") else line
+            for line in fn_body.splitlines()
+        )
+        assert "show_loader" not in code_only, (
+            "create_venv() must not call show_loader for dependency installs "
+            "(JTN-665 parity) — it always returns 0 regardless of whether "
+            "the backgrounded command succeeded"
+        )
+
+        # The critical installs — pip/setuptools/wheel upgrade, main
+        # requirements (both the uv and pip-fallback branches), and Waveshare
+        # requirements (both branches) — must each run in the foreground,
+        # guarded by an `if ! ... ; then` exit-status check. (The uv bootstrap
+        # install, `pip install uv`, is deliberately excluded: it's a soft
+        # fallback — failing it just falls back to pip, it isn't fatal.)
+        logical_lines = self._logical_shell_lines(fn_body)
+        critical_install_lines = [
+            line
+            for line in logical_lines
+            if re.search(r"-m (uv pip|pip) install", line)
+            and not line.strip().startswith("#")
+            and (
+                "PIP_REQUIREMENTS_FILE" in line
+                or "WS_REQUIREMENTS_FILE" in line
+                or "setuptools wheel" in line
+            )
+        ]
+        assert len(critical_install_lines) == 5, (
+            "Expected 5 critical dependency-install invocations in "
+            "create_venv() (pip/setuptools/wheel upgrade, main requirements "
+            "x2 branches, Waveshare requirements x2 branches), found "
+            f"{len(critical_install_lines)}: {critical_install_lines!r}"
+        )
+        for line in critical_install_lines:
+            assert not line.rstrip().endswith("&"), (
+                "dependency install must not be backgrounded — backgrounding "
+                "behind show_loader swallows a non-zero exit status "
+                f"(JTN-665 parity): {line.strip()!r}"
+            )
+            assert re.match(r"\s*if\s+!\s", line), (
+                "dependency install must be guarded by an 'if ! ... ; then' "
+                f"exit-status check (JTN-665 parity): {line.strip()!r}"
+            )
 
 
 # ---- Wheelhouse release asset (JTN-604 / JTN-669) ----
@@ -1603,10 +1705,18 @@ class TestPiImageBuildWorkflow:
     def test_workflow_uses_pinned_action_versions(self):
         # Supply-chain: every external action must be pinned by major version.
         # (SHA pinning is stronger but the rest of the repo uses @v5/@v3 etc.)
-        assert "actions/checkout@v5" in self.content
-        assert "softprops/action-gh-release@v3" in self.content
-        assert "actions/upload-artifact@v6" in self.content
-        assert "actions/download-artifact@v7" in self.content
+        # Match on @v<N> rather than a hardcoded N: dependabot bumps these
+        # major versions routinely, and this test only cares that a major
+        # version is pinned at all, not which one.
+        for action in (
+            "actions/checkout",
+            "softprops/action-gh-release",
+            "actions/upload-artifact",
+            "actions/download-artifact",
+        ):
+            assert re.search(
+                rf"{re.escape(action)}@v\d+", self.content
+            ), f"{action} is not pinned to a major version in this workflow"
 
     def test_workflow_uploads_release_asset(self) -> None:
         assert "softprops/action-gh-release" in self.content
@@ -2143,6 +2253,37 @@ class TestUpdateScript:
                 "uv pip install in update.sh must prefix UV_HTTP_TIMEOUT "
                 "for Wi-Fi resilience (JTN-534)"
             )
+
+    def test_update_uv_install_caps_concurrency(self) -> None:
+        # JTN-536 parity: --require-hashes forces an on-device compile for any
+        # package with no published PyPI wheel (e.g. spidev — its lockfile
+        # entry has exactly one hash, the sdist's — so the JTN-604
+        # wheelhouse's locally-built wheel, which has a different hash, is
+        # always rejected). Left at uv's defaults, that compile runs
+        # concurrently with every other wheel download/install, which is what
+        # pushes peak RSS over the low-mem tier's 500 MB cap (JTN-785) during
+        # a live update. Every uv pip install invocation must cap
+        # UV_CONCURRENT_DOWNLOADS / UV_CONCURRENT_BUILDS / UV_CONCURRENT_INSTALLS.
+        lines = self.content.splitlines()
+        uv_install_indices = [
+            i for i, line in enumerate(lines) if "-m uv pip install" in line
+        ]
+        assert (
+            uv_install_indices
+        ), "update.sh must have at least one 'uv pip install' invocation (JTN-670)"
+        for idx in uv_install_indices:
+            prev = lines[idx - 1] if idx > 0 else ""
+            window = lines[idx] + prev
+            for env_var in (
+                "UV_CONCURRENT_DOWNLOADS",
+                "UV_CONCURRENT_BUILDS",
+                "UV_CONCURRENT_INSTALLS",
+            ):
+                assert env_var in window, (
+                    f"uv pip install in update.sh must prefix {env_var} to cap "
+                    "install-time concurrency under the low-mem cgroup cap "
+                    f"(JTN-536): {lines[idx].strip()!r}"
+                )
 
     def test_update_has_uv_pip_fallback_with_require_hashes(self) -> None:
         # JTN-670 / JTN-605 parity: if uv is unavailable, update.sh must fall

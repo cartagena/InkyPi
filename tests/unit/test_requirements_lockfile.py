@@ -101,12 +101,14 @@ class TestRequirementsLockfile:
         )
 
     def test_types_requests_pin_preserved(self) -> None:
-        """types-requests must stay pinned at 2.32.0.20241016 (PR #301 / JTN-525)."""
+        """types-requests must stay pinned to an exact version (PR #301 / JTN-525)."""
         content = REQUIREMENTS_DEV_TXT.read_text()
-        assert "types-requests==2.32.0.20241016" in content, (
-            "types-requests==2.32.0.20241016 is missing from requirements-dev.txt. "
-            "This pin was added in PR #301 (JTN-525) for mypy strict-mode compatibility. "
-            "Ensure requirements-dev.in specifies: types-requests==2.32.0.20241016"
+        assert "types-requests==2.33.0.20260712" in content, (
+            "types-requests==2.33.0.20260712 is missing from requirements-dev.txt. "
+            "This pin was added in PR #301 (JTN-525) for mypy strict-mode compatibility "
+            "and later refreshed via dependabot PR #27 (verified against the lint job's "
+            "mypy --strict run). Ensure requirements-dev.in specifies an exact "
+            "types-requests== pin, and bump this assertion alongside it."
         )
 
     def test_requirements_in_exists(self) -> None:

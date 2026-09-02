@@ -598,7 +598,15 @@ if [ -f "$PIP_REQUIREMENTS_FILE" ]; then
     # uv equivalents: --no-cache (not --no-cache-dir), --require-hashes supported.
     # `--python` pins uv to the venv's interpreter so packages land in the venv.
     # UV_HTTP_TIMEOUT scoped to this invocation for flaky Wi-Fi resilience (JTN-534).
-    if ! UV_HTTP_TIMEOUT=60 "$VENV_PATH/bin/python" -m uv pip install \
+    # JTN-536 parity: cap uv's install-time concurrency. --require-hashes only
+    # accepts an artifact whose hash matches the one pip-compile recorded, and
+    # for packages with no published PyPI wheel (e.g. spidev — one hash, the
+    # sdist's) that means an on-device compile every time, wheelhouse hit or
+    # not (see install.sh's create_venv() for the full explanation). Left at
+    # uv's defaults, that compile runs concurrently with every other wheel
+    # download/install, which is what pushes peak RSS over the low-mem tier's
+    # 500 MB cap (JTN-785) on a live update.
+    if ! UV_HTTP_TIMEOUT=60 UV_CONCURRENT_DOWNLOADS=4 UV_CONCURRENT_BUILDS=1 UV_CONCURRENT_INSTALLS=2 "$VENV_PATH/bin/python" -m uv pip install \
         --python "$VENV_PATH/bin/python" \
         --no-cache \
         "${uv_extra_args[@]}" \
