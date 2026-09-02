@@ -19,6 +19,24 @@ def test_refresh_current_noop_when_not_running(device_config_dev: Any) -> None:
     assert task.refresh_current() is False
 
 
+def test_refresh_current_noop_when_blackout_active(
+    device_config_dev: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    task = _make_task(device_config_dev)
+    task.running = True
+    task.blackout_active = True
+    playlist_manager = MagicMock()
+    monkeypatch.setattr(
+        device_config_dev, "get_playlist_manager", lambda: playlist_manager
+    )
+    manual_update = MagicMock()
+    monkeypatch.setattr(task, "manual_update", manual_update)
+
+    assert task.refresh_current() is False
+    playlist_manager.determine_active_playlist.assert_not_called()
+    manual_update.assert_not_called()
+
+
 def test_refresh_current_noop_when_no_active_playlist(
     device_config_dev: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:

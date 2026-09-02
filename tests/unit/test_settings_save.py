@@ -407,6 +407,38 @@ class TestSaveSettings:
         resp = client.post("/save_settings", data=form)
         assert resp.status_code == 422
 
+    def test_save_settings_duplicate_active_pins_rejected(
+        self, client: FlaskClient
+    ) -> None:
+        """Two buttons on the same GPIO line silently clobber each other in
+        ButtonTask.start()'s offset->label map — must be rejected up front."""
+        form = {
+            **self.VALID_FORM,
+            "buttonAPin": "5",
+            "buttonAAction": "next_playlist_item",
+            "buttonBPin": "5",
+            "buttonBAction": "refresh_now",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 422
+
+    def test_save_settings_duplicate_pin_allowed_when_one_button_is_none(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        """A pin collision is harmless if only one of the two buttons is
+        actually wired up (action != "none") — no GPIO line is requested
+        for the other, so nothing can clobber it."""
+        form = {
+            **self.VALID_FORM,
+            "buttonAPin": "5",
+            "buttonAAction": "next_playlist_item",
+            "buttonBPin": "5",
+            "buttonBAction": "none",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 200
+        assert device_config_dev.get_config("buttons")["pins"]["B"] == 5
+
     def test_save_settings_restarts_button_task_when_buttons_change(
         self, client: FlaskClient, flask_app: Any
     ) -> None:

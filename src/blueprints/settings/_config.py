@@ -555,6 +555,7 @@ def _validate_buttons_settings(form_data: dict[str, str]) -> Any | None:
                 "Debounce must be zero or greater", "buttonDebounceSeconds"
             )
 
+    pins_by_label: dict[str, int] = {}
     for label in _BUTTON_LABELS:
         pin_field = f"button{label}Pin"
         raw_pin = form_data.get(pin_field)
@@ -567,12 +568,30 @@ def _validate_buttons_settings(form_data: dict[str, str]) -> Any | None:
                 return _field_error(
                     f"GPIO pin for button {label} must be zero or greater", pin_field
                 )
+            pins_by_label[label] = pin_value
 
         err = _validate_enum_field(
             form_data, f"button{label}Action", _BUTTON_ACTIONS, required=False
         )
         if err:
             return err
+
+    # Two buttons can't physically share a GPIO line. ButtonTask.start()
+    # builds its offset->label map per active (non-"none") button in order,
+    # so a collision would silently let the second one clobber the first's
+    # entry and only one of the two configured actions would ever fire.
+    active_pins: dict[int, str] = {}
+    for label, pin_value in pins_by_label.items():
+        action = form_data.get(f"button{label}Action", "none")
+        if action == "none":
+            continue
+        if pin_value in active_pins:
+            return _field_error(
+                f"Button {label} and button {active_pins[pin_value]} are both "
+                f"set to GPIO pin {pin_value}",
+                f"button{label}Pin",
+            )
+        active_pins[pin_value] = label
     return None
 
 

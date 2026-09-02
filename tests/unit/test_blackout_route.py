@@ -65,3 +65,16 @@ class TestBlackoutRoute:
         assert resp.status_code == 200
         assert resp.get_json()["blackout_active"] is True
         assert flask_app.config["REFRESH_TASK"].blackout_active is True
+
+    def test_display_next_refuses_while_blackout_active(
+        self, client: FlaskClient, flask_app: Flask
+    ) -> None:
+        """Regression: /display-next must not silently advance the playlist
+        index while blacked out — see the advance_playlist_next() blackout
+        regression test for why get_next_eligible_plugin() can't be allowed
+        to run first."""
+        flask_app.config["REFRESH_TASK"].blackout_active = True
+
+        resp = client.post("/display-next")
+
+        assert resp.status_code == 409

@@ -25,6 +25,7 @@ import os
 
 from flask import Flask, current_app, request
 
+from button_task import VALID_LABELS
 from utils.http_utils import JsonResponse, json_error, json_success
 
 logger = logging.getLogger(__name__)
@@ -37,8 +38,6 @@ BUTTON_PRESS_TEST_PATH = "/__test/button_press"
 BUTTON_PRESS_TEST_ENV_VAR = "INKYPI_ENABLE_BUTTON_PRESS_TEST"
 
 _TRUTHY = frozenset({"1", "true", "yes"})
-
-_VALID_LABELS = ("A", "B", "C", "D")
 
 
 def _env_dev_mode() -> bool:
@@ -96,7 +95,7 @@ def register_button_press_test_endpoint(app: Flask) -> None:
             return json_error("Button press test endpoint not enabled", status=404)
 
         label = _extract_button_label()
-        if label not in _VALID_LABELS:
+        if label not in VALID_LABELS:
             return json_error(
                 "button must be one of A, B, C, D",
                 status=422,

@@ -733,6 +733,9 @@ if __name__ == "__main__":
     refresh_task_obj = created_app.config.get("REFRESH_TASK")
     if not WEB_ONLY and not is_running_from_reloader() and refresh_task_obj is not None:
         refresh_task_obj.start()
+        button_task_obj = created_app.config.get("BUTTON_TASK")
+        if button_task_obj is not None:
+            button_task_obj.start()
     else:
         logger.info("Web-only mode enabled: background refresh task will not start")
 
@@ -791,3 +794,6 @@ if __name__ == "__main__":
         refresh_task_obj = created_app.config.get("REFRESH_TASK")
         if refresh_task_obj is not None:
             refresh_task_obj.stop()
+        button_task_obj = created_app.config.get("BUTTON_TASK")
+        if button_task_obj is not None:
+            button_task_obj.stop()

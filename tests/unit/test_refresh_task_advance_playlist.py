@@ -19,6 +19,32 @@ def test_advance_playlist_next_noop_when_not_running(device_config_dev: Any) -> 
     assert task.advance_playlist_next() is False
 
 
+def test_advance_playlist_next_noop_when_blackout_active(
+    device_config_dev: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: must not commit current_plugin_index while blacked out.
+
+    get_next_eligible_plugin() mutates and commits the playlist index
+    unconditionally, before manual_update() ever gets a chance to check
+    blackout_active — so the blackout check has to happen here, first, or a
+    playlist item is silently skipped every time this is called while
+    blacked out (see /code-review finding on this branch).
+    """
+    task = _make_task(device_config_dev)
+    task.running = True
+    task.blackout_active = True
+    playlist_manager = MagicMock()
+    monkeypatch.setattr(
+        device_config_dev, "get_playlist_manager", lambda: playlist_manager
+    )
+    manual_update = MagicMock()
+    monkeypatch.setattr(task, "manual_update", manual_update)
+
+    assert task.advance_playlist_next() is False
+    playlist_manager.determine_active_playlist.assert_not_called()
+    manual_update.assert_not_called()
+
+
 def test_advance_playlist_next_noop_when_no_active_playlist(
     device_config_dev: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:

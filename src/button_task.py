@@ -91,7 +91,7 @@ ACTIONS: dict[str, Callable[[Any], bool]] = {
     ),
 }
 
-_VALID_LABELS = ("A", "B", "C", "D")
+VALID_LABELS = ("A", "B", "C", "D")
 
 
 class ButtonTask:
@@ -112,6 +112,8 @@ class ButtonTask:
         return raw if isinstance(raw, dict) else {}
 
     def _pins(self) -> dict[str, int]:
+        """Return effective GPIO pins for A-D: auto-detected defaults with
+        any ``buttons.pins`` overrides from config layered on top."""
         configured = self._buttons_config().get("pins")
         pins = default_pins(self.device_config)
         if isinstance(configured, dict):
@@ -126,6 +128,10 @@ class ButtonTask:
         return pins
 
     def _actions(self) -> dict[str, str]:
+        """Return effective actions for A-D: defaults with any valid
+        ``buttons.actions`` overrides from config layered on top. An
+        override naming an unknown action (not a key of ``ACTIONS``) is
+        ignored, leaving that button's default in place."""
         configured = self._buttons_config().get("actions")
         actions = dict(DEFAULT_ACTIONS)
         if isinstance(configured, dict):
@@ -232,6 +238,13 @@ class ButtonTask:
             return _DEFAULT_DEBOUNCE_SECONDS
 
     def _handle_press(self, label: str) -> None:
+        """Debounce and dispatch a press of button *label* to its configured action.
+
+        A press within ``debounce_seconds`` of the last one for this same
+        label is dropped silently (each button is debounced independently).
+        Exceptions from the dispatched action are caught and logged so one
+        misbehaving action can't wedge the poll loop.
+        """
         now = monotonic()
         debounce = self._debounce_seconds()
         last = self._last_press_monotonic.get(label, 0.0)
@@ -256,7 +269,7 @@ class ButtonTask:
         GPIO edge event would (``_handle_press``), without requiring
         gpiod/hardware to be present or the poll thread to be running.
         """
-        if label not in _VALID_LABELS:
+        if label not in VALID_LABELS:
             raise ValueError(f"Unknown button label: {label!r}")
         self._handle_press(label)
 

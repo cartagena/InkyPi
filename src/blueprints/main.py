@@ -692,6 +692,16 @@ def display_next() -> Any:
     display_manager = current_app.config["DISPLAY_MANAGER"]
     playlist_manager = device_config.get_playlist_manager()
 
+    if getattr(refresh_task, "blackout_active", False):
+        # Must be checked before get_next_eligible_plugin() below, which
+        # commits current_plugin_index to the next item unconditionally —
+        # checking only inside manual_update() (as RefreshTask.
+        # advance_playlist_next() used to) would silently skip a playlist
+        # item every time this is called while blacked out.
+        return json_error(
+            "Display is in blackout — resume before advancing.", status=409
+        )
+
     # Determine current time
     current_dt = _current_dt(device_config)
 

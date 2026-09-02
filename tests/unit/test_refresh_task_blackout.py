@@ -107,6 +107,31 @@ def test_select_refresh_action_skips_scheduled_refresh_during_blackout(
     playlist_manager.determine_active_playlist.assert_not_called()
 
 
+def test_set_blackout_false_not_blocked_by_its_own_guard(
+    device_config_dev: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """set_blackout(False) flips the flag before calling refresh_current()/
+    advance_playlist_next(), so the blackout_active guard those methods now
+    have (see the advance_playlist_next/refresh_current regression tests)
+    must not block the un-blackout resume itself."""
+    task = _make_task(device_config_dev)
+    task.running = True
+    task.blackout_active = True
+    playlist = MagicMock()
+    plugin_instance = MagicMock()
+    playlist.get_current_plugin.return_value = plugin_instance
+    playlist_manager = MagicMock()
+    playlist_manager.determine_active_playlist.return_value = playlist
+    monkeypatch.setattr(
+        device_config_dev, "get_playlist_manager", lambda: playlist_manager
+    )
+    manual_update = MagicMock()
+    monkeypatch.setattr(task, "manual_update", manual_update)
+
+    assert task.set_blackout(False) is False
+    manual_update.assert_called_once()
+
+
 def test_start_reblanks_display_when_blackout_persisted(
     device_config_dev: Any, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -342,6 +342,10 @@ def setup_rate_limiting(app: Flask) -> None:
         # can hammer it without hitting the mutating-path token bucket.
         if request.path == SMOKE_RENDER_PATH and smoke_render_enabled():
             return None
+        # Same reasoning: debounce testing means firing rapid repeated
+        # presses at the opt-in button-press test endpoint on purpose.
+        if request.path == BUTTON_PRESS_TEST_PATH and button_press_test_enabled():
+            return None
         addr = request.remote_addr or "unknown"
         bucket_resp = _apply_token_bucket_limits(request.path, addr)
         if bucket_resp is not None:

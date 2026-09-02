@@ -1336,10 +1336,19 @@ class RefreshTask:
         note on avoiding display/config write races.
 
         Returns True if a refresh was dispatched, False if there was no
-        active playlist or no eligible plugin to show, or the refresh task
-        was not running.
+        active playlist or no eligible plugin to show, the refresh task was
+        not running, or blackout is active.
         """
         if not self.running:
+            return False
+        if self.blackout_active:
+            # Must be checked before get_next_eligible_plugin(), not left to
+            # manual_update()'s own blackout check: that method runs after
+            # get_next_eligible_plugin() has already committed
+            # current_plugin_index to the next item, so checking only there
+            # would silently skip a playlist item on every press while
+            # blacked out instead of leaving the playlist position alone.
+            logger.info("advance_playlist_next skipped: blackout is active")
             return False
         playlist_manager = self.device_config.get_playlist_manager()
         current_dt = self._get_current_datetime()
@@ -1362,10 +1371,13 @@ class RefreshTask:
         ``advance_playlist_next`` applies here.
 
         Returns True if a refresh was dispatched, False if there was no
-        active playlist, nothing currently showing from it, or the refresh
-        task was not running.
+        active playlist, nothing currently showing from it, the refresh task
+        was not running, or blackout is active.
         """
         if not self.running:
+            return False
+        if self.blackout_active:
+            logger.info("refresh_current skipped: blackout is active")
             return False
         playlist_manager = self.device_config.get_playlist_manager()
         current_dt = self._get_current_datetime()
