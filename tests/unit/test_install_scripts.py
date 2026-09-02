@@ -944,6 +944,42 @@ class TestInstallScript:
                 f"--timeout behavior (JTN-534): {line.strip()!r}"
             )
 
+    def test_install_uv_pip_install_caps_concurrency(self) -> None:
+        # JTN-536 parity: --require-hashes forces an on-device compile for any
+        # package with no published PyPI wheel (e.g. spidev — its lockfile
+        # entry has exactly one hash, the sdist's — so the JTN-604
+        # wheelhouse's locally-built wheel, which has a different hash, is
+        # always rejected). Left at uv's defaults, that compile runs
+        # concurrently with every other wheel download/install, which is what
+        # pushes peak RSS over the 512 MB Pi Zero 2 W cap and gets the
+        # process OOM-killed mid-install (the install-matrix trixie CI flake).
+        # Every uv pip install invocation in create_venv() must cap
+        # UV_CONCURRENT_DOWNLOADS / UV_CONCURRENT_BUILDS / UV_CONCURRENT_INSTALLS
+        # on the same source line as the command.
+        fn_start = self.content.index("create_venv(){")
+        fn_end = self.content.index("\n}", fn_start)
+        fn_body = self.content[fn_start:fn_end]
+
+        lines = fn_body.splitlines()
+        uv_install_line_indices = [
+            i for i, line in enumerate(lines) if "-m uv pip install" in line
+        ]
+        assert (
+            uv_install_line_indices
+        ), "create_venv() must have at least one 'uv pip install' invocation (JTN-605)"
+        for idx in uv_install_line_indices:
+            line = lines[idx]
+            for env_var in (
+                "UV_CONCURRENT_DOWNLOADS",
+                "UV_CONCURRENT_BUILDS",
+                "UV_CONCURRENT_INSTALLS",
+            ):
+                assert env_var in line, (
+                    f"uv pip install invocation must prefix {env_var} to cap "
+                    "install-time concurrency under the 512 MB Pi Zero 2 W "
+                    f"cap (JTN-536): {line.strip()!r}"
+                )
+
     def test_install_has_pip_fallback_path(self):
         # JTN-605: if uv cannot be installed or run (e.g. unsupported arch,
         # wheel download failure), install.sh must cleanly fall back to plain
@@ -2217,6 +2253,37 @@ class TestUpdateScript:
                 "uv pip install in update.sh must prefix UV_HTTP_TIMEOUT "
                 "for Wi-Fi resilience (JTN-534)"
             )
+
+    def test_update_uv_install_caps_concurrency(self) -> None:
+        # JTN-536 parity: --require-hashes forces an on-device compile for any
+        # package with no published PyPI wheel (e.g. spidev — its lockfile
+        # entry has exactly one hash, the sdist's — so the JTN-604
+        # wheelhouse's locally-built wheel, which has a different hash, is
+        # always rejected). Left at uv's defaults, that compile runs
+        # concurrently with every other wheel download/install, which is what
+        # pushes peak RSS over the low-mem tier's 500 MB cap (JTN-785) during
+        # a live update. Every uv pip install invocation must cap
+        # UV_CONCURRENT_DOWNLOADS / UV_CONCURRENT_BUILDS / UV_CONCURRENT_INSTALLS.
+        lines = self.content.splitlines()
+        uv_install_indices = [
+            i for i, line in enumerate(lines) if "-m uv pip install" in line
+        ]
+        assert (
+            uv_install_indices
+        ), "update.sh must have at least one 'uv pip install' invocation (JTN-670)"
+        for idx in uv_install_indices:
+            prev = lines[idx - 1] if idx > 0 else ""
+            window = lines[idx] + prev
+            for env_var in (
+                "UV_CONCURRENT_DOWNLOADS",
+                "UV_CONCURRENT_BUILDS",
+                "UV_CONCURRENT_INSTALLS",
+            ):
+                assert env_var in window, (
+                    f"uv pip install in update.sh must prefix {env_var} to cap "
+                    "install-time concurrency under the low-mem cgroup cap "
+                    f"(JTN-536): {lines[idx].strip()!r}"
+                )
 
     def test_update_has_uv_pip_fallback_with_require_hashes(self) -> None:
         # JTN-670 / JTN-605 parity: if uv is unavailable, update.sh must fall

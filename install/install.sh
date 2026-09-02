@@ -538,11 +538,26 @@ create_venv(){
   # e.g. an OOM-killed uv/pip process still let show_loader's wrapper return 0,
   # so install.sh reported "Installation Complete!" with an empty/partial venv.
   # update.sh already does this for the same step; install.sh had not.
+  #
+  # JTN-536 parity: cap uv's install-time concurrency. --require-hashes only
+  # accepts an artifact whose hash matches the one pip-compile recorded in
+  # requirements.txt — and for packages with no published PyPI wheel (e.g.
+  # spidev, which has exactly one hash: the sdist's), that recorded hash can
+  # only ever be satisfied by building the sdist locally. The JTN-604
+  # wheelhouse's own locally-built wheel for that same package has a
+  # different hash and is rejected, so this on-device compile is not a rare
+  # edge case — it happens on every install, wheelhouse hit or not. Left at
+  # uv's defaults (50 concurrent downloads, one build/install slot per CPU),
+  # that compile runs concurrently with downloading/unpacking every other
+  # wheel (numpy, Pillow, cryptography, ...), which is what pushes peak RSS
+  # over the 512 MB Pi Zero 2 W cap (JTN-785) and gets the process OOM-killed
+  # mid-install. Serializing most of that work trades install wall-clock time
+  # for staying under the cap on every device tier.
   echo "Installing python dependencies. "
   if [[ "$use_uv" -eq 1 ]]; then
     # uv equivalents: --no-cache (instead of --no-cache-dir), --require-hashes supported.
     # `--python` pins uv to the venv's interpreter so packages land in the venv.
-    if ! UV_HTTP_TIMEOUT=60 "$VENV_PATH/bin/python" -m uv pip install \
+    if ! UV_HTTP_TIMEOUT=60 UV_CONCURRENT_DOWNLOADS=4 UV_CONCURRENT_BUILDS=1 UV_CONCURRENT_INSTALLS=2 "$VENV_PATH/bin/python" -m uv pip install \
       --python "$VENV_PATH/bin/python" \
       --no-cache \
       "${uv_extra_args[@]}" \
@@ -568,7 +583,9 @@ create_venv(){
   if [[ -n "$WS_TYPE" ]]; then
     echo "Adding additional dependencies for waveshare to the python virtual environment. "
     if [[ "$use_uv" -eq 1 ]]; then
-      if ! UV_HTTP_TIMEOUT=60 "$VENV_PATH/bin/python" -m uv pip install \
+      # JTN-536 parity: see the main requirements install above for why uv's
+      # concurrency is capped here too.
+      if ! UV_HTTP_TIMEOUT=60 UV_CONCURRENT_DOWNLOADS=4 UV_CONCURRENT_BUILDS=1 UV_CONCURRENT_INSTALLS=2 "$VENV_PATH/bin/python" -m uv pip install \
         --python "$VENV_PATH/bin/python" \
         --no-cache \
         "${uv_extra_args[@]}" \
