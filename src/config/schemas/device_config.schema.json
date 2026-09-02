@@ -14,6 +14,7 @@
       "items": { "type": "integer" }
     },
     "orientation": { "type": "string", "enum": ["horizontal", "vertical"] },
+    "blackout_active": { "type": "boolean" },
     "plugin_cycle_interval_seconds": { "type": "integer", "minimum": 1, "maximum": 86400 },
     "disabled_plugins": {
       "type": "array",
@@ -28,6 +29,46 @@
         "brightness": { "type": "number" },
         "sharpness": { "type": "number" },
         "contrast": { "type": "number" }
+      }
+    },
+    "buttons": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "debounce_seconds": { "type": "number", "minimum": 0 },
+        "pins": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "A": { "type": "integer" },
+            "B": { "type": "integer" },
+            "C": { "type": "integer" },
+            "D": { "type": "integer" }
+          }
+        },
+        "actions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "A": {
+              "type": "string",
+              "enum": ["none", "next_playlist_item", "refresh_now", "blackout_toggle"]
+            },
+            "B": {
+              "type": "string",
+              "enum": ["none", "next_playlist_item", "refresh_now", "blackout_toggle"]
+            },
+            "C": {
+              "type": "string",
+              "enum": ["none", "next_playlist_item", "refresh_now", "blackout_toggle"]
+            },
+            "D": {
+              "type": "string",
+              "enum": ["none", "next_playlist_item", "refresh_now", "blackout_toggle"]
+            }
+          }
+        }
       }
     },
     "playlist_config": {

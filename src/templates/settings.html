@@ -192,6 +192,56 @@
                     </div>
                     </div>
                 </div>
+
+                {% if device_settings.get('display_type', 'inky') == 'inky' %}
+                {% set button_settings = device_settings.get('buttons', {}) %}
+                {% set button_pins = button_settings.get('pins', {}) %}
+                {% set button_actions = button_settings.get('actions', {}) %}
+                <!-- Physical buttons -->
+                <div class="card card-dense" id="section-buttons">
+                    <div class="card-head">
+                        <div>
+                            <h2 class="card-title">Physical buttons</h2>
+                            <p class="card-sub">Inky Impression's A/B/C/D buttons. Set a GPIO pin and an action per button.</p>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                    <div class="settings-container">
+                        <div class="form-group nowrap toggle-row">
+                            <span class="toggle-item-text">
+                                <label class="form-label toggle-item-label" for="buttonsEnabled">Enable buttons</label>
+                                <span class="toggle-item-hint">Poll the board's GPIO buttons in the background.</span>
+                            </span>
+                            <span class="toggle-container">
+                                <input type="checkbox" id="buttonsEnabled" name="buttonsEnabled" class="toggle-checkbox" {% if button_settings.get('enabled', True) %}checked{% endif %}>
+                                <span class="toggle-label"></span>
+                            </span>
+                        </div>
+                        <div class="form-group">
+                            <label for="buttonDebounceSeconds" class="form-label">Debounce (seconds)</label>
+                            <input type="number" id="buttonDebounceSeconds" name="buttonDebounceSeconds" class="form-input" min="0" step="0.1" value="{{ button_settings.get('debounce_seconds', 1.0) }}">
+                        </div>
+                        {% for label in ['A', 'B', 'C', 'D'] %}
+                        <div class="row-2">
+                            <div class="form-group">
+                                <label for="button{{ label }}Pin" class="form-label">Button {{ label }} — GPIO pin</label>
+                                <input type="number" id="button{{ label }}Pin" name="button{{ label }}Pin" class="form-input" min="0" value="{{ button_pins.get(label, default_button_pins[label]) }}">
+                            </div>
+                            <div class="form-group">
+                                <label for="button{{ label }}Action" class="form-label">Button {{ label }} — action</label>
+                                <select id="button{{ label }}Action" name="button{{ label }}Action" class="form-input">
+                                    <option value="none" {% if button_actions.get(label, default_button_actions[label]) == 'none' %}selected{% endif %}>None</option>
+                                    <option value="next_playlist_item" {% if button_actions.get(label, default_button_actions[label]) == 'next_playlist_item' %}selected{% endif %}>Next playlist item</option>
+                                    <option value="refresh_now" {% if button_actions.get(label, default_button_actions[label]) == 'refresh_now' %}selected{% endif %}>Refresh current</option>
+                                    <option value="blackout_toggle" {% if button_actions.get(label, default_button_actions[label]) == 'blackout_toggle' %}selected{% endif %}>Toggle blackout</option>
+                                </select>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    </div>
+                </div>
+                {% endif %}
                 </section>
 
                 <!-- Plugin cycle & system -->

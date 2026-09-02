@@ -327,6 +327,101 @@ class TestSaveSettings:
         img_settings = device_config_dev.get_config("image_settings")
         assert img_settings["inky_saturation"] == 0.7
 
+    def test_save_settings_with_buttons(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        form = {
+            **self.VALID_FORM,
+            "buttonsEnabled": "on",
+            "buttonDebounceSeconds": "0.5",
+            "buttonAPin": "5",
+            "buttonAAction": "next_playlist_item",
+            "buttonBPin": "6",
+            "buttonBAction": "refresh_now",
+            "buttonCPin": "25",
+            "buttonCAction": "none",
+            "buttonDPin": "24",
+            "buttonDAction": "none",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 200
+        buttons = device_config_dev.get_config("buttons")
+        assert buttons == {
+            "enabled": True,
+            "debounce_seconds": 0.5,
+            "pins": {"A": 5, "B": 6, "C": 25, "D": 24},
+            "actions": {
+                "A": "next_playlist_item",
+                "B": "refresh_now",
+                "C": "none",
+                "D": "none",
+            },
+        }
+
+    def test_save_settings_without_buttons_leaves_config_untouched(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        resp = client.post("/save_settings", data=self.VALID_FORM)
+        assert resp.status_code == 200
+        assert device_config_dev.get_config("buttons") is None
+
+    def test_save_settings_with_blackout_toggle_action(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        form = {
+            **self.VALID_FORM,
+            "buttonAPin": "5",
+            "buttonAAction": "blackout_toggle",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 200
+        buttons = device_config_dev.get_config("buttons")
+        assert buttons["actions"]["A"] == "blackout_toggle"
+
+    def test_save_settings_invalid_button_action_rejected(
+        self, client: FlaskClient
+    ) -> None:
+        form = {
+            **self.VALID_FORM,
+            "buttonAPin": "5",
+            "buttonAAction": "launch_missiles",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 422
+
+    def test_save_settings_invalid_button_pin_rejected(
+        self, client: FlaskClient
+    ) -> None:
+        form = {**self.VALID_FORM, "buttonAPin": "not-a-number"}
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 422
+
+    def test_save_settings_negative_debounce_rejected(
+        self, client: FlaskClient
+    ) -> None:
+        form = {
+            **self.VALID_FORM,
+            "buttonAPin": "5",
+            "buttonDebounceSeconds": "-1",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 422
+
+    def test_save_settings_restarts_button_task_when_buttons_change(
+        self, client: FlaskClient, flask_app: Any
+    ) -> None:
+        from unittest.mock import MagicMock
+
+        button_task = MagicMock()
+        flask_app.config["BUTTON_TASK"] = button_task
+
+        form = {**self.VALID_FORM, "buttonAPin": "5", "buttonAAction": "refresh_now"}
+        resp = client.post("/save_settings", data=form)
+
+        assert resp.status_code == 200
+        button_task.stop.assert_called_once()
+        button_task.start.assert_called_once()
+
     def test_save_settings_triggers_config_change(
         self, client: FlaskClient, device_config_dev: Any
     ) -> None:

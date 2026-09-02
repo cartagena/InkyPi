@@ -757,6 +757,36 @@ def refresh_alias() -> Any:
     return display_next()
 
 
+_TRUTHY_QUERY_VALUES = frozenset({"1", "true", "yes", "on"})
+
+
+@main_bp.route("/api/blackout", methods=["GET", "POST"])
+def blackout() -> Any:
+    """Pause refreshes and blank the display, or resume — a bookmarkable kill switch.
+
+    GET *and* POST both work (GET is the "bookmark this URL" case — a home-
+    screen shortcut or a plain link someone taps on their way out — POST is
+    for a UI button). With no ``active`` param this toggles the current
+    state; pass ``active=1``/``active=0`` (etc.) to set it explicitly.
+    """
+    refresh_task = current_app.config["REFRESH_TASK"]
+    raw_active = (
+        request.form.get("active")
+        if request.method == "POST"
+        else request.args.get("active")
+    )
+    desired = (
+        not refresh_task.blackout_active
+        if raw_active is None
+        else raw_active.strip().lower() in _TRUTHY_QUERY_VALUES
+    )
+    blackout_active = refresh_task.set_blackout(desired)
+    return json_success(
+        message="Blackout enabled." if blackout_active else "Blackout disabled.",
+        blackout_active=blackout_active,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Jinja template filters for friendly plugin-instance display names.
 # ---------------------------------------------------------------------------

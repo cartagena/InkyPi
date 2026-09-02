@@ -24,6 +24,10 @@ from flask import Flask, Response, abort, g, redirect, request, session
 # plain dict when there is no app context — see utils.http_utils.
 from werkzeug.wrappers import Response as WerkzeugResponse
 
+from app_setup.button_press_test import (
+    BUTTON_PRESS_TEST_PATH,
+    button_press_test_enabled,
+)
 from app_setup.smoke import SMOKE_RENDER_PATH, smoke_render_enabled
 from config import Config
 from utils.http_utils import JsonResponse, json_error
@@ -230,6 +234,10 @@ def setup_csrf_protection(app: Flask) -> None:
         # var here (rather than baking it into _CSRF_EXEMPT_PATHS) means the
         # exemption can be toggled from tests without restarting the app.
         if request.path == SMOKE_RENDER_PATH and smoke_render_enabled():
+            return None
+        # Same reasoning: a dev/CI caller hitting the opt-in button-press
+        # test endpoint has no browser session to carry a CSRF token.
+        if request.path == BUTTON_PRESS_TEST_PATH and button_press_test_enabled():
             return None
         token = session.get("_csrf_token")
         if not isinstance(token, str):

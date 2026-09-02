@@ -378,6 +378,18 @@ class Playlist:
             None,
         )
 
+    def get_current_plugin(self) -> PluginInstance | None:
+        """Returns the currently-displayed plugin instance without mutating state.
+
+        Returns None if the playlist is empty or the index is unset/out of
+        bounds (nothing has been shown from this playlist yet).
+        """
+        if not self.plugins or self.current_plugin_index is None:
+            return None
+        if not (0 <= self.current_plugin_index < len(self.plugins)):
+            return None
+        return self.plugins[self.current_plugin_index]
+
     def get_next_plugin(self) -> PluginInstance:
         """Returns the next plugin instance in the playlist and update the current_plugin_index."""
         if not self.plugins:

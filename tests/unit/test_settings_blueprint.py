@@ -475,6 +475,33 @@ class TestSettingsPages:
         resp = client.get("/settings/backup")
         assert resp.status_code == 200
 
+    def test_settings_page_shows_buttons_section_for_inky(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        device_config_dev.update_value("display_type", "inky")
+        resp = client.get("/settings")
+        assert resp.status_code == 200
+        assert b"Physical buttons" in resp.data
+        assert b'name="buttonAAction"' in resp.data
+
+    def test_settings_page_hides_buttons_section_for_mock(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        device_config_dev.update_value("display_type", "mock")
+        resp = client.get("/settings")
+        assert resp.status_code == 200
+        assert b"Physical buttons" not in resp.data
+
+    def test_backup_restore_page_renders_for_inky(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        """The backup/restore route reuses settings.html and must pass the
+        same button defaults, or the inky-gated block raises UndefinedError."""
+        device_config_dev.update_value("display_type", "inky")
+        resp = client.get("/settings/backup")
+        assert resp.status_code == 200
+        assert b"Physical buttons" in resp.data
+
     def test_api_keys_page(self, client: FlaskClient) -> None:
         resp = client.get("/settings/api-keys")
         assert resp.status_code == 200

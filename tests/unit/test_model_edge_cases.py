@@ -127,6 +127,41 @@ class TestGetNextPlugin:
 
 
 # ---------------------------------------------------------------------------
+# Playlist.get_current_plugin()
+# ---------------------------------------------------------------------------
+
+
+class TestGetCurrentPlugin:
+    def test_empty_playlist_returns_none(self) -> None:
+        pl = _make_playlist("00:00", "24:00", plugins=[], index=0)
+        assert pl.get_current_plugin() is None
+
+    def test_unset_index_returns_none(self) -> None:
+        plugins = [_plugin_dict("a"), _plugin_dict("b")]
+        pl = _make_playlist("00:00", "24:00", plugins=plugins, index=None)
+        assert pl.get_current_plugin() is None
+
+    def test_out_of_bounds_index_returns_none(self) -> None:
+        plugins = [_plugin_dict("a"), _plugin_dict("b")]
+        pl = _make_playlist("00:00", "24:00", plugins=plugins, index=999)
+        assert pl.get_current_plugin() is None
+
+    def test_returns_plugin_at_current_index(self) -> None:
+        plugins = [_plugin_dict("a"), _plugin_dict("b"), _plugin_dict("c")]
+        pl = _make_playlist("00:00", "24:00", plugins=plugins, index=1)
+        current = pl.get_current_plugin()
+        assert current is not None
+        assert current.plugin_id == "b"
+        assert current is pl.plugins[1]
+
+    def test_does_not_mutate_index(self) -> None:
+        plugins = [_plugin_dict("a"), _plugin_dict("b")]
+        pl = _make_playlist("00:00", "24:00", plugins=plugins, index=0)
+        pl.get_current_plugin()
+        assert pl.current_plugin_index == 0
+
+
+# ---------------------------------------------------------------------------
 # Playlist.get_next_eligible_plugin()
 # ---------------------------------------------------------------------------
 
