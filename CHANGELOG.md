@@ -1,6 +1,463 @@
 # CHANGELOG
 
 
+## v1.5.1 (2026-09-02)
+
+### Bug Fixes
+
+- Cap uv concurrency to stop OOM kills on low-memory Pi installs
+  ([`b58507c`](https://github.com/cartagena/InkyPi/commit/b58507c8dd14bf23e6c9424582442dd94bff6c54))
+
+install-matrix's trixie CI leg was flaking on install.sh e2e with the uv pip install process
+  OOM-killed under the 512MB Pi Zero 2 W memory cap (JTN-536). Root cause: spidev has no published
+  PyPI wheel, so its requirements.txt lockfile entry carries only the sdist's hash; --require-hashes
+  rejects the JTN-604 wheelhouse's locally-built wheel (different hash) and forces an on-device
+  compile on every install, wheelhouse hit or not. Left at uv's default concurrency, that compile
+  runs alongside downloading/unpacking every other wheel (numpy, Pillow, cryptography, ...), which
+  is what pushes peak RSS over the cap — not any specific dependency version.
+
+Cap UV_CONCURRENT_DOWNLOADS/UV_CONCURRENT_BUILDS/UV_CONCURRENT_INSTALLS on every uv pip install
+  invocation in install.sh and update.sh so the same OOM risk doesn't also hit real Pi Zero 2 W
+  devices running a live update under JTN-785's 500MB low-mem tier cap.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Check exit status of python dependency installs in install.sh
+  ([`9c29c1e`](https://github.com/cartagena/InkyPi/commit/9c29c1ed89042ba3621039cdef2220db13047444))
+
+create_venv() backgrounded the uv/pip requirements install (and the pip/setuptools/wheel upgrade)
+  and fed the result into show_loader, which always returns 0 regardless of whether the wrapped
+  command succeeded. An OOM-killed uv pip install (the trixie install-matrix CI flake) therefore
+  still let install.sh print "Installation Complete!" over an empty/partial venv, with only the
+  CI-only import-check catching the missing packages.
+
+update.sh already guards this same step with an explicit `if !` exit-code check (JTN-665);
+  install.sh had never been brought to parity. Bring install.sh's pip/setuptools/wheel upgrade, main
+  requirements install, and Waveshare requirements install in line with that pattern, and add a
+  structural regression test.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Correct stale orphan-button line number in UI audit allowlist
+  ([`514f8c0`](https://github.com/cartagena/InkyPi/commit/514f8c05675132982ba724d81842c124b93bd81c))
+
+The composite_screen.html {% block head %} added in da2aa26f shifted #addRegionBtn from line 85 to
+  line 88, so the allowlist entry no longer matched, failing test_no_orphan_buttons and
+  test_allowlist_is_tight.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Escape hyphen in instance/playlist-name pattern attributes for Chrome v-flag
+  ([`872713a`](https://github.com/cartagena/InkyPi/commit/872713a5af944197f4a99e94d11f9ad490ecd405))
+
+Chrome now compiles HTML `pattern` attributes with the newer unicodeSets (v) regex flag, which
+  requires escaping `-` even at the end of a character class. `pattern="[A-Za-z0-9 _-]+"` throws
+  `Invalid regular expression` there; `pattern="[A-Za-z0-9 _\-]+"` works under both v and legacy
+  modes.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Regenerate install/requirements.txt to fix lockfile drift
+  ([`d6a59dd`](https://github.com/cartagena/InkyPi/commit/d6a59dd96aaca0fdd2cbd684da489a710b329a9b))
+
+install/requirements.txt was stale relative to uv.lock: it predated the addition of pyproject.toml's
+  required-environments (linux aarch64/armv7l/armv6l/x86_64 + darwin arm64) and was missing the
+  sys_platform == 'linux' markers uv now emits for Linux-only hardware packages (cysystemd, gpiod,
+  gpiodevice, inky, smbus2, spidev). It also carried stale "# via -r install/requirements.in" / "#
+  via inkypi" comment annotations from an older uv version.
+
+This broke two CI jobs: "Lockfile drift check" caught the mismatch directly, and "Pre-flash validate
+  (macos-latest)" tried to compile the now-unmarked Linux-only packages on macOS and failed (missing
+  <systemd/sd-daemon.h>, <linux/spi/spidev.h>, etc.) — those packages have no macOS build path at
+  all.
+
+Regenerated via `uv export --format requirements.txt --no-dev --no-emit-project --output-file
+  install/requirements.txt` per this repo's documented process (uv.lock is the source of truth). No
+  dependency versions changed; `uv lock --check` and scripts/check_requirements_drift.sh both pass.
+  Verified the marker fix directly: cysystemd/gpiod/gpiodevice/inky/smbus2/spidev now evaluate False
+  on sys_platform == 'darwin', so pip correctly skips them.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Restore plugin_schema.js widget behavior for composite screen regions
+  ([`da2aa26`](https://github.com/cartagena/InkyPi/commit/da2aa26f1d2c1c7bc7f3e4ac1be36d7146dcf4fe))
+
+composite_screen.html extends base.html but never populated its `head` block, so plugin_schema.js
+  (which defines window.InkyPiPluginSchema and every hybrid-widget initializer) never loaded there.
+  Every hybrid widget's buttons were dead inside composite regions: calendar's "Add Calendar",
+  weather's map picker, todo/github/newspaper/ai-image's repeaters, clock's face picker. Composite
+  regions also never got saved settings re-applied to these widgets on reopen, since that reseeding
+  lives inside the same now-unreachable initializers.
+
+Two follow-on gaps surfaced once plugin_schema.js was actually loaded and exercised in composite
+  mode:
+
+- ai_image's "Surprise me" button skipped its API-key pre-flight check (which reads
+  window.__INKYPI_PLUGIN_BOOT__.apiKeyServices, a global only plugin.html's own inline script sets)
+  and fell through to a raw network failure instead of the friendly "API Key not configured" modal.
+  Fixed by baking api-key-services data directly into the [data-settings-schema] fragment itself
+  (settings_schema.html), so it survives being fetched and cloned into any embedding context, not
+  just plugin.html. - The appearance-tweaks FAB, deliberately hidden on settings/history/
+  api-keys/dashboard/playlist/plugin pages, was never added to that hide-list for composite-screen —
+  a page that's really an extension of the playlist flow already on it.
+
+Adds test_click_sweep_composite_plugin_regions (40 cases: every stock plugin x pre/post auth), the
+  composite-mode counterpart to the existing test_click_sweep_plugin_pages, so a regression here
+  fails CI for every plugin instead of relying on a manual report.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Size the live-logs icon to 24x24 in settings
+  ([`729682b`](https://github.com/cartagena/InkyPi/commit/729682be4fd959fe25d3d8aa2756d38b60d2a92c))
+
+The inline logs SVG (app-icon logs-icon) had no width/height attribute and neither .app-icon nor
+  .logs-icon set a size in CSS — .app-icon's sizing rules are scoped to
+  .app-header/.pageheader-plugin contexts, which the logs-panel header isn't — so it fell back to
+  the browser's oversized default SVG rendering, filling almost the whole screen.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- Unbreak two pin-guard tests after dependabot version bumps
+  ([`408fb06`](https://github.com/cartagena/InkyPi/commit/408fb0687cf691121d64e48b7a0a069d68d6c07c))
+
+test_workflow_uses_pinned_action_versions hardcoded exact action versions (@v5, @v6, @v7) that
+  dependabot has since bumped (actions/checkout@v7, upload-artifact@v7, download-artifact@v8) in
+  build-pi-image.yml. Its own intent is just "pinned to some major version", so switch to a regex
+  check instead of a literal string match that breaks on every routine major-version bump.
+
+test_types_requests_pin_preserved hardcoded the exact JTN-525 pin (2.32.0.20241016), which
+  dependabot PR #27 moved to 2.33.0.20260712. The lint job's mypy --strict run already passes
+  against the new pin, confirming the strict-mode compatibility this test guards is unaffected —
+  update the assertion to the verified-compatible version.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+### Chores
+
+- **deps**: Bump actions/cache from 5 to 6
+  ([`bedc7ac`](https://github.com/cartagena/InkyPi/commit/bedc7ac9cf9874842b6df2c2d0a9e90f2a0c9e65))
+
+Bumps [actions/cache](https://github.com/actions/cache) from 5 to 6. - [Release
+  notes](https://github.com/actions/cache/releases) -
+  [Changelog](https://github.com/actions/cache/blob/main/RELEASES.md) -
+  [Commits](https://github.com/actions/cache/compare/v5...v6)
+
+--- updated-dependencies: - dependency-name: actions/cache dependency-version: '6'
+
+dependency-type: direct:production
+
+update-type: version-update:semver-major ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps**: Bump actions/checkout from 5 to 7
+  ([`d9ccf5d`](https://github.com/cartagena/InkyPi/commit/d9ccf5d19b828b5f6671e98876549bf79c5de635))
+
+Bumps [actions/checkout](https://github.com/actions/checkout) from 5 to 7. - [Release
+  notes](https://github.com/actions/checkout/releases) -
+  [Commits](https://github.com/actions/checkout/compare/v5...v7)
+
+--- updated-dependencies: - dependency-name: actions/checkout dependency-version: '7'
+
+dependency-type: direct:production
+
+update-type: version-update:semver-major ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps**: Bump actions/download-artifact from 7 to 8
+  ([`6740a7f`](https://github.com/cartagena/InkyPi/commit/6740a7f71bff0000579dfa19318026251a521e3d))
+
+Bumps [actions/download-artifact](https://github.com/actions/download-artifact) from 7 to 8. -
+  [Release notes](https://github.com/actions/download-artifact/releases) -
+  [Commits](https://github.com/actions/download-artifact/compare/v7...v8)
+
+--- updated-dependencies: - dependency-name: actions/download-artifact dependency-version: '8'
+
+dependency-type: direct:production
+
+update-type: version-update:semver-major ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps**: Bump actions/setup-python from 6 to 7
+  ([`1ab5f63`](https://github.com/cartagena/InkyPi/commit/1ab5f632cf96161b765ed7b78faa666e51bd313b))
+
+Bumps [actions/setup-python](https://github.com/actions/setup-python) from 6 to 7. - [Release
+  notes](https://github.com/actions/setup-python/releases) -
+  [Commits](https://github.com/actions/setup-python/compare/v6...v7)
+
+--- updated-dependencies: - dependency-name: actions/setup-python dependency-version: '7'
+
+dependency-type: direct:production
+
+update-type: version-update:semver-major ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps**: Bump actions/upload-artifact from 6 to 7
+  ([`3f1f86a`](https://github.com/cartagena/InkyPi/commit/3f1f86aab8162e6d014f7617870e10843c51b4e9))
+
+Bumps [actions/upload-artifact](https://github.com/actions/upload-artifact) from 6 to 7. - [Release
+  notes](https://github.com/actions/upload-artifact/releases) -
+  [Commits](https://github.com/actions/upload-artifact/compare/v6...v7)
+
+--- updated-dependencies: - dependency-name: actions/upload-artifact dependency-version: '7'
+
+dependency-type: direct:production
+
+update-type: version-update:semver-major ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps**: Bump google-genai from 1.72.0 to 2.20.0
+  ([`2891d90`](https://github.com/cartagena/InkyPi/commit/2891d9038a52b512a877b498279f89ca731195a2))
+
+Bumps [google-genai](https://github.com/googleapis/python-genai) from 1.72.0 to 2.20.0. - [Release
+  notes](https://github.com/googleapis/python-genai/releases) -
+  [Changelog](https://github.com/googleapis/python-genai/blob/main/CHANGELOG.md) -
+  [Commits](https://github.com/googleapis/python-genai/compare/v1.72.0...v2.20.0)
+
+--- updated-dependencies: - dependency-name: google-genai dependency-version: 2.20.0
+
+dependency-type: direct:production
+
+update-type: version-update:semver-major ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps**: Bump gpiozero from 2.0.1 to 2.0.1.post3
+  ([`c78fe16`](https://github.com/cartagena/InkyPi/commit/c78fe16221cee48903255afc44e51ac7815f594f))
+
+Bumps [gpiozero](https://github.com/gpiozero/gpiozero) from 2.0.1 to 2.0.1.post3. -
+  [Changelog](https://github.com/gpiozero/gpiozero/blob/main/docs/changelog.rst) -
+  [Commits](https://github.com/gpiozero/gpiozero/compare/v2.0.1...v2.0.1.post3)
+
+--- updated-dependencies: - dependency-name: gpiozero dependency-version: 2.0.1.post3
+
+dependency-type: direct:production
+
+update-type: version-update:semver-patch ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps**: Bump the minor-and-patch group across 1 directory with 20 updates
+  ([`bc68fff`](https://github.com/cartagena/InkyPi/commit/bc68fffec68b9c196f38b248d833c1bfc18c3c75))
+
+Bumps the minor-and-patch group with 20 updates in the / directory:
+
+| Package | From | To | | --- | --- | --- | |
+  [python-dotenv](https://github.com/theskumar/python-dotenv) | `1.2.2` | `1.2.3` | |
+  [inky](https://github.com/pimoroni/inky) | `2.3.0` | `2.4.0` | |
+  [requests](https://github.com/psf/requests) | `2.33.1` | `2.34.2` | |
+  [pi-heif](https://github.com/bigcat88/pillow_heif) | `1.3.0` | `1.4.0` | |
+  [tzdata](https://github.com/python/tzdata) | `2026.1` | `2026.3` | |
+  [numpy](https://github.com/numpy/numpy) | `2.4.4` | `2.4.6` | |
+  [recurring-ical-events](https://github.com/niccokunzmann/python-recurring-ical-events) | `3.8.1` |
+  `3.8.2` | | [feedparser](https://github.com/kurtmckee/feedparser) | `6.0.12` | `6.0.14` | |
+  [prometheus-client](https://github.com/prometheus/client_python) | `0.25.0` | `0.26.0` | |
+  [black](https://github.com/psf/black) | `26.3.1` | `26.5.1` | |
+  [gitpython](https://github.com/gitpython-developers/GitPython) | `3.1.58` | `3.1.61` | |
+  [hypothesis](https://github.com/HypothesisWorks/hypothesis) | `6.151.12` | `6.167.0` | |
+  [pip-audit](https://github.com/pypa/pip-audit) | `2.10.0` | `2.10.1` | |
+  [pip-tools](https://github.com/jazzband/pip-tools) | `7.5.3` | `7.6.1` | |
+  [playwright](https://github.com/microsoft/playwright-python) | `1.58.0` | `1.62.0` | |
+  [pre-commit](https://github.com/pre-commit/pre-commit) | `4.5.1` | `4.6.2` | |
+  [pytest](https://github.com/pytest-dev/pytest) | `9.0.3` | `9.1.1` | |
+  [pytest-rerunfailures](https://github.com/pytest-dev/pytest-rerunfailures) | `16.1` | `16.6` | |
+  [ruff](https://github.com/astral-sh/ruff) | `0.15.10` | `0.16.5` | |
+  [types-requests](https://github.com/python/typeshed) | `2.32.0.20241016` | `2.33.0.20260712` |
+
+Updates `python-dotenv` from 1.2.2 to 1.2.3 - [Release
+  notes](https://github.com/theskumar/python-dotenv/releases) -
+  [Changelog](https://github.com/theskumar/python-dotenv/blob/main/CHANGELOG.md) -
+  [Commits](https://github.com/theskumar/python-dotenv/compare/v1.2.2...v1.2.3)
+
+Updates `inky` from 2.3.0 to 2.4.0 - [Release notes](https://github.com/pimoroni/inky/releases) -
+  [Changelog](https://github.com/pimoroni/inky/blob/main/CHANGELOG.md) -
+  [Commits](https://github.com/pimoroni/inky/compare/v2.3.0...v2.4.0)
+
+Updates `requests` from 2.33.1 to 2.34.2 - [Release notes](https://github.com/psf/requests/releases)
+  - [Changelog](https://github.com/psf/requests/blob/main/HISTORY.md) -
+  [Commits](https://github.com/psf/requests/compare/v2.33.1...v2.34.2)
+
+Updates `pi-heif` from 1.3.0 to 1.4.0 - [Release
+  notes](https://github.com/bigcat88/pillow_heif/releases) -
+  [Changelog](https://github.com/bigcat88/pillow_heif/blob/master/CHANGELOG.md) -
+  [Commits](https://github.com/bigcat88/pillow_heif/compare/v1.3.0...v1.4.0)
+
+Updates `tzdata` from 2026.1 to 2026.3 - [Release notes](https://github.com/python/tzdata/releases)
+  - [Changelog](https://github.com/python/tzdata/blob/master/NEWS.md) -
+  [Commits](https://github.com/python/tzdata/compare/2026.1...2026.3)
+
+Updates `numpy` from 2.4.4 to 2.4.6 - [Release notes](https://github.com/numpy/numpy/releases) -
+  [Changelog](https://github.com/numpy/numpy/blob/main/doc/RELEASE_WALKTHROUGH.rst) -
+  [Commits](https://github.com/numpy/numpy/compare/v2.4.4...v2.4.6)
+
+Updates `recurring-ical-events` from 3.8.1 to 3.8.2 - [Release
+  notes](https://github.com/niccokunzmann/python-recurring-ical-events/releases) -
+  [Changelog](https://github.com/niccokunzmann/python-recurring-ical-events/blob/main/docs/changelog.md)
+  - [Commits](https://github.com/niccokunzmann/python-recurring-ical-events/compare/v3.8.1...v3.8.2)
+
+Updates `feedparser` from 6.0.12 to 6.0.14 - [Release
+  notes](https://github.com/kurtmckee/feedparser/releases) -
+  [Changelog](https://github.com/kurtmckee/feedparser/blob/main/CHANGELOG.rst) -
+  [Commits](https://github.com/kurtmckee/feedparser/compare/v6.0.12...v6.0.14)
+
+Updates `prometheus-client` from 0.25.0 to 0.26.0 - [Release
+  notes](https://github.com/prometheus/client_python/releases) -
+  [Commits](https://github.com/prometheus/client_python/compare/v0.25.0...v0.26.0)
+
+Updates `black` from 26.3.1 to 26.5.1 - [Release notes](https://github.com/psf/black/releases) -
+  [Changelog](https://github.com/psf/black/blob/main/CHANGES.md) -
+  [Commits](https://github.com/psf/black/compare/26.3.1...26.5.1)
+
+Updates `gitpython` from 3.1.58 to 3.1.61 - [Release
+  notes](https://github.com/gitpython-developers/GitPython/releases) -
+  [Changelog](https://github.com/gitpython-developers/GitPython/blob/main/CHANGES) -
+  [Commits](https://github.com/gitpython-developers/GitPython/compare/3.1.58...3.1.61)
+
+Updates `hypothesis` from 6.151.12 to 6.167.0 - [Release
+  notes](https://github.com/HypothesisWorks/hypothesis/releases) -
+  [Commits](https://github.com/HypothesisWorks/hypothesis/compare/hypothesis-python-6.151.12...v6.167.0)
+
+Updates `pip-audit` from 2.10.0 to 2.10.1 - [Release
+  notes](https://github.com/pypa/pip-audit/releases) -
+  [Changelog](https://github.com/pypa/pip-audit/blob/main/CHANGELOG.md) -
+  [Commits](https://github.com/pypa/pip-audit/compare/v2.10.0...v2.10.1)
+
+Updates `pip-tools` from 7.5.3 to 7.6.1 - [Release
+  notes](https://github.com/jazzband/pip-tools/releases) -
+  [Changelog](https://github.com/jazzband/pip-tools/blob/main/CHANGELOG.md) -
+  [Commits](https://github.com/jazzband/pip-tools/compare/v7.5.3...v7.6.1)
+
+Updates `playwright` from 1.58.0 to 1.62.0 - [Release
+  notes](https://github.com/microsoft/playwright-python/releases) -
+  [Commits](https://github.com/microsoft/playwright-python/compare/v1.58.0...v1.62.0)
+
+Updates `pre-commit` from 4.5.1 to 4.6.2 - [Release
+  notes](https://github.com/pre-commit/pre-commit/releases) -
+  [Changelog](https://github.com/pre-commit/pre-commit/blob/main/CHANGELOG.md) -
+  [Commits](https://github.com/pre-commit/pre-commit/compare/v4.5.1...v4.6.2)
+
+Updates `pytest` from 9.0.3 to 9.1.1 - [Release
+  notes](https://github.com/pytest-dev/pytest/releases) -
+  [Changelog](https://github.com/pytest-dev/pytest/blob/main/CHANGELOG.rst) -
+  [Commits](https://github.com/pytest-dev/pytest/compare/9.0.3...9.1.1)
+
+Updates `pytest-rerunfailures` from 16.1 to 16.6 -
+  [Changelog](https://github.com/pytest-dev/pytest-rerunfailures/blob/master/CHANGES.rst) -
+  [Commits](https://github.com/pytest-dev/pytest-rerunfailures/compare/16.1...16.6)
+
+Updates `ruff` from 0.15.10 to 0.16.5 - [Release notes](https://github.com/astral-sh/ruff/releases)
+  - [Changelog](https://github.com/astral-sh/ruff/blob/main/CHANGELOG.md) -
+  [Commits](https://github.com/astral-sh/ruff/compare/0.15.10...0.16.5)
+
+Updates `types-requests` from 2.32.0.20241016 to 2.33.0.20260712 -
+  [Commits](https://github.com/python/typeshed/commits)
+
+--- updated-dependencies: - dependency-name: black dependency-version: 26.5.1
+
+dependency-type: direct:development
+
+update-type: version-update:semver-minor
+
+dependency-group: minor-and-patch
+
+- dependency-name: feedparser dependency-version: 6.0.14
+
+dependency-type: direct:production
+
+update-type: version-update:semver-patch
+
+- dependency-name: gitpython dependency-version: 3.1.61
+
+- dependency-name: hypothesis dependency-version: 6.165.10
+
+- dependency-name: inky dependency-version: 2.4.0
+
+- dependency-name: numpy dependency-version: 2.4.6
+
+- dependency-name: pi-heif dependency-version: 1.4.0
+
+- dependency-name: pip-audit dependency-version: 2.10.1
+
+- dependency-name: pip-tools dependency-version: 7.6.1
+
+- dependency-name: playwright dependency-version: 1.62.0
+
+- dependency-name: pre-commit dependency-version: 4.6.2
+
+- dependency-name: prometheus-client dependency-version: 0.26.0
+
+- dependency-name: pytest dependency-version: 9.1.1
+
+- dependency-name: pytest-rerunfailures dependency-version: '16.6'
+
+- dependency-name: python-dotenv dependency-version: 1.2.3
+
+- dependency-name: recurring-ical-events dependency-version: 3.8.2
+
+- dependency-name: requests dependency-version: 2.34.2
+
+- dependency-name: ruff dependency-version: 0.16.5
+
+- dependency-name: types-requests dependency-version: 2.33.0.20260712
+
+- dependency-name: tzdata dependency-version: '2026.3'
+
+dependency-group: minor-and-patch ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps-dev**: Bump mypy from 1.20.0 to 2.3.1
+  ([`46ff625`](https://github.com/cartagena/InkyPi/commit/46ff6251b9b3b82ca0750ae6ec4c79d83f904f17))
+
+Bumps [mypy](https://github.com/python/mypy) from 1.20.0 to 2.3.1. -
+  [Changelog](https://github.com/python/mypy/blob/master/CHANGELOG.md) -
+  [Commits](https://github.com/python/mypy/compare/v1.20.0...v2.3.1)
+
+--- updated-dependencies: - dependency-name: mypy dependency-version: 2.3.1
+
+dependency-type: direct:development
+
+update-type: version-update:semver-major ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps-dev**: Bump pytest-cov from 5.0.0 to 7.1.0
+  ([`b416840`](https://github.com/cartagena/InkyPi/commit/b416840b1884d66970b73a2039c7a3d9eb15166f))
+
+Bumps [pytest-cov](https://github.com/pytest-dev/pytest-cov) from 5.0.0 to 7.1.0. -
+  [Changelog](https://github.com/pytest-dev/pytest-cov/blob/master/CHANGELOG.rst) -
+  [Commits](https://github.com/pytest-dev/pytest-cov/compare/v5.0.0...v7.1.0)
+
+--- updated-dependencies: - dependency-name: pytest-cov dependency-version: 7.1.0
+
+dependency-type: direct:development
+
+update-type: version-update:semver-major ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+### Continuous Integration
+
+- Stop a dead SONAR_TOKEN from failing PRs ([#649](https://github.com/cartagena/InkyPi/pull/649),
+  [`61364e6`](https://github.com/cartagena/InkyPi/commit/61364e6cd171dd1aa95db8ee04b0c8b877f6cd2b))
+
+SonarCloud is failing across 8 of the 12 public repos that run it. The cause is a credential, not
+  code, and a code-quality report should not gate a merge.
+
+continue-on-error goes on the STEP, not the job. landing-page carried it at job level for weeks with
+  the comment "a scan failure never blocks a PR" and its sonarqube check reported red the entire
+  time: a job-level flag stops the workflow failing but does not change the check conclusion.
+
+The scan still runs and still publishes to sonarcloud.io when the token is valid. Only its ability
+  to gate a PR is removed.
+
+Co-authored-by: Claude Opus 5 <noreply@anthropic.com>
+
+
 ## v1.5.0 (2026-09-01)
 
 ### Bug Fixes
