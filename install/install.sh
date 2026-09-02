@@ -477,7 +477,13 @@ create_venv(){
   # pip's default retries=5 already; explicit so a future change to pip default doesn't bite us.
   # JTN-602: --no-cache-dir saves ~200 MB SD + ~50 MB RAM. Cache has no value
   # on the Pi (pip runs once per install, venv rebuilt on reinstall).
-  "$VENV_PATH/bin/python" -m pip install --retries 5 --timeout 60 --no-cache-dir --upgrade pip setuptools wheel > /dev/null
+  # JTN-665 parity: update.sh already captures this failure (a broken pip/
+  # setuptools upgrade must not silently proceed to requirements install and
+  # leave the venv partially broken) — install.sh had not been brought to parity.
+  if ! "$VENV_PATH/bin/python" -m pip install --retries 5 --timeout 60 --no-cache-dir --upgrade pip setuptools wheel > /dev/null; then
+    echo_error "ERROR: pip/setuptools upgrade failed — aborting install."
+    exit 1
+  fi
 
   # JTN-604: Try to fetch a pre-built wheelhouse bundle. When it succeeds,
   # pip/uv can install every dependency from local wheels (no on-device
@@ -527,38 +533,60 @@ create_venv(){
   # flag; instead it reads UV_HTTP_TIMEOUT (seconds) from the environment. We
   # export it on the same line as the uv invocation so it scopes only to that
   # command and doesn't leak into later subshells. 60s matches the pip fallback.
+  # JTN-665 parity: run in the foreground and check the exit code. Backgrounding
+  # this behind show_loader (as install.sh previously did) swallowed failures —
+  # e.g. an OOM-killed uv/pip process still let show_loader's wrapper return 0,
+  # so install.sh reported "Installation Complete!" with an empty/partial venv.
+  # update.sh already does this for the same step; install.sh had not.
+  echo "Installing python dependencies. "
   if [[ "$use_uv" -eq 1 ]]; then
     # uv equivalents: --no-cache (instead of --no-cache-dir), --require-hashes supported.
     # `--python` pins uv to the venv's interpreter so packages land in the venv.
-    UV_HTTP_TIMEOUT=60 "$VENV_PATH/bin/python" -m uv pip install \
+    if ! UV_HTTP_TIMEOUT=60 "$VENV_PATH/bin/python" -m uv pip install \
       --python "$VENV_PATH/bin/python" \
       --no-cache \
       "${uv_extra_args[@]}" \
       --require-hashes \
-      -r "$PIP_REQUIREMENTS_FILE" > /dev/null &
-    show_loader "\tInstalling python dependencies (uv). "
+      -r "$PIP_REQUIREMENTS_FILE"; then
+      cleanup_wheelhouse
+      echo_error "ERROR: uv pip install failed — aborting install."
+      exit 1
+    fi
+    echo_success "\tInstalled python dependencies (uv)."
   else
-    "$VENV_PATH/bin/python" -m pip install --retries 5 --timeout 60 --no-cache-dir \
+    if ! "$VENV_PATH/bin/python" -m pip install --retries 5 --timeout 60 --no-cache-dir \
       "${pip_extra_args[@]}" \
-      --require-hashes -r "$PIP_REQUIREMENTS_FILE" -qq > /dev/null &
-    show_loader "\tInstalling python dependencies (pip fallback). "
+      --require-hashes -r "$PIP_REQUIREMENTS_FILE"; then
+      cleanup_wheelhouse
+      echo_error "ERROR: pip install failed — aborting install."
+      exit 1
+    fi
+    echo_success "\tInstalled python dependencies (pip fallback)."
   fi
 
   # do additional dependencies for Waveshare support.
   if [[ -n "$WS_TYPE" ]]; then
     echo "Adding additional dependencies for waveshare to the python virtual environment. "
     if [[ "$use_uv" -eq 1 ]]; then
-      UV_HTTP_TIMEOUT=60 "$VENV_PATH/bin/python" -m uv pip install \
+      if ! UV_HTTP_TIMEOUT=60 "$VENV_PATH/bin/python" -m uv pip install \
         --python "$VENV_PATH/bin/python" \
         --no-cache \
         "${uv_extra_args[@]}" \
-        -r "$WS_REQUIREMENTS_FILE" > ws_pip_install.log &
-      show_loader "\tInstalling additional Waveshare python dependencies (uv). "
+        -r "$WS_REQUIREMENTS_FILE"; then
+        cleanup_wheelhouse
+        echo_error "ERROR: uv pip install of Waveshare dependencies failed — aborting install."
+        exit 1
+      fi
+      echo_success "\tInstalled additional Waveshare python dependencies (uv)."
     else
-      "$VENV_PATH/bin/python" -m pip install --retries 5 --timeout 60 --no-cache-dir \
+      if ! "$VENV_PATH/bin/python" -m pip install --retries 5 --timeout 60 --no-cache-dir \
         "${pip_extra_args[@]}" \
-        -r "$WS_REQUIREMENTS_FILE" > ws_pip_install.log &
-      show_loader "\tInstalling additional Waveshare python dependencies (pip fallback). "
+        -r "$WS_REQUIREMENTS_FILE"; then
+        cleanup_wheelhouse
+        echo_error "ERROR: pip install of Waveshare dependencies failed — aborting install."
+        exit 1
+      fi
+      echo_success "\tInstalled additional Waveshare python dependencies (pip fallback)."
     fi
   fi
 

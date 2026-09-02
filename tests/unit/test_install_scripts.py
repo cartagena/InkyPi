@@ -1059,6 +1059,72 @@ class TestInstallScript:
         # Suppress unused variable warning — fn_body used as context in debugging
         _ = fn_body
 
+    def test_create_venv_dependency_installs_check_exit_status(self) -> None:
+        # JTN-665 parity: update.sh already checks the exit status of its
+        # requirements install so a failure (e.g. an OOM-killed uv/pip
+        # process) aborts instead of silently continuing with a broken venv.
+        # create_venv() previously backgrounded these same installs (`&`) and
+        # discarded the result into show_loader, which always returns 0
+        # regardless of whether the wrapped command succeeded — install.sh
+        # then reported "Installation Complete!" over a partially-empty venv.
+        # Regression guard: every pip/setuptools/wheel upgrade, main
+        # requirements, and Waveshare requirements install inside
+        # create_venv() must run in the foreground and be guarded by an
+        # `if !`/`exit 1` check, never backgrounded behind show_loader.
+        fn_start = self.content.index("create_venv(){")
+        fn_end = self.content.index("\n}", fn_start)
+        fn_body = self.content[fn_start:fn_end]
+
+        # show_loader must not be *invoked* in create_venv() — it always
+        # returns 0 regardless of whether the backgrounded command it wraps
+        # succeeded, so it cannot propagate a real exit status to the caller.
+        # (Explanatory comments mentioning show_loader by name are fine —
+        # strip comment-only lines before checking for an actual call.)
+        code_only = "\n".join(
+            "" if line.strip().startswith("#") else line
+            for line in fn_body.splitlines()
+        )
+        assert "show_loader" not in code_only, (
+            "create_venv() must not call show_loader for dependency installs "
+            "(JTN-665 parity) — it always returns 0 regardless of whether "
+            "the backgrounded command succeeded"
+        )
+
+        # The critical installs — pip/setuptools/wheel upgrade, main
+        # requirements (both the uv and pip-fallback branches), and Waveshare
+        # requirements (both branches) — must each run in the foreground,
+        # guarded by an `if ! ... ; then` exit-status check. (The uv bootstrap
+        # install, `pip install uv`, is deliberately excluded: it's a soft
+        # fallback — failing it just falls back to pip, it isn't fatal.)
+        logical_lines = self._logical_shell_lines(fn_body)
+        critical_install_lines = [
+            line
+            for line in logical_lines
+            if re.search(r"-m (uv pip|pip) install", line)
+            and not line.strip().startswith("#")
+            and (
+                "PIP_REQUIREMENTS_FILE" in line
+                or "WS_REQUIREMENTS_FILE" in line
+                or "setuptools wheel" in line
+            )
+        ]
+        assert len(critical_install_lines) == 5, (
+            "Expected 5 critical dependency-install invocations in "
+            "create_venv() (pip/setuptools/wheel upgrade, main requirements "
+            "x2 branches, Waveshare requirements x2 branches), found "
+            f"{len(critical_install_lines)}: {critical_install_lines!r}"
+        )
+        for line in critical_install_lines:
+            assert not line.rstrip().endswith("&"), (
+                "dependency install must not be backgrounded — backgrounding "
+                "behind show_loader swallows a non-zero exit status "
+                f"(JTN-665 parity): {line.strip()!r}"
+            )
+            assert re.match(r"\s*if\s+!\s", line), (
+                "dependency install must be guarded by an 'if ! ... ; then' "
+                f"exit-status check (JTN-665 parity): {line.strip()!r}"
+            )
+
 
 # ---- Wheelhouse release asset (JTN-604 / JTN-669) ----
 
@@ -1612,9 +1678,9 @@ class TestPiImageBuildWorkflow:
             "actions/upload-artifact",
             "actions/download-artifact",
         ):
-            assert re.search(rf"{re.escape(action)}@v\d+", self.content), (
-                f"{action} is not pinned to a major version in this workflow"
-            )
+            assert re.search(
+                rf"{re.escape(action)}@v\d+", self.content
+            ), f"{action} is not pinned to a major version in this workflow"
 
     def test_workflow_uploads_release_asset(self) -> None:
         assert "softprops/action-gh-release" in self.content
