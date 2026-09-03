@@ -1,6 +1,113 @@
 # CHANGELOG
 
 
+## v1.6.0 (2026-09-03)
+
+### Bug Fixes
+
+- Address code review findings for button/blackout feature
+  ([`7001b52`](https://github.com/cartagena/InkyPi/commit/7001b5221c81b94e3785558433d9a2f778486cba))
+
+- inkypi.py: ButtonTask was never started in the production __main__ path (only the Flask dev-server
+  before_request hook started it) — the entire physical-button feature was dead outside --dev. Start
+  and stop it alongside RefreshTask in both the run and shutdown paths. - refresh_task/task.py:
+  advance_playlist_next() and refresh_current() now check blackout_active before touching the
+  playlist at all. Previously only manual_update() checked it, but get_next_eligible_plugin()
+  commits current_plugin_index before manual_update() ever runs, so a next_playlist_item button
+  press (or /display-next) during blackout silently skipped a playlist item. - blueprints/main.py:
+  /display-next now returns 409 up front when blackout is active, for the same reason. -
+  blueprints/settings/_config.py: reject two buttons configured with the same active GPIO pin —
+  previously ButtonTask.start() would silently let the second one clobber the first in its
+  offset->label map, so only one of the two actions ever fired. - security_middleware.py: exempt the
+  button-press test endpoint from the mutation rate limiter, matching its CSRF exemption, so
+  debounce tests can fire rapid repeated presses without 429s. - button_task.py /
+  button_press_test.py: dedupe the button-label tuple into one exported VALID_LABELS constant, and
+  add docstrings to _pins/_actions/_handle_press per CLAUDE.md's convention for non-trivial private
+  helpers.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01NhZuvDZt3Uxfo7CVGJMFm5
+
+- Address PR #36 code review findings and CI failures
+  ([`3761fc0`](https://github.com/cartagena/InkyPi/commit/3761fc061376210c4a920f8588cf021d5591063f))
+
+- display_manager.py: add DisplayManager._write_lock around the actual hardware write.
+  set_blackout() can call display_image() directly from a Flask request thread or the ButtonTask
+  poll thread while a refresh is mid-write on the RefreshTask thread — previously only the
+  hash-dedup check was locked, so two threads could hit the Inky/Waveshare driver concurrently. -
+  button_task.py: stop() no longer clears self.thread/self._request when the poll thread doesn't
+  exit within its join timeout (it can legitimately block for minutes inside a slow plugin's
+  manual_update() call). Clearing them let a subsequent start() (the settings-save restart path)
+  spin up a second poller sharing the old, still-in-use GPIO request. Leaving them in place keeps
+  start()'s "already running" guard correctly refusing to double-start; the stale thread exits on
+  its own once its blocked call returns. - button_press_test.py: re-bind the validated button label
+  to the matching literal out of VALID_LABELS before it flows into the JSON response, so the value
+  CodeQL sees there is traceable to a fixed tuple rather than directly to request input (addresses a
+  reflected- XSS alert blocking the required CodeQL check; the endpoint's own Content-Type:
+  application/json response was never actually exploitable, but this makes that traceable to
+  CodeQL's dataflow analysis too). - _config.py: merge new buttons.pins/actions into the
+  previously-saved values before persisting, instead of letting update_config()'s wholesale dict
+  replacement wipe out any button label omitted from the current submission. Not reachable via the
+  shipped settings.html (always submits all 4 buttons) but reachable via any other caller of
+  /save_settings. - Fixed PR title to "feat: ..." (was "feat - ...", which fails the required
+  Conventional Commits title check).
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01NhZuvDZt3Uxfo7CVGJMFm5
+
+- Restore refresh_task/task.py branch coverage for the CI gate
+  ([`c248774`](https://github.com/cartagena/InkyPi/commit/c248774c78b1de4aae80e6a6d752f160514a2df6))
+
+scripts/preflash_validate.sh's coverage_suite() runs a curated subset of tests against --cov=src,
+  then scripts/coverage_gate.py enforces a per-file line/branch-rate floor — refresh_task/task.py
+  requires 50% branch coverage. The new blackout/advance_playlist_next/refresh_current branches
+  added on this branch aren't exercised by that curated list (their tests live in separate files),
+  which dropped the file's branch rate to 44.8%. Add those three test files to the list; branch rate
+  is back up to 61.9%.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01NhZuvDZt3Uxfo7CVGJMFm5
+
+### Features
+
+- Auto-detect GPIO pin for button C on 13.3" Inky Impression
+  ([`ff5a28c`](https://github.com/cartagena/InkyPi/commit/ff5a28c94f3cc997064b27c48ffe4f274f002249))
+
+The 13.3" Impression wires button C to GPIO 25 instead of the GPIO 16 every other size
+  (4"/5.7"/7.3") uses. button_task.default_pins() picks 25 automatically from the panel resolution
+  InkyDisplay.initialize_display() already stores in device_config (1600x1200 is unique to the
+  13.3"), falling back to 16 when the resolution is unknown or doesn't match. An explicit
+  buttons.pins.C in config still overrides the guess. The settings page's pin placeholder now
+  reflects the same detection.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01NhZuvDZt3Uxfo7CVGJMFm5
+
+- Support configurable Inky Impression physical button actions
+  ([`9c9b5bb`](https://github.com/cartagena/InkyPi/commit/9c9b5bb9a744ec454a43a8400627abf88c53ffe9))
+
+Adds ButtonTask, a GPIO-polling thread (gpiod/gpiodevice, already transitive deps of inky) that
+  dispatches per-button (A-D) configurable actions — next_playlist_item, refresh_now,
+  blackout_toggle, or none — through RefreshTask.manual_update() so display/config writes always run
+  on the refresh thread rather than the button-poll thread.
+
+Includes: - RefreshTask.advance_playlist_next/refresh_current/set_blackout, the new dispatch targets
+  buttons (and /api/blackout) call into. - Playlist.get_current_plugin(), a non-mutating lookup of
+  what's currently on screen, needed for refresh_now. - A "Physical buttons" settings UI section
+  (pins/actions/debounce per button), gated on display_type == "inky". - GET/POST /api/blackout, a
+  bookmortable kill switch that pauses refreshes and blanks the display. - An opt-in
+  /__test/button_press endpoint (--dev or INKYPI_ENABLE_BUTTON_PRESS_TEST=1 only) so configured
+  actions can be exercised without real GPIO hardware.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01NhZuvDZt3Uxfo7CVGJMFm5
+
+
 ## v1.5.1 (2026-09-02)
 
 ### Bug Fixes
