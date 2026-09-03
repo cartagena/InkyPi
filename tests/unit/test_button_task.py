@@ -108,6 +108,51 @@ def test_start_stop_lifecycle(monkeypatch: pytest.MonkeyPatch) -> None:
     request.release.assert_called_once()
 
 
+def test_stop_leaves_thread_and_request_alone_when_join_times_out() -> None:
+    """Regression: stop() must not clear thread/_request/_offset_labels when
+    the poll thread is still alive after the join timeout — a button action
+    can legitimately block inside manual_update() for minutes (e.g. ai_image),
+    and clearing state here would let a subsequent start() spin up a second
+    poller sharing the old (still possibly in-use) GPIO request."""
+    task, _ = _make_button_task({"display_type": "inky"})
+    stuck_thread = MagicMock()
+    stuck_thread.is_alive.return_value = True
+    task.thread = stuck_thread
+    request = MagicMock()
+    task._request = request
+    task._offset_labels = {5: "A"}
+    task.running = True
+
+    task.stop()
+
+    assert task.running is False
+    stuck_thread.join.assert_called_once_with(timeout=5)
+    assert task.thread is stuck_thread
+    assert task._request is request
+    assert task._offset_labels == {5: "A"}
+    request.release.assert_not_called()
+
+
+def test_start_refuses_when_thread_still_alive_after_timed_out_stop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A still-alive self.thread (left in place by the stop() regression
+    above) must make start()'s guard refuse to spin up a second poller."""
+    request = MagicMock()
+    request.wait_edge_events.return_value = False
+    _fake_gpiod, fake_gpiodevice = _install_fake_gpiod(monkeypatch, request)
+
+    task, _ = _make_button_task({"display_type": "inky"})
+    stuck_thread = MagicMock()
+    stuck_thread.is_alive.return_value = True
+    task.thread = stuck_thread
+
+    task.start()
+
+    fake_gpiodevice.find_chip_by_platform.assert_not_called()
+    assert task.thread is stuck_thread
+
+
 def _make_event(line_offset: int) -> Any:
     event = MagicMock()
     event.line_offset = line_offset

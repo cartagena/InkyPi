@@ -215,12 +215,31 @@ class ButtonTask:
         )
 
     def stop(self) -> None:
-        """Stop the button-poll thread and release the GPIO lines."""
+        """Stop the button-poll thread and release the GPIO lines.
+
+        If the poll thread doesn't exit within the join timeout — it can be
+        blocked inside a slow action's ``manual_update()`` call, which
+        allows up to several minutes for some plugins — this deliberately
+        leaves ``self.thread``/``self._request`` untouched rather than
+        clearing them. A still-alive ``self.thread`` makes ``start()``'s
+        "already running" guard correctly refuse to spin up a second
+        poller against the same GPIO request while the old one might still
+        be using it; releasing ``self._request`` here instead would hand a
+        stale/freed request to a thread still calling methods on it.
+        The stale thread exits on its own once its blocked call returns
+        (``self.running`` is already False by then); cleanup then happens
+        on the next call to ``stop()``.
+        """
         self.running = False
         if self.thread:
             self.thread.join(timeout=5)
             if self.thread.is_alive():
-                logger.warning("Button task thread did not stop within timeout")
+                logger.warning(
+                    "Button task thread did not stop within timeout; leaving "
+                    "it and its GPIO request alone to avoid a use-after-free "
+                    "race with a still in-flight button action"
+                )
+                return
         self.thread = None
         if self._request is not None:
             try:

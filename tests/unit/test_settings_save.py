@@ -358,6 +358,45 @@ class TestSaveSettings:
             },
         }
 
+    def test_save_settings_partial_buttons_preserves_other_labels(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        """Regression: a submission naming only button A (not reachable via
+        the shipped UI, which always submits all 4, but reachable via any
+        other caller of /save_settings) must not wipe B/C/D's previously
+        saved pins/actions — update_config() replaces the whole "buttons"
+        key wholesale, so _config.py has to merge them back in first."""
+        device_config_dev.update_value(
+            "buttons",
+            {
+                "enabled": True,
+                "debounce_seconds": 1.0,
+                "pins": {"A": 5, "B": 6, "C": 16, "D": 24},
+                "actions": {
+                    "A": "next_playlist_item",
+                    "B": "refresh_now",
+                    "C": "blackout_toggle",
+                    "D": "none",
+                },
+            },
+        )
+
+        form = {
+            **self.VALID_FORM,
+            "buttonAPin": "5",
+            "buttonAAction": "refresh_now",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 200
+
+        buttons = device_config_dev.get_config("buttons")
+        assert buttons["actions"]["A"] == "refresh_now"
+        # B/C/D untouched by this submission.
+        assert buttons["pins"] == {"A": 5, "B": 6, "C": 16, "D": 24}
+        assert buttons["actions"]["B"] == "refresh_now"
+        assert buttons["actions"]["C"] == "blackout_toggle"
+        assert buttons["actions"]["D"] == "none"
+
     def test_save_settings_without_buttons_leaves_config_untouched(
         self, client: FlaskClient, device_config_dev: Any
     ) -> None:

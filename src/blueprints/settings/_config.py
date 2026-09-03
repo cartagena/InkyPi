@@ -712,6 +712,22 @@ def save_settings() -> Any:
         settings, plugin_cycle_interval_seconds = _build_settings_dict(
             form_data, normalized_device_name
         )
+        if "buttons" in settings:
+            # update_config() below replaces the whole "buttons" key rather
+            # than merging it, and _build_settings_dict only includes labels
+            # actually present in form_data. The shipped settings.html always
+            # submits all 4, but any other caller sending a partial set (e.g.
+            # a script that only POSTs button A) would otherwise silently
+            # wipe the other buttons' previously-saved pins/actions.
+            previous = previous_buttons if isinstance(previous_buttons, dict) else {}
+            settings["buttons"]["pins"] = {
+                **previous.get("pins", {}),
+                **settings["buttons"]["pins"],
+            }
+            settings["buttons"]["actions"] = {
+                **previous.get("actions", {}),
+                **settings["buttons"]["actions"],
+            }
         device_config.update_config(settings)
         configure_log_timezone(settings.get("timezone"))
 

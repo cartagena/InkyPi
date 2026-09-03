@@ -94,14 +94,19 @@ def register_button_press_test_endpoint(app: Flask) -> None:
         if not button_press_test_enabled():
             return json_error("Button press test endpoint not enabled", status=404)
 
-        label = _extract_button_label()
-        if label not in VALID_LABELS:
+        raw_label = _extract_button_label()
+        if raw_label not in VALID_LABELS:
             return json_error(
                 "button must be one of A, B, C, D",
                 status=422,
                 code="validation_error",
                 details={"field": "button"},
             )
+        # Re-bind to the matching literal out of VALID_LABELS rather than
+        # reusing raw_label from here on: the values below land in the JSON
+        # response, and sourcing them from the fixed tuple instead of
+        # directly from request input keeps them clearly untainted.
+        label = next(candidate for candidate in VALID_LABELS if candidate == raw_label)
 
         button_task = current_app.config.get("BUTTON_TASK")
         if button_task is None:
