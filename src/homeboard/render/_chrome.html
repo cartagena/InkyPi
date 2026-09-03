@@ -1,0 +1,31 @@
+{# Shared header/footer chrome (SPEC §4.2), authored once and rendered
+   through homeboard.chrome.build_chrome() into plain HTML strings that
+   every screen's standalone template drops in directly. Not extended via
+   Jinja {% extends %} — see homeboard/chrome.py for why. #}
+
+{% macro header_html(title, meta) %}
+<div class="hb-header">
+  <div class="hb-title">{{ title }}</div>
+  <div class="hb-meta">{{ meta }}</div>
+</div>
+<div class="hb-header-rule"></div>
+{% endmacro %}
+
+{% macro footer_html(source, sync_text) %}
+<div class="hb-footer-rule"></div>
+<div class="hb-footer">
+  <div class="hb-source">{{ source }}</div>
+  <div class="hb-sync">{{ sync_text }}</div>
+</div>
+{% endmacro %}
+
+{% macro empty_state_html(title, message) %}
+<div class="hb-empty-state">
+  <div class="hb-empty-title">{{ title }}</div>
+  <div class="hb-empty-message">{{ message }}</div>
+</div>
+{% endmacro %}
+
+{% macro too_small_html() %}
+<div class="hb-too-small">Panel too small for this screen</div>
+{% endmacro %}

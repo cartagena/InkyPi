@@ -1,0 +1,120 @@
+/* Shared chrome positioning (SPEC §3.3, §4.2). Consumes the custom
+   properties emitted by homeboard.layout.tokens_css() and
+   homeboard.palette.palette_css() — every screen includes both alongside
+   this file via homeboard.chrome.build_chrome(). */
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: sans-serif;
+  position: relative;
+  overflow: hidden;
+}
+
+.hb-header,
+.hb-header-rule,
+.hb-footer,
+.hb-footer-rule {
+  position: absolute;
+  left: var(--margin-x);
+  width: var(--content-w);
+}
+
+.hb-header {
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: var(--fs-title);
+  font-weight: 500;
+}
+
+.hb-header .hb-meta {
+  font-size: var(--fs-label);
+  font-weight: 400;
+}
+
+.hb-header-rule {
+  top: var(--header-rule);
+  height: 1px;
+  background: var(--color-ink);
+}
+
+.hb-footer-rule {
+  bottom: var(--footer-rule);
+  height: 1px;
+  background: var(--color-ink);
+}
+
+.hb-footer {
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--fs-small);
+}
+
+.hb-empty-state,
+.hb-too-small {
+  position: absolute;
+  top: var(--body-top);
+  left: var(--margin-x);
+  width: var(--content-w);
+  text-align: center;
+  font-size: var(--fs-item);
+}
+
+.hb-empty-title {
+  font-weight: 500;
+  margin-bottom: 0.4em;
+}
+
+.hb-empty-message,
+.hb-too-small {
+  font-size: var(--fs-body);
+}
+
+/* Size/age tag chips (SPEC §4.3) — shared building block, per-screen CSS
+   positions them within its own layout. */
+
+.hb-chip {
+  display: inline-block;
+  font-size: var(--fs-small);
+  line-height: 1.1em;
+  padding: 0 0.5em;
+  border-radius: 0.55em;
+  border: 1px solid var(--color-ink);
+  color: var(--color-ink);
+  background: transparent;
+}
+
+.hb-chip[data-role="available"] {
+  border-color: var(--color-available);
+  color: var(--color-available);
+}
+
+.hb-chip[data-role="warn"][data-solid="1"] {
+  background: var(--color-warn);
+  border-color: var(--color-warn);
+  color: var(--color-ink);
+  font-weight: 700;
+}
+
+.hb-chip[data-role="warn"][data-solid="0"] {
+  border-color: var(--color-ink);
+  color: var(--color-ink);
+  font-weight: 700;
+}
+
+.hb-chip[data-role="alert"] {
+  background: var(--color-alert);
+  border-color: var(--color-alert);
+  color: var(--color-paper);
+}
+
+.hb-chip[data-role="emphasis"] {
+  border-color: var(--color-emphasis);
+  color: var(--color-emphasis);
+}
