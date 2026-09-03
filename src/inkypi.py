@@ -17,6 +17,7 @@ from werkzeug.serving import is_running_from_reloader
 
 from app_setup.asset_helpers import setup_asset_helpers
 from app_setup.blueprints_registry import register_blueprints
+from app_setup.button_press_test import register_button_press_test_endpoint
 
 # Re-exports for backwards compatibility — some tests and external code
 # import these symbols from `inkypi` directly. Kept here as module-level
@@ -57,6 +58,7 @@ from app_setup.signals import (
     setup_signal_handlers as _setup_signal_handlers,
 )
 from app_setup.smoke import register_smoke_endpoints
+from button_task import ButtonTask
 from config import Config
 from display.display_manager import DisplayManager
 from plugins.plugin_registry import load_plugins, pop_hot_reload_info
@@ -358,6 +360,7 @@ def _init_core_services(app: Flask) -> Config:
 
     display_manager = DisplayManager(device_config)
     refresh_task = RefreshTask(device_config, display_manager)
+    button_task = ButtonTask(device_config, refresh_task)
 
     if FAST_DEV:
         try:
@@ -382,6 +385,7 @@ def _init_core_services(app: Flask) -> Config:
     app.config["DEVICE_CONFIG"] = device_config
     app.config["DISPLAY_MANAGER"] = display_manager
     app.config["REFRESH_TASK"] = refresh_task
+    app.config["BUTTON_TASK"] = button_task
     app.config["WEB_ONLY"] = WEB_ONLY
 
     return device_config
@@ -410,6 +414,9 @@ def _register_before_request_hooks(app: Flask) -> None:
             if rt and not rt.running:
                 logger.info("Starting refresh task (flask dev server lazy start)")
                 rt.start()
+            bt = app.config.get("BUTTON_TASK")
+            if bt and not bt.running:
+                bt.start()
 
     @app.before_request
     def _start_request_timer() -> None:
@@ -607,6 +614,9 @@ def create_app() -> Flask:
     # JTN-613: opt-in smoke-test render endpoint. No-op unless
     # INKYPI_SMOKE_FORCE_RENDER=1 is set in the environment.
     register_smoke_endpoints(app)
+    # Opt-in hardware-free button-press endpoint: on in --dev, or explicitly
+    # via INKYPI_ENABLE_BUTTON_PRESS_TEST=1. No-op otherwise.
+    register_button_press_test_endpoint(app)
 
     _register_before_request_hooks(app)
     setup_https_redirect(app, dev_mode=DEV_MODE)
@@ -723,6 +733,9 @@ if __name__ == "__main__":
     refresh_task_obj = created_app.config.get("REFRESH_TASK")
     if not WEB_ONLY and not is_running_from_reloader() and refresh_task_obj is not None:
         refresh_task_obj.start()
+        button_task_obj = created_app.config.get("BUTTON_TASK")
+        if button_task_obj is not None:
+            button_task_obj.start()
     else:
         logger.info("Web-only mode enabled: background refresh task will not start")
 
@@ -781,3 +794,6 @@ if __name__ == "__main__":
         refresh_task_obj = created_app.config.get("REFRESH_TASK")
         if refresh_task_obj is not None:
             refresh_task_obj.stop()
+        button_task_obj = created_app.config.get("BUTTON_TASK")
+        if button_task_obj is not None:
+            button_task_obj.stop()

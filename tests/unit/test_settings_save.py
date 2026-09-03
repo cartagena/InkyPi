@@ -327,6 +327,172 @@ class TestSaveSettings:
         img_settings = device_config_dev.get_config("image_settings")
         assert img_settings["inky_saturation"] == 0.7
 
+    def test_save_settings_with_buttons(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        form = {
+            **self.VALID_FORM,
+            "buttonsEnabled": "on",
+            "buttonDebounceSeconds": "0.5",
+            "buttonAPin": "5",
+            "buttonAAction": "next_playlist_item",
+            "buttonBPin": "6",
+            "buttonBAction": "refresh_now",
+            "buttonCPin": "25",
+            "buttonCAction": "none",
+            "buttonDPin": "24",
+            "buttonDAction": "none",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 200
+        buttons = device_config_dev.get_config("buttons")
+        assert buttons == {
+            "enabled": True,
+            "debounce_seconds": 0.5,
+            "pins": {"A": 5, "B": 6, "C": 25, "D": 24},
+            "actions": {
+                "A": "next_playlist_item",
+                "B": "refresh_now",
+                "C": "none",
+                "D": "none",
+            },
+        }
+
+    def test_save_settings_partial_buttons_preserves_other_labels(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        """Regression: a submission naming only button A (not reachable via
+        the shipped UI, which always submits all 4, but reachable via any
+        other caller of /save_settings) must not wipe B/C/D's previously
+        saved pins/actions — update_config() replaces the whole "buttons"
+        key wholesale, so _config.py has to merge them back in first."""
+        device_config_dev.update_value(
+            "buttons",
+            {
+                "enabled": True,
+                "debounce_seconds": 1.0,
+                "pins": {"A": 5, "B": 6, "C": 16, "D": 24},
+                "actions": {
+                    "A": "next_playlist_item",
+                    "B": "refresh_now",
+                    "C": "blackout_toggle",
+                    "D": "none",
+                },
+            },
+        )
+
+        form = {
+            **self.VALID_FORM,
+            "buttonAPin": "5",
+            "buttonAAction": "refresh_now",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 200
+
+        buttons = device_config_dev.get_config("buttons")
+        assert buttons["actions"]["A"] == "refresh_now"
+        # B/C/D untouched by this submission.
+        assert buttons["pins"] == {"A": 5, "B": 6, "C": 16, "D": 24}
+        assert buttons["actions"]["B"] == "refresh_now"
+        assert buttons["actions"]["C"] == "blackout_toggle"
+        assert buttons["actions"]["D"] == "none"
+
+    def test_save_settings_without_buttons_leaves_config_untouched(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        resp = client.post("/save_settings", data=self.VALID_FORM)
+        assert resp.status_code == 200
+        assert device_config_dev.get_config("buttons") is None
+
+    def test_save_settings_with_blackout_toggle_action(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        form = {
+            **self.VALID_FORM,
+            "buttonAPin": "5",
+            "buttonAAction": "blackout_toggle",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 200
+        buttons = device_config_dev.get_config("buttons")
+        assert buttons["actions"]["A"] == "blackout_toggle"
+
+    def test_save_settings_invalid_button_action_rejected(
+        self, client: FlaskClient
+    ) -> None:
+        form = {
+            **self.VALID_FORM,
+            "buttonAPin": "5",
+            "buttonAAction": "launch_missiles",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 422
+
+    def test_save_settings_invalid_button_pin_rejected(
+        self, client: FlaskClient
+    ) -> None:
+        form = {**self.VALID_FORM, "buttonAPin": "not-a-number"}
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 422
+
+    def test_save_settings_negative_debounce_rejected(
+        self, client: FlaskClient
+    ) -> None:
+        form = {
+            **self.VALID_FORM,
+            "buttonAPin": "5",
+            "buttonDebounceSeconds": "-1",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 422
+
+    def test_save_settings_duplicate_active_pins_rejected(
+        self, client: FlaskClient
+    ) -> None:
+        """Two buttons on the same GPIO line silently clobber each other in
+        ButtonTask.start()'s offset->label map — must be rejected up front."""
+        form = {
+            **self.VALID_FORM,
+            "buttonAPin": "5",
+            "buttonAAction": "next_playlist_item",
+            "buttonBPin": "5",
+            "buttonBAction": "refresh_now",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 422
+
+    def test_save_settings_duplicate_pin_allowed_when_one_button_is_none(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        """A pin collision is harmless if only one of the two buttons is
+        actually wired up (action != "none") — no GPIO line is requested
+        for the other, so nothing can clobber it."""
+        form = {
+            **self.VALID_FORM,
+            "buttonAPin": "5",
+            "buttonAAction": "next_playlist_item",
+            "buttonBPin": "5",
+            "buttonBAction": "none",
+        }
+        resp = client.post("/save_settings", data=form)
+        assert resp.status_code == 200
+        assert device_config_dev.get_config("buttons")["pins"]["B"] == 5
+
+    def test_save_settings_restarts_button_task_when_buttons_change(
+        self, client: FlaskClient, flask_app: Any
+    ) -> None:
+        from unittest.mock import MagicMock
+
+        button_task = MagicMock()
+        flask_app.config["BUTTON_TASK"] = button_task
+
+        form = {**self.VALID_FORM, "buttonAPin": "5", "buttonAAction": "refresh_now"}
+        resp = client.post("/save_settings", data=form)
+
+        assert resp.status_code == 200
+        button_task.stop.assert_called_once()
+        button_task.start.assert_called_once()
+
     def test_save_settings_triggers_config_change(
         self, client: FlaskClient, device_config_dev: Any
     ) -> None:

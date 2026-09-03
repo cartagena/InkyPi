@@ -75,6 +75,51 @@ def test_display_manager_mock_pipeline(
     assert Path(device_config_dev.processed_image_file).exists()
 
 
+def test_display_manager_serializes_concurrent_hardware_writes(
+    device_config_dev: Any,
+) -> None:
+    """Regression: RefreshTask.set_blackout() can call display_image() from a
+    different thread than the refresh loop while a refresh is mid-write
+    (blackout_toggle button press, or /api/blackout, racing a scheduled
+    refresh). The actual hardware write must be serialized or two threads
+    could call the driver concurrently — see DisplayManager._write_lock.
+    """
+    import threading
+    import time
+
+    device_config_dev.update_value("display_type", "mock")
+    device_config_dev.update_value("resolution", [200, 100])
+
+    from display.display_manager import DisplayManager
+
+    dm = DisplayManager(device_config_dev)
+
+    concurrent = {"count": 0, "max": 0}
+    lock = threading.Lock()
+
+    class SlowDisplay:
+        def display_image(self, image: Any, image_settings: Any = None) -> None:
+            with lock:
+                concurrent["count"] += 1
+                concurrent["max"] = max(concurrent["max"], concurrent["count"])
+            time.sleep(0.05)
+            with lock:
+                concurrent["count"] -= 1
+
+    dm.display = SlowDisplay()  # type: ignore[assignment]
+
+    # Different colors -> different hashes, so neither call is skipped by
+    # the dedup check before reaching the locked hardware-write section.
+    t1 = threading.Thread(target=lambda: dm.display_image(make_image(color="red")))
+    t2 = threading.Thread(target=lambda: dm.display_image(make_image(color="blue")))
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    assert concurrent["max"] == 1
+
+
 def test_display_manager_selects_display_type_mock(device_config_dev: Any) -> None:
     device_config_dev.update_value("display_type", "mock")
     from display.display_manager import DisplayManager

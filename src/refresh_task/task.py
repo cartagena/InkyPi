@@ -164,6 +164,14 @@ class RefreshTask:
         # synchronisation here — single writer, single reader, no read-modify.
         self._work_started_at: float | None = None
         self._watchdog_stall_logged: bool = False
+        # B12: persisted so a restart doesn't silently un-blackout the panel.
+        # `is True` rather than `bool(...)`: an unconfigured MagicMock
+        # device_config (common across the test suite) makes get_config()
+        # return a truthy MagicMock, not the literal False default — `bool()`
+        # of that is True and silently turns blackout on for every such test.
+        self.blackout_active: bool = (
+            device_config.get_config("blackout_active", default=False) is True
+        )
 
     def _examine_previous_boot(self) -> None:
         """Attribute an unclean shutdown and quarantine whatever caused it.
@@ -212,6 +220,12 @@ class RefreshTask:
             except Exception as exc:  # noqa: BLE001  defensive — startup must not fail
                 logger.warning("Orphan render tempfile sweep failed: %s", exc)
             self._examine_previous_boot()
+            if self.blackout_active:
+                # Blackout survived a restart (persisted in device.json) —
+                # the panel likely still shows the last pre-restart frame,
+                # so re-blank it rather than waiting for a scheduled cycle
+                # that will never come while blackout is active.
+                self._blank_display()
             self.thread = threading.Thread(
                 target=self._run, daemon=True, name="RefreshTask"
             )
@@ -457,6 +471,8 @@ class RefreshTask:
             logger.info("Manual update requested")
             refresh_action = manual_request.refresh_action
             request_id = manual_request.request_id
+        elif self.blackout_active:
+            logger.debug("Skipping scheduled refresh: blackout is active")
         else:
             if self.device_config.get_config("log_system_stats"):
                 self.log_system_stats()
@@ -1094,6 +1110,9 @@ class RefreshTask:
                 "Background refresh task is not running, unable to do a manual update"
             )
             return None
+        if self.blackout_active:
+            logger.info("Manual update skipped: blackout is active")
+            return None
 
         request = self._enqueue_manual_request(refresh_action)
 
@@ -1303,6 +1322,117 @@ class RefreshTask:
 
     def get_health_snapshot(self) -> dict[str, Any]:
         return cast(dict[str, Any], self.health_tracker.snapshot())
+
+    def advance_playlist_next(self) -> bool:
+        """Advance to the next eligible playlist plugin, run on this thread.
+
+        Mirrors the ``/display-next`` route's dispatch (see
+        ``blueprints/main.py:display_next``): looks up the next eligible
+        plugin instance and hands it to :meth:`manual_update`, which
+        dispatches it through the background refresh thread rather than
+        touching the display/config from the caller's thread. That
+        discipline matters here specifically because the intended caller is
+        a GPIO button-poll thread — see upstream InkyPi PR #686's design
+        note on avoiding display/config write races.
+
+        Returns True if a refresh was dispatched, False if there was no
+        active playlist or no eligible plugin to show, the refresh task was
+        not running, or blackout is active.
+        """
+        if not self.running:
+            return False
+        if self.blackout_active:
+            # Must be checked before get_next_eligible_plugin(), not left to
+            # manual_update()'s own blackout check: that method runs after
+            # get_next_eligible_plugin() has already committed
+            # current_plugin_index to the next item, so checking only there
+            # would silently skip a playlist item on every press while
+            # blacked out instead of leaving the playlist position alone.
+            logger.info("advance_playlist_next skipped: blackout is active")
+            return False
+        playlist_manager = self.device_config.get_playlist_manager()
+        current_dt = self._get_current_datetime()
+        playlist = playlist_manager.determine_active_playlist(current_dt)
+        if not playlist:
+            return False
+        plugin_instance = playlist.get_next_eligible_plugin(current_dt)
+        if not plugin_instance:
+            return False
+        self.manual_update(PlaylistRefresh(playlist, plugin_instance, force=True))
+        return True
+
+    def refresh_current(self) -> bool:
+        """Re-render whatever plugin instance is currently on screen, in place.
+
+        Unlike :meth:`advance_playlist_next`, this does not change the
+        playlist's ``current_plugin_index`` — it looks up the instance
+        already there (``Playlist.get_current_plugin``) and force-refreshes
+        it. Same manual_update() dispatch discipline as
+        ``advance_playlist_next`` applies here.
+
+        Returns True if a refresh was dispatched, False if there was no
+        active playlist, nothing currently showing from it, the refresh task
+        was not running, or blackout is active.
+        """
+        if not self.running:
+            return False
+        if self.blackout_active:
+            logger.info("refresh_current skipped: blackout is active")
+            return False
+        playlist_manager = self.device_config.get_playlist_manager()
+        current_dt = self._get_current_datetime()
+        playlist = playlist_manager.determine_active_playlist(current_dt)
+        if not playlist:
+            return False
+        plugin_instance = playlist.get_current_plugin()
+        if not plugin_instance:
+            return False
+        self.manual_update(PlaylistRefresh(playlist, plugin_instance, force=True))
+        return True
+
+    def _blank_display(self) -> None:
+        """Push a blank white frame directly to the display.
+
+        Bypasses the refresh loop entirely — same reasoning as the startup
+        image in ``inkypi.py``: this needs to land immediately, not wait for
+        a scheduled cycle that blackout itself would otherwise suppress.
+        Best-effort: a display write failure here must not prevent blackout
+        from taking effect (scheduled/manual refreshes are still paused).
+        """
+        try:
+            from PIL import Image
+
+            blank = Image.new("RGB", self.device_config.get_resolution(), "white")
+            self.display_manager.display_image(blank)
+        except Exception:
+            logger.exception("Failed to blank display for blackout")
+
+    def set_blackout(self, active: bool) -> bool:
+        """Enable or disable blackout: pause refreshes and blank the display.
+
+        JTN B12: a kill switch for guests, photos, or a misbehaving plugin
+        while you're away. While active, both the scheduled refresh cycle
+        (``_select_refresh_action``) and ``manual_update`` (button presses,
+        ``/display-next``, etc.) are no-ops — nothing repaints the panel
+        until this is toggled off again. State is persisted to device.json
+        so a restart doesn't silently clear it (see ``start()``).
+
+        Turning blackout on blanks the display immediately. Turning it off
+        immediately re-shows whatever was on screen (falling back to
+        advancing the playlist if nothing was) rather than leaving the panel
+        blank until the next scheduled cycle.
+
+        Returns the resulting state.
+        """
+        self.blackout_active = bool(active)
+        self.device_config.update_value(
+            "blackout_active", self.blackout_active, write=True
+        )
+        if self.blackout_active:
+            self._blank_display()
+        elif not self.refresh_current():
+            self.advance_playlist_next()
+        return self.blackout_active
 
     def signal_config_change(self) -> None:
         """Notify the background thread that config has changed (e.g., interval updated).

@@ -128,6 +128,8 @@ def safe_reset() -> Any:
 
 @_mod.settings_bp.route("/settings", methods=["GET"])
 def settings_page() -> Any:
+    from button_task import DEFAULT_ACTIONS, default_pins
+
     device_config = current_app.config["DEVICE_CONFIG"]
     timezones = sorted(available_timezones())
     return render_template(
@@ -135,6 +137,8 @@ def settings_page() -> Any:
         device_settings=device_config.get_config(),
         timezones=timezones,
         active_nav="settings",
+        default_button_pins=default_pins(device_config),
+        default_button_actions=DEFAULT_ACTIONS,
     )
 
 
@@ -152,6 +156,8 @@ def diagnostics_redirect() -> Any:
 
 @_mod.settings_bp.route("/settings/backup", methods=["GET"])
 def backup_restore_page() -> Any:
+    from button_task import DEFAULT_ACTIONS, default_pins
+
     device_config = current_app.config["DEVICE_CONFIG"]
     # For now, reuse the main settings page and anchor to a section; separate template can be added later
     return render_template(
@@ -159,6 +165,8 @@ def backup_restore_page() -> Any:
         device_settings=device_config.get_config(),
         timezones=sorted(available_timezones()),
         active_nav="settings",
+        default_button_pins=default_pins(device_config),
+        default_button_actions=DEFAULT_ACTIONS,
     )
 
 
@@ -522,6 +530,71 @@ def _validate_image_settings(form_data: dict[str, str]) -> Any | None:
     return None
 
 
+_BUTTON_LABELS = ("A", "B", "C", "D")
+_BUTTON_ACTIONS = ("none", "next_playlist_item", "refresh_now", "blackout_toggle")
+
+
+def _validate_buttons_settings(form_data: dict[str, str]) -> Any | None:
+    """Validate physical-button config fields in *form_data*, if present.
+
+    The "Physical buttons" card only renders when ``display_type`` is
+    ``"inky"`` (see settings.html), so a submission missing every button
+    field is a non-Inky device and there is nothing to validate.
+    """
+    if not any(f"button{label}Pin" in form_data for label in _BUTTON_LABELS):
+        return None
+
+    debounce = form_data.get("buttonDebounceSeconds")
+    if debounce is not None:
+        try:
+            debounce_value = float(debounce)
+        except (ValueError, TypeError):
+            return _field_error("Invalid debounce value", "buttonDebounceSeconds")
+        if debounce_value < 0:
+            return _field_error(
+                "Debounce must be zero or greater", "buttonDebounceSeconds"
+            )
+
+    pins_by_label: dict[str, int] = {}
+    for label in _BUTTON_LABELS:
+        pin_field = f"button{label}Pin"
+        raw_pin = form_data.get(pin_field)
+        if raw_pin is not None:
+            try:
+                pin_value = int(raw_pin)
+            except (ValueError, TypeError):
+                return _field_error(f"Invalid GPIO pin for button {label}", pin_field)
+            if pin_value < 0:
+                return _field_error(
+                    f"GPIO pin for button {label} must be zero or greater", pin_field
+                )
+            pins_by_label[label] = pin_value
+
+        err = _validate_enum_field(
+            form_data, f"button{label}Action", _BUTTON_ACTIONS, required=False
+        )
+        if err:
+            return err
+
+    # Two buttons can't physically share a GPIO line. ButtonTask.start()
+    # builds its offset->label map per active (non-"none") button in order,
+    # so a collision would silently let the second one clobber the first's
+    # entry and only one of the two configured actions would ever fire.
+    active_pins: dict[int, str] = {}
+    for label, pin_value in pins_by_label.items():
+        action = form_data.get(f"button{label}Action", "none")
+        if action == "none":
+            continue
+        if pin_value in active_pins:
+            return _field_error(
+                f"Button {label} and button {active_pins[pin_value]} are both "
+                f"set to GPIO pin {pin_value}",
+                f"button{label}Pin",
+            )
+        active_pins[pin_value] = label
+    return None
+
+
 def _validate_settings_form(form_data: dict[str, str]) -> tuple[Any | None, str | None]:
     """Validate settings form data and return any error plus normalized fields."""
     normalized_device_name, err = _validate_device_name(form_data)
@@ -560,6 +633,10 @@ def _validate_settings_form(form_data: dict[str, str]) -> tuple[Any | None, str 
     if err:
         return err, None
 
+    err = _validate_buttons_settings(form_data)
+    if err:
+        return err, None
+
     return _validate_image_settings(form_data), normalized_device_name
 
 
@@ -594,6 +671,21 @@ def _build_settings_dict(
         image_settings["inky_saturation"] = float(
             form_data.get("inky_saturation", "0.5")
         )
+    if any(f"button{label}Pin" in form_data for label in _BUTTON_LABELS):
+        settings["buttons"] = {
+            "enabled": form_data.get("buttonsEnabled") == "on",
+            "debounce_seconds": float(form_data.get("buttonDebounceSeconds", "1.0")),
+            "pins": {
+                label: int(form_data[f"button{label}Pin"])
+                for label in _BUTTON_LABELS
+                if f"button{label}Pin" in form_data
+            },
+            "actions": {
+                label: form_data[f"button{label}Action"]
+                for label in _BUTTON_LABELS
+                if f"button{label}Action" in form_data
+            },
+        }
     return settings, plugin_cycle_interval_seconds
 
 
@@ -616,9 +708,26 @@ def save_settings() -> Any:
         previous_interval_seconds = device_config.get_config(
             "plugin_cycle_interval_seconds"
         )
+        previous_buttons = device_config.get_config("buttons")
         settings, plugin_cycle_interval_seconds = _build_settings_dict(
             form_data, normalized_device_name
         )
+        if "buttons" in settings:
+            # update_config() below replaces the whole "buttons" key rather
+            # than merging it, and _build_settings_dict only includes labels
+            # actually present in form_data. The shipped settings.html always
+            # submits all 4, but any other caller sending a partial set (e.g.
+            # a script that only POSTs button A) would otherwise silently
+            # wipe the other buttons' previously-saved pins/actions.
+            previous = previous_buttons if isinstance(previous_buttons, dict) else {}
+            settings["buttons"]["pins"] = {
+                **previous.get("pins", {}),
+                **settings["buttons"]["pins"],
+            }
+            settings["buttons"]["actions"] = {
+                **previous.get("actions", {}),
+                **settings["buttons"]["actions"],
+            }
         device_config.update_config(settings)
         configure_log_timezone(settings.get("timezone"))
 
@@ -626,6 +735,15 @@ def save_settings() -> Any:
             # wake the background thread up to signal interval config change
             refresh_task = current_app.config["REFRESH_TASK"]
             refresh_task.signal_config_change()
+
+        if "buttons" in settings and settings["buttons"] != previous_buttons:
+            # Pins/actions/enabled only take effect at ButtonTask.start(), so
+            # restart it to pick up the new GPIO lines immediately rather
+            # than requiring a full app restart.
+            button_task = current_app.config.get("BUTTON_TASK")
+            if button_task is not None:
+                button_task.stop()
+                button_task.start()
     return json_success(message="Saved settings.")
 
 

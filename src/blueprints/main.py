@@ -692,6 +692,16 @@ def display_next() -> Any:
     display_manager = current_app.config["DISPLAY_MANAGER"]
     playlist_manager = device_config.get_playlist_manager()
 
+    if getattr(refresh_task, "blackout_active", False):
+        # Must be checked before get_next_eligible_plugin() below, which
+        # commits current_plugin_index to the next item unconditionally —
+        # checking only inside manual_update() (as RefreshTask.
+        # advance_playlist_next() used to) would silently skip a playlist
+        # item every time this is called while blacked out.
+        return json_error(
+            "Display is in blackout — resume before advancing.", status=409
+        )
+
     # Determine current time
     current_dt = _current_dt(device_config)
 
@@ -755,6 +765,36 @@ def display_next() -> Any:
 def refresh_alias() -> Any:
     """Backward-compatible alias for manual display advance."""
     return display_next()
+
+
+_TRUTHY_QUERY_VALUES = frozenset({"1", "true", "yes", "on"})
+
+
+@main_bp.route("/api/blackout", methods=["GET", "POST"])
+def blackout() -> Any:
+    """Pause refreshes and blank the display, or resume — a bookmarkable kill switch.
+
+    GET *and* POST both work (GET is the "bookmark this URL" case — a home-
+    screen shortcut or a plain link someone taps on their way out — POST is
+    for a UI button). With no ``active`` param this toggles the current
+    state; pass ``active=1``/``active=0`` (etc.) to set it explicitly.
+    """
+    refresh_task = current_app.config["REFRESH_TASK"]
+    raw_active = (
+        request.form.get("active")
+        if request.method == "POST"
+        else request.args.get("active")
+    )
+    desired = (
+        not refresh_task.blackout_active
+        if raw_active is None
+        else raw_active.strip().lower() in _TRUTHY_QUERY_VALUES
+    )
+    blackout_active = refresh_task.set_blackout(desired)
+    return json_success(
+        message="Blackout enabled." if blackout_active else "Blackout disabled.",
+        blackout_active=blackout_active,
+    )
 
 
 # ---------------------------------------------------------------------------

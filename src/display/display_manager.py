@@ -58,6 +58,14 @@ class DisplayManager:
 
         self._last_image_hash: str | None = None
         self._hash_lock = threading.Lock()
+        #: Guards the actual hardware write (self.display.display_image()).
+        #: Historically this was only ever called from the single RefreshTask
+        #: thread, so no lock was needed; ButtonTask's blackout_toggle action
+        #: (and /api/blackout) can now call display_image() directly from a
+        #: different thread while a refresh is mid-flight on the driver's SPI
+        #: bus, so the write itself needs mutual exclusion, not just the hash
+        #: dedup check _hash_lock already covers.
+        self._write_lock = threading.Lock()
         self.device_config = device_config
         self.display: _DisplayLike
 
@@ -293,9 +301,12 @@ class DisplayManager:
                 except Exception:
                     logger.exception("on_image_saved callback failed")
 
-            # Pass to the concrete instance to render to the device.
+            # Pass to the concrete instance to render to the device. Locked
+            # so two threads (the refresh loop and a direct caller like
+            # blackout) can never both be mid-write to the driver/SPI bus.
             display_t0 = perf_counter()
-            self.display.display_image(image, image_settings)
+            with self._write_lock:
+                self.display.display_image(image, image_settings)
             display_ms = int((perf_counter() - display_t0) * 1000)
         except Exception:
             # Restore the previous hash so the same image can be retried on the
