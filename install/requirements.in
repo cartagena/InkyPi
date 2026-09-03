@@ -20,6 +20,11 @@ google-genai>=1.14,<3
 numpy>=2.0,<3
 icalendar>=6.0,<7
 recurring-ical-events>=3.0,<4
+# homeboard gsheets adapter (trips, home_maintenance) — read-only Sheets
+# access via a service account. google-auth is already pulled in
+# transitively by google-genai; pinned directly here since we now import it.
+google-api-python-client>=2.0,<3
+google-auth>=2.0,<3
 psutil>=7.0,<8
 # cysystemd — only available on Linux; provides journald integration
 cysystemd>=2.0,<3; sys_platform == "linux"

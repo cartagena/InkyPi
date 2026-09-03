@@ -198,10 +198,10 @@ class TestTokensCss:
             "--content-w: 95.0%;",
             "--gutter: 5.0%;",
             "--col-w: 47.5%;",
-            "--header-rule: 2.75em;",
-            "--body-top: 3.3em;",
-            "--body-bottom: 1.82em;",
-            "--footer-rule: 1.4em;",
-            "--footer-baseline: 0.47em;",
+            "--header-rule: 52.8000px;",
+            "--body-top: 63.3600px;",
+            "--body-bottom: 34.9440px;",
+            "--footer-rule: 26.8800px;",
+            "--footer-baseline: 9.0240px;",
         ):
             assert expected in css

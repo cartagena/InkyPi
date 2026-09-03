@@ -202,6 +202,11 @@ phosphor-icons/
 src/benchmarks.db
 benchmarks.db
 
+# Per-plugin runtime cache (homeboard.cache — fail-soft payload cache and,
+# for board, the item-age ledger). Written under each plugin's own
+# directory via get_plugin_dir("cache") rather than a shared location.
+src/plugins/*/cache/
+
 # Coverage/Reports (ensure not committed)
 htmlcov/
 coverage.xml
