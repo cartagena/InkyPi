@@ -19,35 +19,40 @@ from plugins.trips.trips_data import (
     BOOKED_LABEL_BAND_EM,
     CARD_PITCH_EM,
     IDEA_PITCH_EM,
-    SECTION_GAP_EM,
     fits_screen,
+    idea_label_top_em,
+    idea_start_em,
     parse_trip_row,
+    screen_fits,
     select_booked,
     select_ideas,
     visible_counts,
 )
-from utils.payload_cache import CacheResult
 from utils.time_utils import get_timezone, now_in_timezone
 
 logger = logging.getLogger(__name__)
 
 _DEFAULT_WORKSHEET = "Trips"
-_SERVICE_ACCOUNT_ENV_KEY = "GOOGLE_SERVICE_ACCOUNT_JSON_PATH"
 
-# Rendering-only layout constants (em of `base`) not needed by trips_data's
-# row-count math. Card/idea pitch and the section-label spacing live in
-# trips_data, imported above, since the row-count formulas depend on them.
+# Rendering-only layout constants (em/pct of `base`/width) not needed by
+# trips_data's row-count math. Card/idea pitch and the section-label
+# spacing live in trips_data, imported above, since the row-count formulas
+# depend on them.
 _COUNTDOWN_H_EM = 4.2
 _COUNTDOWN_W_PCT = 12.9
 _TEXT_COL_START_PCT = 17.5
+_CONTENT_END_PCT = 97.5  # margin-x (2.5%) + content-w (95%)
+# SPEC §8.1's idea row is a flex space-between with no explicit title/window
+# split — approximated as roughly even, biased toward the title, pending
+# the physical-panel check (SPEC §9 step 2) like the other em-based
+# assumptions in this build.
+_IDEA_TITLE_PCT = 55.0
+_IDEA_WINDOW_PCT = 40.0
 
 
 class Trips(BasePlugin):
     def validate_settings(self, settings: Mapping[str, Any]) -> str | None:
-        sheet_id = settings.get("sheet_id")
-        if not isinstance(sheet_id, str) or not sheet_id.strip():
-            return "Sheet ID is required."
-        return None
+        return gsheets.validate_sheet_settings(settings)
 
     def build_settings_schema(self) -> dict[str, object]:
         return schema(
@@ -70,30 +75,29 @@ class Trips(BasePlugin):
         template_params["api_key"] = {
             "required": True,
             "service": "Google Sheets (service account)",
-            "expected_key": _SERVICE_ACCOUNT_ENV_KEY,
+            "expected_key": gsheets.SERVICE_ACCOUNT_ENV_KEY,
         }
         return template_params
 
     def generate_image(
         self, settings: Mapping[str, Any], device_config: DeviceConfigLike
     ) -> Any:
-        sheet_id = settings.get("sheet_id")
-        if not isinstance(sheet_id, str) or not sheet_id.strip():
-            raise RuntimeError("Sheet ID is required")
-        worksheet_name = settings.get("worksheet_name") or _DEFAULT_WORKSHEET
-        if not isinstance(worksheet_name, str):
-            worksheet_name = _DEFAULT_WORKSHEET
+        sheet_id, worksheet_name = gsheets.resolve_sheet_settings(
+            settings, _DEFAULT_WORKSHEET
+        )
 
         dimensions = self.get_oriented_dimensions(device_config)
         t = layout.tokens(*dimensions)
         roles = palette.resolve(device_config)
 
-        credentials_path = device_config.load_env_key(_SERVICE_ACCOUNT_ENV_KEY) or ""
+        credentials_path = (
+            device_config.load_env_key(gsheets.SERVICE_ACCOUNT_ENV_KEY) or ""
+        )
 
         def _fetch() -> list[dict[str, str]]:
             return gsheets.read_worksheet(sheet_id, worksheet_name, credentials_path)
 
-        cache_key = f"{sheet_id}:{worksheet_name}"
+        cache_key = gsheets.cache_key(sheet_id, worksheet_name)
         result = self.cached_fetch(device_config, cache_key, _fetch)
 
         timezone_raw = device_config.get_config("timezone", default="UTC")
@@ -102,7 +106,7 @@ class Trips(BasePlugin):
         today = now_in_timezone(timezone_name).date()
 
         source_text = f"Sheet · {worksheet_name}"
-        sync_text = self._sync_text(result, tz)
+        sync_text = chrome.sync_text(result, tz)
 
         base_params: dict[str, Any] = {
             "root_css": "",
@@ -146,6 +150,18 @@ class Trips(BasePlugin):
         visible_booked_count, visible_ideas_count = visible_counts(
             t, len(booked), len(ideas)
         )
+
+        if not screen_fits(t, visible_booked_count, visible_ideas_count):
+            # visible_counts() still guarantees MIN_IDEAS rows once there's
+            # idea data, even if this exact panel has no room for them —
+            # SPEC §3.5's fallback, not a partial/overflowing render.
+            chrome_html = chrome.build_chrome(
+                t, roles, "Trips", "", source_text, sync_text
+            )
+            base_params.update(chrome_html)
+            base_params["too_small"] = True
+            return self._render(dimensions, base_params)
+
         visible_booked = booked[:visible_booked_count]
         visible_ideas = ideas[:visible_ideas_count]
 
@@ -154,29 +170,45 @@ class Trips(BasePlugin):
             t, roles, "Trips", meta, source_text, sync_text
         )
         base_params.update(chrome_html)
+
+        text_col_w_px = t.width * (_CONTENT_END_PCT - _TEXT_COL_START_PCT) / 100
+        title_fs_px = t.fs["title"] * 0.9
+        idea_title_w_px = t.width * _IDEA_TITLE_PCT / 100
+        idea_window_w_px = t.width * _IDEA_WINDOW_PCT / 100
+
         base_params["booked"] = [
             {
-                "name": b.name,
+                "name": layout.truncate(b.name, text_col_w_px, title_fs_px),
                 "dates": self._format_date_range(b.start, b.end),
                 "days_until": b.days_until,
-                "next_action": b.next_action,
+                "next_action": layout.truncate(
+                    b.next_action, text_col_w_px, t.fs["label"]
+                ),
                 "blocking": b.blocking,
             }
             for b in visible_booked
         ]
         base_params["ideas"] = [
-            {"name": i.name, "target_window": i.target_window} for i in visible_ideas
+            {
+                "name": layout.truncate(i.name, idea_title_w_px, t.fs["item"]),
+                "target_window": layout.truncate(
+                    i.target_window, idea_window_w_px, t.fs["cell"]
+                ),
+            }
+            for i in visible_ideas
         ]
 
         # Section geometry, computed in px (not em — see the note on
-        # homeboard.layout.tokens_css for why an em value here would drift).
-        booked_start_px = BOOKED_LABEL_BAND_EM * t.base
-        booked_section_h_px = len(base_params["booked"]) * base_params["card_pitch_px"]
-        section_gap_px = SECTION_GAP_EM * t.base
-        idea_label_top_px = booked_start_px + booked_section_h_px + section_gap_px
-        base_params["booked_start_px"] = booked_start_px
-        base_params["idea_label_top_px"] = idea_label_top_px
-        base_params["idea_start_px"] = idea_label_top_px + booked_start_px
+        # homeboard.layout.tokens_css for why an em value here would drift)
+        # and, for the idea section, via trips_data's own
+        # idea_label_top_em()/idea_start_em() so this can never drift from
+        # visible_counts()'s capacity math again (that drift was a real,
+        # confirmed overflow bug on smaller panels — see trips_data.py).
+        base_params["booked_start_px"] = BOOKED_LABEL_BAND_EM * t.base
+        base_params["idea_label_top_px"] = (
+            idea_label_top_em(visible_booked_count) * t.base
+        )
+        base_params["idea_start_px"] = idea_start_em(visible_booked_count) * t.base
 
         return self._render(dimensions, base_params)
 
@@ -189,13 +221,6 @@ class Trips(BasePlugin):
         if not image:
             raise RuntimeError("Failed to take screenshot, please check logs.")
         return image
-
-    @staticmethod
-    def _sync_text(result: CacheResult, tz: Any) -> str:
-        if result.synced_at is None:
-            return ""
-        stamp = result.synced_at.astimezone(tz).strftime("%a %-I:%M %p").lower()
-        return f"As of {stamp}" if result.stale else f"Synced {stamp}"
 
     @staticmethod
     def _format_date_range(start: Any, end: Any) -> str:

@@ -8,11 +8,15 @@ import pytest
 
 from homeboard import layout
 from plugins.trips.trips_data import (
+    IDEA_PITCH_EM,
     TripRow,
     fits_screen,
+    idea_label_top_em,
+    idea_start_em,
     parse_bool,
     parse_date,
     parse_trip_row,
+    screen_fits,
     select_booked,
     select_ideas,
     visible_counts,
@@ -173,3 +177,57 @@ class TestFitsScreen:
 
     def test_tiny_panel_does_not_fit(self) -> None:
         assert fits_screen(layout.tokens(200, 100)) is False
+
+
+class TestIdeaGeometry:
+    """Regression coverage for the capacity/render drift bug: visible_counts()
+    and the plugin's render geometry must agree on where idea rows start,
+    or idea content can overflow past body_height on some panel sizes."""
+
+    def test_idea_start_em_is_past_idea_label_top_em(self) -> None:
+        assert idea_start_em(1) > idea_label_top_em(1)
+
+    def test_visible_counts_never_lets_idea_rows_overflow_when_screen_fits(
+        self,
+    ) -> None:
+        for width, height in [
+            (800, 480),
+            (600, 400),
+            (480, 320),
+            (800, 350),
+            (700, 420),
+        ]:
+            t = layout.tokens(width, height)
+            for num_booked in (0, 1, 2, 5):
+                visible_booked, visible_ideas = visible_counts(t, num_booked, 10)
+                if not screen_fits(t, visible_booked, visible_ideas):
+                    continue  # correctly caught by the too-small fallback
+                idea_bottom_em = (
+                    idea_start_em(visible_booked) + visible_ideas * IDEA_PITCH_EM
+                )
+                assert idea_bottom_em <= t.body_height_em + 1e-9, (
+                    width,
+                    height,
+                    num_booked,
+                )
+
+
+class TestScreenFits:
+    def test_normal_panel_with_computed_counts_fits(self) -> None:
+        t = layout.tokens(800, 480)
+        visible_booked, visible_ideas = visible_counts(t, 2, 5)
+        assert screen_fits(t, visible_booked, visible_ideas) is True
+
+    def test_forced_minimum_idea_rows_on_a_tight_panel_does_not_fit(self) -> None:
+        # A panel small enough that MIN_IDEAS rows genuinely don't fit
+        # after MAX_BOOKED cards, even though visible_counts() still
+        # returns MIN_IDEAS (its job is picking a count, not vetoing).
+        t = layout.tokens(400, 300)
+        visible_booked, visible_ideas = visible_counts(t, 2, 10)
+        assert screen_fits(t, visible_booked, visible_ideas) is False
+
+    def test_zero_visible_fits_on_a_normal_panel(self) -> None:
+        # Even the empty-overhead check (label bands + gap, before any row)
+        # should pass on an ordinary panel with no data to show.
+        t = layout.tokens(800, 480)
+        assert screen_fits(t, 0, 0) is True

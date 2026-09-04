@@ -115,6 +115,26 @@ def select_ideas(rows: list[TripRow]) -> list[IdeaTrip]:
     ]
 
 
+def idea_label_top_em(visible_booked: int) -> float:
+    """Em-offset (from the body top) of the "On the list" section label:
+    past the booked section's own label band, its cards, and the
+    inter-section gap."""
+    return BOOKED_LABEL_BAND_EM + visible_booked * CARD_PITCH_EM + SECTION_GAP_EM
+
+
+def idea_start_em(visible_booked: int) -> float:
+    """Em-offset (from the body top) where idea *rows* begin: past the
+    "On the list" label's own band too.
+
+    This is the single source of truth for that offset — both
+    ``visible_counts()`` (capacity) and the plugin's render geometry call
+    this, so the two can't drift apart the way they did before (the render
+    side added a second label-band's worth of space that the capacity math
+    never reserved, letting idea rows overflow past body_height on some
+    panel sizes)."""
+    return idea_label_top_em(visible_booked) + BOOKED_LABEL_BAND_EM
+
+
 def visible_counts(
     t: layout.Tokens, num_booked: int, num_ideas: int
 ) -> tuple[int, int]:
@@ -130,8 +150,7 @@ def visible_counts(
     )
     visible_booked = min(num_booked, booked_cap)
 
-    used_em = BOOKED_LABEL_BAND_EM + visible_booked * CARD_PITCH_EM + SECTION_GAP_EM
-    remaining_em = t.body_height_em - used_em
+    remaining_em = t.body_height_em - idea_start_em(visible_booked)
     idea_cap = _clamped_row_count(remaining_em, IDEA_PITCH_EM, MIN_IDEAS, MAX_IDEAS)
     visible_ideas = min(num_ideas, idea_cap)
 
@@ -139,11 +158,29 @@ def visible_counts(
 
 
 def fits_screen(t: layout.Tokens) -> bool:
-    """Whether the panel can fit even the smallest useful render: one
-    booked card, or (absent any booked trips) the idea section's minimum
-    row count. Used for the SPEC §3.5 "panel too small" fallback."""
+    """Cheap early-out: whether the panel can fit even the smallest useful
+    render (one booked card) at all, before bothering to parse rows. Not
+    sufficient on its own — see ``screen_fits()`` for the precise check
+    against the actual computed row counts, since ``visible_counts()``'s
+    ``MIN_IDEAS``/``MIN_BOOKED`` floors can still be forced past what a
+    given panel has room for (SPEC §3.5's "too small" fallback)."""
     minimum_em = BOOKED_LABEL_BAND_EM + CARD_PITCH_EM
     return t.body_height_em >= minimum_em
+
+
+def screen_fits(t: layout.Tokens, visible_booked: int, visible_ideas: int) -> bool:
+    """Whether the *actual* computed row counts (from ``visible_counts()``)
+    fit the body region.
+
+    ``visible_counts()`` always returns at least ``MIN_IDEAS`` idea rows
+    when there's idea data, even on a panel too small to actually hold
+    them — the row-count formula's job is picking a count, not vetoing the
+    render. This is the check that catches that case and should gate
+    falling back to the SPEC §3.5 "panel too small" message instead of
+    silently overflowing past the footer.
+    """
+    idea_bottom_em = idea_start_em(visible_booked) + visible_ideas * IDEA_PITCH_EM
+    return idea_bottom_em <= t.body_height_em
 
 
 def _clamped_row_count(
