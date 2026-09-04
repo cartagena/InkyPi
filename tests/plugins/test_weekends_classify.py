@@ -267,6 +267,14 @@ class TestLongWeekend:
         assert flagged.sun.long_weekend is True
         assert flagged.sun.long_weekend_note == "Mon off"
 
+    def test_both_friday_and_monday_off_reports_both(self) -> None:
+        row = classify_weekend(SAT, SUN, [], 120, 2.0, 6.0)
+        friday = SAT - timedelta(days=1)
+        monday = SUN + timedelta(days=1)
+        flagged = apply_long_weekend(row, [], [], {friday, monday}, "")
+        assert flagged.sat.long_weekend_note == "Fri + Mon off"
+        assert flagged.sun.long_weekend_note == "Fri + Mon off"
+
     def test_no_holiday_or_school_out_leaves_row_unchanged(self) -> None:
         row = classify_weekend(SAT, SUN, [], 120, 2.0, 6.0)
         flagged = apply_long_weekend(row, [], [], set(), "")

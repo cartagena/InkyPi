@@ -144,6 +144,13 @@ def _classify_from_day_events(
     partly_hours: float,
     full_day_hours: float,
 ) -> DayCell:
+    """Classify one day given the qualifying events that overlap it (SPEC
+    §6.4 steps 4-5): any all-day or adjacent-day-spanning event forces
+    ``booked`` outright; otherwise the day is ``booked``/``partly``/``free``
+    by summed busy hours against the two thresholds. The rendered
+    label/note come from the longest qualifying event, with " +1" appended
+    to the note when a second qualifying event exists ("Merging" /
+    "Label selection" in SPEC §6.4)."""
     if not day_events:
         return DayCell(CellState.FREE, "", "", False, "")
 
@@ -168,6 +175,16 @@ def _classify_from_day_events(
     return DayCell(state, longest.summary, note, False, "")
 
 
+def _classify_day_from_qualifying(
+    day: date,
+    qualifying: Sequence[IcsEvent],
+    partly_hours: float,
+    full_day_hours: float,
+) -> DayCell:
+    day_events = [e for e in qualifying if _overlaps_day(e, day)]
+    return _classify_from_day_events(day, day_events, partly_hours, full_day_hours)
+
+
 def classify_day(
     day: date,
     events: Sequence[IcsEvent],
@@ -176,8 +193,7 @@ def classify_day(
     full_day_hours: float,
 ) -> DayCell:
     qualifying = qualifying_events(events, ignore_recurring_minutes)
-    day_events = [e for e in qualifying if _overlaps_day(e, day)]
-    return _classify_from_day_events(day, day_events, partly_hours, full_day_hours)
+    return _classify_day_from_qualifying(day, qualifying, partly_hours, full_day_hours)
 
 
 def classify_weekend(
@@ -190,7 +206,12 @@ def classify_weekend(
 ) -> WeekendRow:
     """Classify one weekend row. If a single qualifying event covers both
     days, both cells collapse to one shared (booked) label/note rather than
-    repeating it (SPEC §6.4 "Merging")."""
+    repeating it (SPEC §6.4 "Merging").
+
+    Filters ``events`` down to the qualifying set once and reuses it for
+    the spanning check and both days, rather than re-filtering the full
+    event list per day.
+    """
     qualifying = qualifying_events(events, ignore_recurring_minutes)
     spanning = next(
         (
@@ -212,11 +233,11 @@ def classify_weekend(
         )
         return WeekendRow(saturday, sunday, True, cell, cell)
 
-    sat_cell = classify_day(
-        saturday, events, ignore_recurring_minutes, partly_hours, full_day_hours
+    sat_cell = _classify_day_from_qualifying(
+        saturday, qualifying, partly_hours, full_day_hours
     )
-    sun_cell = classify_day(
-        sunday, events, ignore_recurring_minutes, partly_hours, full_day_hours
+    sun_cell = _classify_day_from_qualifying(
+        sunday, qualifying, partly_hours, full_day_hours
     )
     return WeekendRow(saturday, sunday, False, sat_cell, sun_cell)
 
@@ -264,7 +285,10 @@ def apply_long_weekend(
     if not friday_off and not monday_off:
         return row
 
-    note = "Fri off" if friday_off else "Mon off"
+    if friday_off and monday_off:
+        note = "Fri + Mon off"
+    else:
+        note = "Fri off" if friday_off else "Mon off"
     sat = DayCell(row.sat.state, row.sat.label, row.sat.note, True, note)
     sun = DayCell(row.sun.state, row.sun.label, row.sun.note, True, note)
     return WeekendRow(row.saturday, row.sunday, row.spanning, sat, sun)

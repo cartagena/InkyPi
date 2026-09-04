@@ -138,3 +138,37 @@ class TestFetchEvents:
         )
         called_url = session.get.call_args[0][0]
         assert called_url == "https://example.com/cal.ics"
+
+    def test_recurring_event_flagged_recurring(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression: recurring_ical_events strips RRULE/RDATE off every
+        expanded occurrence (replacing it with a synthesized RECURRENCE-ID
+        present even on non-recurring events), so checking those properties
+        directly on the occurrence is always False — the real signal has to
+        come from the source VEVENT, correlated back by UID."""
+        ics = """BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//test//test//EN
+BEGIN:VEVENT
+UID:recurring@example.com
+DTSTART:20261003T090000Z
+DTEND:20261003T091500Z
+RRULE:FREQ=WEEKLY
+SUMMARY:Standing sync
+END:VEVENT
+BEGIN:VEVENT
+UID:oneoff@example.com
+DTSTART:20261003T090000Z
+DTEND:20261003T110000Z
+SUMMARY:One-off event
+END:VEVENT
+END:VCALENDAR
+"""
+        monkeypatch.setattr(ical, "get_http_session", lambda: _mock_session(ics))
+        events = ical.fetch_events(
+            "https://example.com/cal.ics", date(2026, 10, 1), date(2026, 10, 10), UTC
+        )
+        by_summary = {e["summary"]: e for e in events}
+        assert by_summary["Standing sync"]["recurring"] is True
+        assert by_summary["One-off event"]["recurring"] is False

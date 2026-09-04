@@ -213,7 +213,9 @@ class Weekends(BasePlugin):
             )
             return self._render(dimensions, base_params)
 
-        if not layout.fits_min_rows(t, _ROW_PITCH_EM, _ROW_HEIGHT_EM, _MIN_ROWS):
+        if not layout.fits_min_rows(
+            t, _ROW_PITCH_EM, _ROW_HEIGHT_EM, _MIN_ROWS, _HEADER_BAND_EM
+        ):
             chrome_html = chrome.build_chrome(
                 t, roles, "Weekends", "", source_text, sync_text
             )
@@ -304,7 +306,14 @@ class Weekends(BasePlugin):
 
     @staticmethod
     def _row_template_params(row: Any, t: layout.Tokens) -> dict[str, Any]:
-        cell_w_px = t.width * (_SAT_CELL_END_PCT - _SAT_CELL_START_PCT) / 100
+        single_cell_w_px = t.width * (_SAT_CELL_END_PCT - _SAT_CELL_START_PCT) / 100
+        # A spanning row's rendered cell is the full Saturday+Sunday span
+        # (SPEC §6.2: "Spanning cell: 18.75% to 97.5%"), not one single-day
+        # cell — budgeting truncation against the narrower single-cell width
+        # would over-truncate text that actually has roughly double the
+        # room to render in.
+        spanning_cell_w_px = t.width * (_SUN_CELL_END_PCT - _SAT_CELL_START_PCT) / 100
+        cell_w_px = spanning_cell_w_px if row.spanning else single_cell_w_px
 
         def _cell(day: date, cell: Any) -> dict[str, Any]:
             return {

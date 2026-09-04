@@ -3,12 +3,15 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 import pytest
 from PIL import Image
 
+from homeboard import layout
 from homeboard.adapters import ical
+from plugins.weekends.classify import CellState, DayCell, WeekendRow
 from plugins.weekends.weekends import Weekends
 
 _SETTINGS = {"ics_urls": "https://example.com/cal.ics"}
@@ -117,3 +120,36 @@ class TestRowTemplateParams:
             {**_SETTINGS, "weekends_ahead": "3"}, device_config_dev
         )
         assert isinstance(image, Image.Image)
+
+    def test_spanning_row_gets_the_wider_spanning_cell_truncation_budget(
+        self,
+    ) -> None:
+        """Regression: a spanning row's rendered cell is the full
+        Saturday+Sunday span, not one single-day cell — truncating against
+        the narrower single-cell width would over-truncate text that
+        actually has roughly double the room to render in."""
+        t = layout.tokens(800, 480)
+        long_label = "Grandma and Grandpa's Fiftieth Anniversary Family Reunion"
+        cell = DayCell(CellState.BOOKED, long_label, "All day", False, "")
+        spanning_row = WeekendRow(
+            date(2026, 10, 3), date(2026, 10, 4), True, cell, cell
+        )
+        non_spanning_row = WeekendRow(
+            date(2026, 10, 3), date(2026, 10, 4), False, cell, cell
+        )
+
+        spanning_params = Weekends._row_template_params(spanning_row, t)
+        non_spanning_params = Weekends._row_template_params(non_spanning_row, t)
+
+        assert len(spanning_params["sat"]["label"]) > len(
+            non_spanning_params["sat"]["label"]
+        )
+
+    def test_spanning_row_carries_long_weekend_note_into_params(self) -> None:
+        cell = DayCell(CellState.BOOKED, "Family reunion", "", True, "Mon off")
+        row = WeekendRow(date(2026, 10, 3), date(2026, 10, 4), True, cell, cell)
+        t = layout.tokens(800, 480)
+
+        params = Weekends._row_template_params(row, t)
+        assert params["sat"]["long_weekend"] is True
+        assert params["sat"]["long_weekend_note"] == "Mon off"

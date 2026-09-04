@@ -28,9 +28,9 @@
       <div class="wk-cell-text" style="left: {{ cell_text_inset_pct }}%;">
         {% if r.sat.note %}
         <div class="wk-cell-label">{{ r.sat.label }}</div>
-        <div class="wk-cell-note">{{ r.sat.note }}</div>
+        <div class="wk-cell-note">{{ r.sat.note }}{% if r.sat.long_weekend %} · {{ r.sat.long_weekend_note }}{% endif %}</div>
         {% else %}
-        <div class="wk-cell-single">{{ r.sat.label }}</div>
+        <div class="wk-cell-single">{{ r.sat.label }}{% if r.sat.long_weekend %} · {{ r.sat.long_weekend_note }}{% endif %}</div>
         {% endif %}
       </div>
     </div>

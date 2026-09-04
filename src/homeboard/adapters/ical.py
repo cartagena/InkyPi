@@ -70,6 +70,18 @@ def fetch_events(url: str, start: date, end: date, tz: Any) -> list[dict[str, An
     range_end = datetime(end.year, end.month, end.day, tzinfo=tz)
     occurrences = recurring_ical_events.of(cal).between(range_start, range_end)
 
+    # recurring_ical_events strips RRULE/RDATE off every expanded occurrence
+    # (replacing it with a synthesized RECURRENCE-ID present even on
+    # non-recurring events — confirmed empirically against the pinned
+    # 3.8.2), so neither property is a usable per-occurrence signal. Build
+    # the set of UIDs that originated from a recurring source component
+    # instead, and correlate occurrences back to it by UID.
+    recurring_uids = {
+        str(component.get("uid"))
+        for component in cal.walk("VEVENT")
+        if "rrule" in component or "rdate" in component
+    }
+
     events: list[dict[str, Any]] = []
     for occ in occurrences:
         start_dt, all_day = _as_datetime(occ.decoded("dtstart"), tz)
@@ -85,12 +97,7 @@ def fetch_events(url: str, start: date, end: date, tz: Any) -> list[dict[str, An
             end_dt = start_dt + (timedelta(days=1) if all_day else timedelta())
 
         transp = str(occ.get("transp", "")).strip().upper()
-        # recurring_ical_events copies the source VEVENT's properties onto
-        # each expanded occurrence (confirmed against its own test suite at
-        # implementation time) — RRULE/RDATE presence on the occurrence is
-        # therefore a reliable signal that it originated from a recurring
-        # rule, not a one-off event.
-        recurring = "rrule" in occ or "rdate" in occ
+        recurring = str(occ.get("uid")) in recurring_uids
 
         events.append(
             {

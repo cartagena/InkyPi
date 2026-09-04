@@ -149,6 +149,32 @@ class TestFitsMinRows:
             t, row_pitch_em=3.10, row_height_em=2.75, min_rows=4
         )
 
+    def test_header_band_em_matches_row_count_masking_case(self) -> None:
+        """Regression: without accounting for header_band_em the same way
+        row_count() does, this could report True on a panel where
+        row_count()'s own min_rows clamp is silently masking a shortfall —
+        exactly the failure mode this function exists to catch."""
+        t = layout.tokens(800, 245)
+        row_pitch_em, row_height_em, min_rows, header_band_em = 3.10, 2.75, 4, 1.15
+        # Confirm row_count's clamp really is masking a shortfall here.
+        assert (
+            layout.row_count(
+                t, row_pitch_em, row_height_em, min_rows, 6, header_band_em
+            )
+            == min_rows
+        )
+        # The pre-fix call (no header_band_em) reported True here — masked.
+        assert layout.fits_min_rows(t, row_pitch_em, row_height_em, min_rows)
+        assert not layout.fits_min_rows(
+            t, row_pitch_em, row_height_em, min_rows, header_band_em
+        )
+
+    def test_default_header_band_em_is_zero_for_backward_compatibility(self) -> None:
+        t = layout.tokens(800, 480)
+        with_default = layout.fits_min_rows(t, 2.50, 2.0, 5)
+        with_explicit_zero = layout.fits_min_rows(t, 2.50, 2.0, 5, 0.0)
+        assert with_default == with_explicit_zero
+
 
 class TestTruncate:
     def test_short_text_is_untouched(self) -> None:
