@@ -2810,12 +2810,16 @@ class TestInstallMatrixWorkflow:
         # bullseye via test_install_memcap.sh because that path uses a
         # python:3.12-slim base image and therefore isn't blocked by the
         # codename's own interpreter version.
+        #
+        # bookworm was later dropped too — the project is dropping
+        # support/release for bookworm, so trixie is the only remaining
+        # real install target.
         import yaml
 
         data = yaml.safe_load(self.install_matrix_yaml)
         job = data["jobs"]["install-matrix"]
         codenames = job["strategy"]["matrix"]["codename"]
-        assert set(codenames) == {"bookworm", "trixie"}
+        assert set(codenames) == {"trixie"}
 
     def test_install_matrix_runs_on_arm64(self) -> None:
         assert "linux/arm64" in self.install_matrix_yaml
