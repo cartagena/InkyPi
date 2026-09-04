@@ -124,7 +124,6 @@ jobs:
 
       - name: Generate SBOM
         run: |
-          pip install -r install/requirements.txt
           python -m venv .venv
           .venv/bin/pip install -r install/requirements.txt
           mkdir -p artifacts/security

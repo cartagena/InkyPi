@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1.6
 #
 # Dockerfile.install-matrix — CI-only image that runs install/install.sh
-# end-to-end against a Pi OS codename (bullseye / bookworm / trixie) inside an
-# arm64 container.
+# end-to-end against the Pi OS codename (trixie — the only supported/released
+# install target) inside an arm64 container.
 #
 # This file is used by the `install-matrix` job in .github/workflows/ci.yml
 # (JTN-530). It is *NOT* the same as Dockerfile.sim-install (which powers the
@@ -101,10 +101,10 @@ RUN printf '#!/bin/sh\n# CI-only no-op raspi-config shim (JTN-530)\nexit 0\n' \
 #
 # install.sh uses `/usr/bin/systemctl` explicitly in a couple of places (see
 # JTN-600's stop_service hardening) and `systemctl` via PATH elsewhere. On
-# bullseye / bookworm / trixie `/bin` is a usrmerge symlink to `/usr/bin`, so
-# overwriting `/usr/bin/systemctl` also covers `/bin/systemctl` (they are the
-# same inode). No extra `ln` is needed — attempting one fails with "same
-# file" on usrmerge layouts.
+# trixie `/bin` is a usrmerge symlink to `/usr/bin`, so overwriting
+# `/usr/bin/systemctl` also covers `/bin/systemctl` (they are the same
+# inode). No extra `ln` is needed — attempting one fails with "same file"
+# on usrmerge layouts.
 RUN printf '%s\n' \
         '#!/bin/sh' \
         '# CI-only no-op systemctl shim (JTN-530)' \

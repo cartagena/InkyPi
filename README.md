@@ -245,9 +245,7 @@ See [testing.md](./docs/testing.md) for coverage and CI details.
 ### Install Verification (Docker)
 
 ```bash
-./scripts/sim_install.sh trixie     # Debian Trixie (default)
-./scripts/sim_install.sh bookworm   # Debian Bookworm
-./scripts/sim_install.sh bullseye   # Debian Bullseye
+./scripts/sim_install.sh trixie     # Debian Trixie (default, only supported target)
 ```
 
 Builds an arm64 container capped at 512 MB RAM (matching Pi Zero 2 W) and runs `install.sh` end-to-end.
