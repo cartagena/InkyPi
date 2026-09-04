@@ -1,6 +1,26 @@
 # CHANGELOG
 
 
+## v1.7.0 (2026-09-04)
+
+### Features
+
+- **homeboard**: Add layout token math and palette resolution
+  ([`1df9dec`](https://github.com/cartagena/InkyPi/commit/1df9dec52728f4111e0f29c57a97f0ec8ce50dab))
+
+First build-order step for the bedroom-dashboard screens (specs/SPEC.md): the shared, non-plugin
+  src/homeboard/ module now has layout.py (base-unit clamp, type scale, row-count derivation,
+  truncation budget — SPEC §3) and palette.py (semantic colour-role resolution against
+  device_config's display_type, plus dithering-free quantize() — SPEC §2). Both are pure and fully
+  unit-tested, including the base-unit clamp boundaries and a dimension/orientation matrix. Real
+  palette RGB values and the truncation advance-ratio constant are marked UNVERIFIED pending the
+  physical-panel check called for in SPEC §9 step 2.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+
 ## v1.6.0 (2026-09-03)
 
 ### Bug Fixes
