@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>{{ root_css | safe }}</style>
+{% for style in inline_styles %}<style>{{ style | safe }}</style>{% endfor %}
+</head>
+<body>
+{% if empty_html %}
+{{ header_html | safe }}
+{{ empty_html | safe }}
+{% elif too_small %}
+{{ header_html | safe }}
+<div class="hb-too-small">Panel too small for this screen</div>
+{% else %}
+<div class="board-header">
+  <div class="board-header-col" style="left: var(--margin-x); width: var(--col-w);">
+    <span class="board-header-title">Projects</span><span class="board-header-meta">{{ projects_meta }}</span>
+  </div>
+  <div class="board-header-col" style="left: calc(var(--margin-x) + var(--col-w) + var(--gutter)); width: var(--col-w);">
+    <span class="board-header-title">To do</span><span class="board-header-meta">{{ todo_meta }}</span>
+  </div>
+</div>
+<div class="hb-header-rule"></div>
+
+<div class="board-col board-projects {{ 'stacked' if stacked else '' }}" style="top: var(--body-top); height: {{ projects_column_h_px }}px;">
+  {% if in_flight %}
+  <div class="board-section-label" style="top: 0;">In flight</div>
+  {% for p in in_flight %}
+  <div class="board-inflight-row" style="top: {{ in_flight_start_px + loop.index0 * in_flight_pitch_px }}px;">
+    <div class="board-inflight-bar"></div>
+    <div class="board-inflight-title">{{ p.title }}</div>
+    <div class="board-chip-row">
+      {% if p.size_tag %}<span class="hb-chip" data-role="{{ p.size_tag.role }}" data-solid="{{ 1 if p.size_tag.solid else 0 }}">{{ p.size_tag.label }}</span>{% endif %}
+      {% if p.note_text %}<span class="board-note">{{ p.note_text }}</span>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if backlog %}
+  {% if in_flight %}
+  <div class="board-section-rule" style="top: {{ backlog_label_top_px - 6 }}px;"></div>
+  {% endif %}
+  <div class="board-section-label" style="top: {{ backlog_label_top_px }}px;">From the backlog</div>
+  {% for p in backlog %}
+  <div class="board-backlog-row" style="top: {{ backlog_start_px + loop.index0 * backlog_pitch_px }}px;">
+    <div class="board-backlog-title">{{ p.title }}</div>
+    <div class="board-chip-row">
+      {% if p.size_tag %}<span class="hb-chip" data-role="{{ p.size_tag.role }}" data-solid="{{ 1 if p.size_tag.solid else 0 }}">{{ p.size_tag.label }}</span>{% endif %}
+      {% if p.age_tag %}<span class="hb-chip board-age-chip" data-role="{{ p.age_tag.role }}" data-solid="{{ 1 if p.age_tag.solid else 0 }}">{{ p.age_tag.label }}</span>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>
+
+<div class="board-divider {{ 'horizontal' if stacked else 'vertical' }}"
+     style="{% if stacked %}top: {{ projects_column_h_px + 6 }}px; width: var(--content-w); left: var(--margin-x);{% else %}top: var(--body-top); height: {{ projects_column_h_px }}px; left: calc(var(--margin-x) + var(--col-w) + var(--gutter) / 2);{% endif %}"></div>
+
+<div class="board-col board-todo {{ 'stacked' if stacked else '' }}" style="top: {{ todo_top_css }}; height: {{ todo_column_h_px }}px;">
+  {% if todo_empty %}
+  <div class="board-todo-empty">Nothing open</div>
+  {% else %}
+  {% for item in todo %}
+  <div class="board-todo-row" style="top: {{ loop.index0 * todo_pitch_px }}px;">
+    <div class="board-todo-checkbox"></div>
+    <div class="board-todo-title">{{ item.title }}</div>
+    {% if item.age_tag %}<span class="hb-chip board-todo-age" data-role="{{ item.age_tag.role }}" data-solid="{{ 1 if item.age_tag.solid else 0 }}">{{ item.age_tag.label }}</span>{% endif %}
+  </div>
+  {% endfor %}
+  {% endif %}
+  <div class="board-cleared-line" style="top: {{ todo_cleared_top_px }}px;">{{ cleared_count }} cleared this week</div>
+</div>
+{% endif %}
+
+{{ footer_html | safe }}
+</body>
+</html>

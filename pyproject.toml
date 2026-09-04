@@ -30,6 +30,8 @@ dependencies = [
   "jsonschema>=4.0,<5",
   "astral>=3.0,<4",
   "prometheus-client>=0.21,<1",
+  "gkeepapi>=0.15,<1",
+  "gpsoauth>=2.0.0,<3",
 ]
 
 [tool.uv]
