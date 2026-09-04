@@ -181,7 +181,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ '3.11', '3.12', '3.13' ]
+        # Full cross-version matrix only runs on push/schedule/dispatch (i.e.
+        # once code lands on main, or nightly). PRs run 3.12 only — that's
+        # the version pinned everywhere else in this file (lint, security,
+        # coverage-gate) — to keep PR wall-clock down. Version-specific
+        # breaks still get caught before release, just not before every WIP
+        # push.
+        python-version: ${{ fromJson(github.event_name == 'pull_request' && '["3.12"]' || '["3.11","3.12","3.13"]') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -231,30 +237,6 @@ jobs:
           name: coverage-${{ matrix.python-version }}
           path: coverage.xml
           if-no-files-found: error
-
-  sonarcloud:
-    name: SonarCloud Scan
-    needs: [tests]
-    runs-on: ubuntu-latest
-    # Disabled for now: this fork has no SONAR_TOKEN secret configured, so the
-    # scan always fails with "Not authorized or project not found" regardless
-    # of PR content. Re-enable (drop `&& false`) once a token is set up.
-    if: always() && github.event.pull_request.user.login != 'dependabot[bot]' && false
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: Download coverage
-        uses: actions/download-artifact@v8
-        with:
-          name: coverage-3.12
-        continue-on-error: true
-      - name: SonarCloud Scan
-        continue-on-error: true  # a dead SONAR_TOKEN must not gate a PR
-        uses: SonarSource/sonarqube-scan-action@v7
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   smoke:
     name: Install smoke (container)
@@ -407,6 +389,11 @@ jobs:
 
   preflash-validate:
     name: Pre-flash validate
+    # Advisory-only job — not in ci-gate's needs list, so it never blocks a
+    # PR merge. Runs on push-to-main, workflow_dispatch, and the nightly
+    # schedule instead of on every PR, since a PR run bought no gate value
+    # for the wall-clock/runner cost.
+    if: github.event_name != 'pull_request'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
@@ -538,6 +525,11 @@ jobs:
 
   flake-detection:
     name: Flake detection
+    # Advisory-only job — not in ci-gate's needs list, so it never blocks a
+    # PR merge. Flaky-test hunting is inherently a "run repeatedly over
+    # time" signal, not a per-PR one — move it to push-to-main and the
+    # nightly schedule, alongside soak-nightly/mutation-nightly below.
+    if: github.event_name != 'pull_request'
     needs: tests
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -803,15 +795,13 @@ jobs:
 
   ci-gate:
     name: CI gate (all checks pass)
-    needs: [lint, shellcheck, lockfile-drift, tests, sonarcloud, smoke, smoke-matrix, coverage-gate, security, browser-smoke, install-smoke-memcap, install-matrix, install-crash-loop-gate]
+    needs: [lint, shellcheck, lockfile-drift, tests, smoke, smoke-matrix, coverage-gate, security, browser-smoke, install-smoke-memcap, install-matrix, install-crash-loop-gate]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Check all required jobs passed
         run: |
           # Fail this job (and therefore the gate) if any required job did not succeed.
-          # 'sonarcloud' is advisory (secrets may be absent on forks), so we only
-          # require it to not be in an explicit failure state — cancelled/skipped is OK.
           results='${{ toJSON(needs) }}'
           echo "$results"
 
@@ -823,11 +813,5 @@ jobs:
               exit 1
             fi
           done
-
-          # sonarcloud: advisory — warn on failure but do not block
-          sonar_result=$(echo "$results" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('sonarcloud',{}).get('result','missing'))")
-          if [ "$sonar_result" = "failure" ]; then
-            echo "WARNING: sonarcloud reported failure — investigate but not blocking gate"
-          fi
 
           echo "All required CI checks passed."
