@@ -1,6 +1,6 @@
 """Parsing, item-age ledger, selection/sorting and section-sizing for
 `board` (SPEC §7). Pure functions, no I/O beyond the ledger dict passed in
-and out — unit-testable without Chromium or a live Keep fetch.
+and out — unit-testable without Chromium or a live boardbot fetch.
 """
 
 from __future__ import annotations
@@ -127,8 +127,8 @@ def parse_todo_item(raw_text: str, first_seen: date) -> TodoItem:
 
 
 def ledger_key(namespace: str, raw_text: str) -> str:
-    """A stable ledger key for one Keep item, namespaced so identical text
-    in the Projects and To-do notes can never collide."""
+    """A stable ledger key for one board item, namespaced so identical text
+    in the Projects and To-do lists can never collide."""
     return f"{namespace}:{tags.item_key(raw_text)}"
 
 
@@ -138,19 +138,19 @@ def update_ledger(
     today: date,
 ) -> dict[str, Any]:
     """Advance the ledger given *current_items* — ``(key, checked)`` for
-    every item currently in a note, open or checked (SPEC §4.5: `gkeepapi`
+    every item currently in a list, open or checked (SPEC §4.5: the source
     may not expose reliable per-item creation timestamps, so this ledger,
-    not the Keep API, is the source of truth for `first_seen`).
+    not the source itself, is the source of truth for `first_seen`).
 
     - A new key is recorded with ``first_seen=today`` and
       ``completed_at=today`` if already checked, else ``None``.
     - An existing key newly observed checked gets ``completed_at=today``.
     - An existing key newly observed unchecked (reopened) has
       ``completed_at`` cleared back to ``None``.
-    - A key that has vanished from the note entirely (Keep doesn't retain
-      deleted lines, so there's no way to distinguish "checked then
-      removed" from "deleted outright") is treated as cleared today, if it
-      wasn't already marked completed — needed for SPEC §7.2's
+    - A key that has vanished from the list entirely (a hard delete
+      doesn't retain the item, so there's no way to distinguish "checked
+      then removed" from "deleted outright") is treated as cleared today,
+      if it wasn't already marked completed — needed for SPEC §7.2's
       "N cleared this week" freshness signal to have *any* removal path.
     """
     updated = dict(ledger)
