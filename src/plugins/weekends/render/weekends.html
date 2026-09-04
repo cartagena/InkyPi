@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>{{ root_css | safe }}</style>
+{% for style in inline_styles %}<style>{{ style | safe }}</style>{% endfor %}
+</head>
+<body>
+{{ header_html | safe }}
+
+{% if empty_html %}
+{{ empty_html | safe }}
+{% elif too_small %}
+<div class="hb-too-small">Panel too small for this screen</div>
+{% else %}
+<div class="wk-column-labels" style="top: {{ column_labels_top_px }}px;">
+  <div class="wk-col-label" style="left: {{ sat_cell_start_pct }}%;">Saturday</div>
+  <div class="wk-col-label" style="left: {{ sun_cell_start_pct }}%;">Sunday</div>
+</div>
+<div class="wk-body" style="top: {{ body_top_px }}px;">
+  {% for r in rows %}
+  <div class="wk-row" style="top: {{ loop.index0 * row_pitch_px }}px;">
+    <div class="wk-date{% if r.sat.long_weekend or r.sun.long_weekend %} wk-date-emphasis{% endif %}" style="width: {{ date_col_end_pct }}%;">
+      {{ r.date_label }}
+    </div>
+    {% if r.spanning %}
+    <div class="wk-cell wk-cell-{{ r.sat.state }}" data-warn-solid="{{ 1 if warn_solid else 0 }}" style="left: {{ sat_cell_start_pct }}%; width: {{ sun_cell_end_pct - sat_cell_start_pct }}%;">
+      <div class="wk-cell-text" style="left: {{ cell_text_inset_pct }}%;">
+        {% if r.sat.note %}
+        <div class="wk-cell-label">{{ r.sat.label }}</div>
+        <div class="wk-cell-note">{{ r.sat.note }}{% if r.sat.long_weekend %} · {{ r.sat.long_weekend_note }}{% endif %}</div>
+        {% else %}
+        <div class="wk-cell-single">{{ r.sat.label }}{% if r.sat.long_weekend %} · {{ r.sat.long_weekend_note }}{% endif %}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    {% for cell, start_pct, end_pct in [(r.sat, sat_cell_start_pct, sat_cell_end_pct), (r.sun, sun_cell_start_pct, sun_cell_end_pct)] %}
+    <div class="wk-cell wk-cell-{{ cell.state }}" data-warn-solid="{{ 1 if warn_solid else 0 }}" style="left: {{ start_pct }}%; width: {{ end_pct - start_pct }}%;">
+      {% if cell.state == 'free' %}
+      <div class="wk-cell-text" style="left: {{ cell_text_inset_pct }}%;">
+        <div class="wk-free-label">Free</div>
+      </div>
+      {% else %}
+      <div class="wk-cell-text" style="left: {{ cell_text_inset_pct }}%;">
+        {% if cell.note %}
+        <div class="wk-cell-label">{{ cell.label }}</div>
+        <div class="wk-cell-note">{{ cell.note }}{% if cell.long_weekend %} · {{ cell.long_weekend_note }}{% endif %}</div>
+        {% else %}
+        <div class="wk-cell-single">{{ cell.label }}{% if cell.long_weekend %} · {{ cell.long_weekend_note }}{% endif %}</div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+<div class="wk-legend">{{ legend_text }}</div>
+{% endif %}
+
+{{ footer_html | safe }}
+</body>
+</html>

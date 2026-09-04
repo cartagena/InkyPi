@@ -135,7 +135,11 @@ def row_count(
 
 
 def fits_min_rows(
-    t: Tokens, row_pitch_em: float, row_height_em: float, min_rows: int
+    t: Tokens,
+    row_pitch_em: float,
+    row_height_em: float,
+    min_rows: int,
+    header_band_em: float = 0.0,
 ) -> bool:
     """Whether the panel can fit at least ``min_rows`` rows at all.
 
@@ -143,11 +147,18 @@ def fits_min_rows(
     small for this screen" message instead of overflowing. Computed against
     the *unclamped* row count — calling row_count() with min_rows==max_rows
     would always report success, since the clamp itself hides the shortfall.
+
+    ``header_band_em`` must match whatever value the same screen passes to
+    ``row_count()`` (e.g. weekends' in-body column-label row) — omitting it
+    here while passing it there lets this check pass on a panel where
+    ``row_count()``'s own clamp is silently masking a shortfall, the exact
+    failure mode this function exists to catch.
     """
     if row_pitch_em <= 0:
         raise ValueError("row_pitch_em must be positive")
     gap_em = row_pitch_em - row_height_em
-    raw_rows = math.floor((t.body_height_em + gap_em) / row_pitch_em)
+    available_em = t.body_height_em - header_band_em
+    raw_rows = math.floor((available_em + gap_em) / row_pitch_em)
     return raw_rows >= min_rows
 
 
