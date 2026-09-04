@@ -23,7 +23,7 @@ reason about, same escaping guarantee Jinja's autoescape would have given.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from markupsafe import Markup, escape
 
@@ -32,6 +32,7 @@ from homeboard import layout, palette
 if TYPE_CHECKING:
     from homeboard.layout import Tokens
     from homeboard.palette import RoleMap
+    from utils.payload_cache import CacheResult
 
 _RENDER_DIR = Path(__file__).parent / "render"
 
@@ -124,3 +125,13 @@ def empty_state_html(title: str, message: str) -> str:
 def too_small_html() -> str:
     """ "Panel too small for this screen" body (SPEC §3.5)."""
     return '<div class="hb-too-small">Panel too small for this screen</div>'
+
+
+def sync_text(result: CacheResult, tz: Any) -> str:
+    """Footer-right text for a ``BasePlugin.cached_fetch`` result: "Synced
+    …" for a fresh fetch, "As of …" for a stale one (SPEC §4.4), in the
+    device's local timezone. Empty string if nothing has ever synced."""
+    if result.synced_at is None:
+        return ""
+    stamp = result.synced_at.astimezone(tz).strftime("%a %-I:%M %p").lower()
+    return f"As of {stamp}" if result.stale else f"Synced {stamp}"

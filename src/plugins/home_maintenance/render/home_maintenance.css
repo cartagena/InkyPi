@@ -1,0 +1,60 @@
+/* SPEC §8.2 — home_maintenance layout. */
+
+.hm-rows {
+  position: absolute;
+  top: var(--body-top);
+  left: var(--margin-x);
+  width: var(--content-w);
+}
+
+.hm-row {
+  /* top/height are set inline per-row in px (see home_maintenance.html) —
+     an em value here would resolve against this rule's own font-size
+     (fs-item) rather than `base`, drifting the row pitch. */
+  position: absolute;
+  left: 0;
+  width: 100%;
+  font-size: var(--fs-item);
+}
+
+.hm-task {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.hm-interval {
+  position: absolute;
+  left: 48.5%;
+  top: 0.15em;
+  font-size: var(--fs-small);
+}
+
+.hm-due-text {
+  position: absolute;
+  right: 0;
+  top: 0.05em;
+  font-size: var(--fs-cell);
+  text-align: right;
+}
+
+.hm-chip {
+  position: absolute;
+  right: 0;
+  top: 0.1em;
+  width: 16.9%;
+  height: 1.3em;
+  line-height: 1.3em;
+  text-align: center;
+  font-size: var(--fs-label);
+  padding: 0;
+}
+
+.hm-row-sep {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  bottom: -0.9em;
+  height: 1px;
+  background: var(--color-ink);
+}

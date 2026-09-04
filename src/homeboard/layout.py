@@ -180,7 +180,16 @@ def truncate(text: str, region_width_px: float, font_size_px: float) -> str:
 
 def tokens_css(t: Tokens) -> str:
     """Render *t* as a ``:root { --token: value; }`` CSS custom-property
-    block, consumed by every screen's ``<style>`` block."""
+    block, consumed by every screen's ``<style>`` block.
+
+    The §3.3 vertical bands are emitted as absolute pixels
+    (``em-value * base``), not as CSS ``em`` lengths. A ``var(--header-rule)``
+    consumed as an ``em`` string would resolve against whatever font-size is
+    in effect on the element that *uses* it (custom properties are
+    late-bound) — e.g. inside `.hb-header`, which sets `font-size:
+    var(--fs-title)`, an em-valued token would compound against fs-title
+    instead of `base`. Pre-multiplying to px sidesteps that entirely.
+    """
     lines = [
         f"  --base: {t.base:.4f}px;",
     ]
@@ -192,11 +201,11 @@ def tokens_css(t: Tokens) -> str:
             f"  --content-w: {t.content_w_pct}%;",
             f"  --gutter: {t.gutter_pct}%;",
             f"  --col-w: {t.col_w_pct}%;",
-            f"  --header-rule: {t.header_rule_em}em;",
-            f"  --body-top: {t.body_top_em}em;",
-            f"  --body-bottom: {t.body_bottom_em}em;",
-            f"  --footer-rule: {t.footer_rule_em}em;",
-            f"  --footer-baseline: {t.footer_baseline_em}em;",
+            f"  --header-rule: {t.header_rule_em * t.base:.4f}px;",
+            f"  --body-top: {t.body_top_em * t.base:.4f}px;",
+            f"  --body-bottom: {t.body_bottom_em * t.base:.4f}px;",
+            f"  --footer-rule: {t.footer_rule_em * t.base:.4f}px;",
+            f"  --footer-baseline: {t.footer_baseline_em * t.base:.4f}px;",
         ]
     )
     return ":root {\n" + "\n".join(lines) + "\n}"

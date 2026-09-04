@@ -1,0 +1,7 @@
+{
+  "display_name": "Home",
+  "id": "home_maintenance",
+  "class": "HomeMaintenance",
+  "api_version": "1.0",
+  "version": "1.0.0"
+}

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>{{ root_css | safe }}</style>
+{% for style in inline_styles %}<style>{{ style | safe }}</style>{% endfor %}
+</head>
+<body>
+{{ header_html | safe }}
+
+{% if empty_html is defined %}
+{{ empty_html | safe }}
+{% else %}
+<div class="hm-rows">
+  {% for r in rows %}
+  <div class="hm-row" style="top: {{ loop.index0 * row_pitch_px }}px; height: {{ row_pitch_px }}px;">
+    <div class="hm-task">{{ r.task }}</div>
+    <div class="hm-interval">{{ r.interval_text }}</div>
+    {% if r.chip %}
+    <div class="hb-chip hm-chip" data-role="{{ r.chip.role }}" data-solid="{{ 1 if r.chip.solid else 0 }}">{{ r.chip.label }}</div>
+    {% else %}
+    <div class="hm-due-text">{{ r.due_text }}</div>
+    {% endif %}
+    {% if not loop.last %}<div class="hm-row-sep"></div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{{ footer_html | safe }}
+</body>
+</html>
