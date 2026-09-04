@@ -105,6 +105,16 @@ class RoleMap:
     warn_is_solid: bool
 
 
+def palette_css(roles: RoleMap) -> str:
+    """Render *roles* as a ``:root { --color-<role>: #rrggbb; }`` CSS
+    custom-property block, plus a ``--warn-solid`` flag templates use to
+    pick between an outline and a solid-fill treatment for `warn`."""
+    lines = [f"  --warn-solid: {1 if roles.warn_is_solid else 0};"]
+    for role, rgb in roles.colors.items():
+        lines.append(f"  --color-{role.value}: rgb({rgb[0]}, {rgb[1]}, {rgb[2]});")
+    return ":root {\n" + "\n".join(lines) + "\n}"
+
+
 def _is_dev_mode() -> bool:
     env_mode = (
         os.getenv("INKYPI_ENV", "").strip() or os.getenv("FLASK_ENV", "").strip()
