@@ -177,3 +177,44 @@ class TestGenerateImageFailSoft:
             {"sheet_id": "abc", "worksheet_name": "Maintenance"}, device_config_dev
         )
         assert isinstance(image, Image.Image)
+
+
+class TestRowTemplateParamsTruncation:
+    def test_long_task_name_is_truncated(self) -> None:
+        from datetime import date
+
+        from homeboard import layout
+        from plugins.home_maintenance.due_dates import IntervalUnit, build_item
+
+        t = layout.tokens(800, 480)
+        item = build_item(
+            "Replace HVAC filter and check outdoor condenser unit for debris",
+            3,
+            IntervalUnit.MONTHS,
+            None,
+            None,
+            today=date(2026, 1, 1),
+            due_soon_days=14,
+        )
+        params = HomeMaintenance._row_template_params(item, t)
+        assert params["task"] != item.task
+        assert params["task"].endswith("…")
+
+    def test_short_task_name_is_untouched(self) -> None:
+        from datetime import date
+
+        from homeboard import layout
+        from plugins.home_maintenance.due_dates import IntervalUnit, build_item
+
+        t = layout.tokens(800, 480)
+        item = build_item(
+            "Flush water heater",
+            1,
+            IntervalUnit.YEARS,
+            None,
+            None,
+            today=date(2026, 1, 1),
+            due_soon_days=14,
+        )
+        params = HomeMaintenance._row_template_params(item, t)
+        assert params["task"] == "Flush water heater"

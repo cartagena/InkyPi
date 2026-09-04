@@ -6,6 +6,8 @@ from homeboard import chrome, layout, palette
 
 
 class _FakeDeviceConfig:
+    config_file = "/tmp/does-not-matter/device.json"
+
     def get_config(self, key: str, default: object = None) -> object:
         return "mock" if key == "display_type" else default
 
@@ -81,3 +83,60 @@ class TestChromeCss:
         assert ".hb-header" in css
         assert ".hb-chip" in css
         assert "var(--color-ink)" in css
+
+
+class TestSyncText:
+    def test_no_synced_at_returns_empty_string(self) -> None:
+        from datetime import UTC
+
+        from utils.payload_cache import CacheResult
+
+        result = CacheResult(
+            payload=None, fresh=False, stale=False, empty=True, synced_at=None
+        )
+        assert chrome.sync_text(result, UTC) == ""
+
+    def test_fresh_result_says_synced(self) -> None:
+        from datetime import UTC, datetime
+
+        from utils.payload_cache import CacheResult
+
+        result = CacheResult(
+            payload={"n": 1},
+            fresh=True,
+            stale=False,
+            empty=False,
+            synced_at=datetime(2026, 1, 6, 18, 30, tzinfo=UTC),
+        )
+        assert chrome.sync_text(result, UTC) == "Synced tue 6:30 pm"
+
+    def test_stale_result_says_as_of(self) -> None:
+        from datetime import UTC, datetime
+
+        from utils.payload_cache import CacheResult
+
+        result = CacheResult(
+            payload={"n": 1},
+            fresh=False,
+            stale=True,
+            empty=False,
+            synced_at=datetime(2026, 1, 6, 18, 30, tzinfo=UTC),
+        )
+        assert chrome.sync_text(result, UTC) == "As of tue 6:30 pm"
+
+    def test_converts_to_the_given_timezone(self) -> None:
+        from datetime import UTC, datetime
+        from zoneinfo import ZoneInfo
+
+        from utils.payload_cache import CacheResult
+
+        # 18:30 UTC == 10:30 pacific (standard time, UTC-8) in January.
+        result = CacheResult(
+            payload={"n": 1},
+            fresh=True,
+            stale=False,
+            empty=False,
+            synced_at=datetime(2026, 1, 6, 18, 30, tzinfo=UTC),
+        )
+        text = chrome.sync_text(result, ZoneInfo("America/Los_Angeles"))
+        assert "10:30" in text

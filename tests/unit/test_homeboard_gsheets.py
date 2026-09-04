@@ -134,7 +134,54 @@ class TestReadWorksheetParsing:
         monkeypatch.setattr(gsheets, "build", _boom)
 
         # A transient failure must propagate as-is (not RuntimeError), so
-        # homeboard.cache.cached_fetch's default config_errors=(RuntimeError,)
+        # BasePlugin.cached_fetch's default config_errors=(RuntimeError,)
         # treats it as fail-soft rather than tripping the circuit breaker.
         with pytest.raises(TimeoutError):
             gsheets.read_worksheet("sheet123", "Maintenance", str(creds_path))
+
+
+class TestValidateSheetSettings:
+    def test_missing_sheet_id_returns_error(self) -> None:
+        assert gsheets.validate_sheet_settings({"sheet_id": ""}) is not None
+
+    def test_blank_sheet_id_returns_error(self) -> None:
+        assert gsheets.validate_sheet_settings({"sheet_id": "   "}) is not None
+
+    def test_missing_key_returns_error(self) -> None:
+        assert gsheets.validate_sheet_settings({}) is not None
+
+    def test_valid_sheet_id_returns_none(self) -> None:
+        assert gsheets.validate_sheet_settings({"sheet_id": "abc123"}) is None
+
+
+class TestResolveSheetSettings:
+    def test_missing_sheet_id_raises_runtime_error(self) -> None:
+        with pytest.raises(RuntimeError, match="Sheet ID"):
+            gsheets.resolve_sheet_settings({}, "Default")
+
+    def test_returns_sheet_id_and_explicit_worksheet(self) -> None:
+        sheet_id, worksheet = gsheets.resolve_sheet_settings(
+            {"sheet_id": "abc", "worksheet_name": "Custom"}, "Default"
+        )
+        assert sheet_id == "abc"
+        assert worksheet == "Custom"
+
+    def test_falls_back_to_default_worksheet_when_absent(self) -> None:
+        sheet_id, worksheet = gsheets.resolve_sheet_settings(
+            {"sheet_id": "abc"}, "Default"
+        )
+        assert worksheet == "Default"
+
+    def test_falls_back_to_default_worksheet_when_blank(self) -> None:
+        _, worksheet = gsheets.resolve_sheet_settings(
+            {"sheet_id": "abc", "worksheet_name": ""}, "Default"
+        )
+        assert worksheet == "Default"
+
+
+class TestCacheKey:
+    def test_combines_sheet_id_and_worksheet(self) -> None:
+        assert gsheets.cache_key("abc", "Trips") == "abc:Trips"
+
+    def test_different_worksheets_yield_different_keys(self) -> None:
+        assert gsheets.cache_key("abc", "Trips") != gsheets.cache_key("abc", "Ideas")

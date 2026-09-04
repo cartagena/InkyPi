@@ -22,7 +22,6 @@ from plugins.home_maintenance.due_dates import (
     build_item,
     sort_items,
 )
-from utils.payload_cache import CacheResult
 from utils.time_utils import get_timezone, now_in_timezone
 
 logger = logging.getLogger(__name__)
@@ -39,14 +38,17 @@ _ROW_HEIGHT_EM = _ROW_PITCH_EM
 _DEFAULT_WORKSHEET = "Maintenance"
 _DEFAULT_DUE_SOON_DAYS = 14
 
-_SERVICE_ACCOUNT_ENV_KEY = "GOOGLE_SERVICE_ACCOUNT_JSON_PATH"
+# SPEC §8.2: interval column starts at 48.5% of width, so the task-name
+# column runs from the left margin to there — used as the truncation budget
+# for task text (SPEC §3.6).
+_TASK_COL_END_PCT = 48.5
 
 
 class HomeMaintenance(BasePlugin):
     def validate_settings(self, settings: Mapping[str, Any]) -> str | None:
-        sheet_id = settings.get("sheet_id")
-        if not isinstance(sheet_id, str) or not sheet_id.strip():
-            return "Sheet ID is required."
+        error = gsheets.validate_sheet_settings(settings)
+        if error:
+            return error
         due_soon_raw = settings.get("due_soon_days")
         if due_soon_raw not in (None, ""):
             try:
@@ -90,31 +92,30 @@ class HomeMaintenance(BasePlugin):
         template_params["api_key"] = {
             "required": True,
             "service": "Google Sheets (service account)",
-            "expected_key": _SERVICE_ACCOUNT_ENV_KEY,
+            "expected_key": gsheets.SERVICE_ACCOUNT_ENV_KEY,
         }
         return template_params
 
     def generate_image(
         self, settings: Mapping[str, Any], device_config: DeviceConfigLike
     ) -> Any:
-        sheet_id = settings.get("sheet_id")
-        if not isinstance(sheet_id, str) or not sheet_id.strip():
-            raise RuntimeError("Sheet ID is required")
-        worksheet_name = settings.get("worksheet_name") or _DEFAULT_WORKSHEET
-        if not isinstance(worksheet_name, str):
-            worksheet_name = _DEFAULT_WORKSHEET
+        sheet_id, worksheet_name = gsheets.resolve_sheet_settings(
+            settings, _DEFAULT_WORKSHEET
+        )
         due_soon_days = self._parse_due_soon_days(settings.get("due_soon_days"))
 
         dimensions = self.get_oriented_dimensions(device_config)
         t = layout.tokens(*dimensions)
         roles = palette.resolve(device_config)
 
-        credentials_path = device_config.load_env_key(_SERVICE_ACCOUNT_ENV_KEY) or ""
+        credentials_path = (
+            device_config.load_env_key(gsheets.SERVICE_ACCOUNT_ENV_KEY) or ""
+        )
 
         def _fetch() -> list[dict[str, str]]:
             return gsheets.read_worksheet(sheet_id, worksheet_name, credentials_path)
 
-        cache_key = f"{sheet_id}:{worksheet_name}"
+        cache_key = gsheets.cache_key(sheet_id, worksheet_name)
         result = self.cached_fetch(device_config, cache_key, _fetch)
 
         timezone_raw = device_config.get_config("timezone", default="UTC")
@@ -135,7 +136,7 @@ class HomeMaintenance(BasePlugin):
             "total_count": 0,
         }
 
-        sync_text = self._sync_text(result, tz)
+        sync_text = chrome.sync_text(result, tz)
 
         if result.empty:
             chrome_html = chrome.build_chrome(
@@ -172,7 +173,7 @@ class HomeMaintenance(BasePlugin):
         template_params.update(chrome_html)
         template_params["total_count"] = len(items)
         template_params["rows"] = [
-            self._row_template_params(item, t.width) for item in visible
+            self._row_template_params(item, t) for item in visible
         ]
 
         image = self.render_image(
@@ -191,13 +192,6 @@ class HomeMaintenance(BasePlugin):
             return max(0, int(raw))
         except (TypeError, ValueError):
             return _DEFAULT_DUE_SOON_DAYS
-
-    @staticmethod
-    def _sync_text(result: CacheResult, tz: Any) -> str:
-        if result.synced_at is None:
-            return ""
-        stamp = result.synced_at.astimezone(tz).strftime("%a %-I:%M %p").lower()
-        return f"As of {stamp}" if result.stale else f"Synced {stamp}"
 
     @staticmethod
     def _parse_row(raw: Mapping[str, str], today: date, due_soon_days: int) -> Any:
@@ -241,7 +235,7 @@ class HomeMaintenance(BasePlugin):
             return None
 
     @staticmethod
-    def _row_template_params(item: Any, width_px: int) -> dict[str, Any]:
+    def _row_template_params(item: Any, t: layout.Tokens) -> dict[str, Any]:
         chip = None
         if item.status == Status.OVERDUE:
             chip = {
@@ -262,8 +256,11 @@ class HomeMaintenance(BasePlugin):
                 item.next_due.strftime("%b %Y") if item.next_due else item.interval_text
             )
 
+        task_region_px = t.width * _TASK_COL_END_PCT / 100
+        task = layout.truncate(item.task, task_region_px, t.fs["item"])
+
         return {
-            "task": item.task,
+            "task": task,
             "interval_text": item.interval_text,
             "chip": chip,
             "due_text": due_text,

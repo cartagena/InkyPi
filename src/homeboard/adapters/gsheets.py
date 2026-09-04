@@ -6,14 +6,66 @@ convention for ``icalendar``/``recurring_ical_events`` — plugin modules are
 only imported on first use by ``plugin_registry`` (confirmed by
 ``tests/unit/test_lazy_imports.py`` not listing those two packages), so a
 module-level import here doesn't affect startup RSS.
+
+Every gsheets-backed screen takes the same ``sheet_id``/``worksheet_name``
+settings pair and the same credentials env key, so the validation,
+settings-resolution and cache-key construction that would otherwise be
+copy-pasted per plugin live here too — ``validate_sheet_settings()``,
+``resolve_sheet_settings()`` and ``cache_key()``.
 """
 
 from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 _SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+
+# Env key every gsheets-backed plugin reads its service-account credentials
+# from (via device_config.load_env_key). One shared constant so the value
+# can't drift between plugins.
+SERVICE_ACCOUNT_ENV_KEY = "GOOGLE_SERVICE_ACCOUNT_JSON_PATH"
+
+
+def validate_sheet_settings(settings: Mapping[str, Any]) -> str | None:
+    """Return a human-readable error if ``sheet_id`` is missing/blank, else
+    ``None``. For use from a plugin's ``validate_settings()``."""
+    sheet_id = settings.get("sheet_id")
+    if not isinstance(sheet_id, str) or not sheet_id.strip():
+        return "Sheet ID is required."
+    return None
+
+
+def resolve_sheet_settings(
+    settings: Mapping[str, Any], default_worksheet: str
+) -> tuple[str, str]:
+    """Return ``(sheet_id, worksheet_name)`` from *settings*, falling back
+    to *default_worksheet* when it's absent/blank/non-string.
+
+    Raises ``RuntimeError`` if ``sheet_id`` is missing — callers should
+    normally have already rejected that at save time via
+    ``validate_sheet_settings()``, but ``generate_image()`` re-checks
+    since settings can predate a validation rule or be edited outside the
+    web UI.
+    """
+    sheet_id = settings.get("sheet_id")
+    if not isinstance(sheet_id, str) or not sheet_id.strip():
+        raise RuntimeError("Sheet ID is required")
+    worksheet_name = settings.get("worksheet_name") or default_worksheet
+    if not isinstance(worksheet_name, str):
+        worksheet_name = default_worksheet
+    return sheet_id, worksheet_name
+
+
+def cache_key(sheet_id: str, worksheet_name: str) -> str:
+    """Cache key for ``BasePlugin.cached_fetch`` — identifies *which* sheet,
+    not which plugin instance (``generate_image`` never sees the instance's
+    display name, only settings), so two instances pointed at the same
+    sheet+worksheet correctly share one cache entry."""
+    return f"{sheet_id}:{worksheet_name}"
 
 
 def read_worksheet(
@@ -29,8 +81,8 @@ def read_worksheet(
     settings, unreadable credentials file) — these are meant to trip the
     plugin's ``validate_settings``/circuit breaker path. Any other
     exception (network failure, malformed response, Google API error) is
-    left to propagate as-is so ``homeboard.cache.cached_fetch`` treats it
-    as a transient, fail-soft failure rather than a config error.
+    left to propagate as-is so ``BasePlugin.cached_fetch`` treats it as a
+    transient, fail-soft failure rather than a config error.
     """
     if not sheet_id:
         raise RuntimeError("Sheet ID is required")

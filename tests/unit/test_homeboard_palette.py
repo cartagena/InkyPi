@@ -14,6 +14,8 @@ from homeboard import palette
 
 
 class _FakeDeviceConfig:
+    config_file = "/tmp/does-not-matter/device.json"
+
     def __init__(self, display_type: str) -> None:
         self._display_type = display_type
 
