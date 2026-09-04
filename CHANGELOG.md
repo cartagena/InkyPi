@@ -1,6 +1,383 @@
 # CHANGELOG
 
 
+## v1.8.0 (2026-09-04)
+
+### Bug Fixes
+
+- **board**: Fix ledger coupling, sync status, geometry, and Keep edge cases
+  ([`c58a6c3`](https://github.com/cartagena/InkyPi/commit/c58a6c30092c6383a297468dca7555f93c308ba5))
+
+/code-review (high) found 6 issues, each independently verified before fixing:
+
+- The item-age ledger was keyed by a hash of both note titles combined, so renaming either note in
+  settings reset BOTH notes' age tracking even though only one changed. Split into two ledgers,
+  keyed the same way as each note's own payload cache entry (email + that note's title). - The
+  "worse of two CacheResults" sync-status logic only compared .stale, never .empty (a fetch that has
+  never succeeded at all) — a result that never synced could get reported as "Synced <time>" if the
+  other note's fetch happened to be fresh. Added a proper empty > stale > fresh ranking. -
+  todo_column_fits() reserved only CLEARED_LINE_BAND_EM below the last row, but the actual
+  empty-to-do render pushes the cleared line down a full extra TODO_PITCH_EM to make room for
+  "Nothing open" — the fits-check and the render geometry could disagree on a tight panel, the same
+  class of bug fixed in trips' idea-section overflow. Added todo_cleared_line_rows() as the single
+  shared source of truth both call. - gkeepapi's List.items flattens indented checklist sub-items in
+  with top-level ones (confirmed against its source); an indented Keep sub-item would otherwise be
+  parsed as its own independent Projects/To-do row. Filtered on item.indented. - select_backlog()'s
+  daily seed key was the projects note title alone, contradicting sampling.seeded_rng's documented
+  "independent across differently-configured board instances" guarantee — two accounts using the
+  same note title would get a correlated rotation. Seed key now includes the account email. - Added
+  threshold-ordering validation (show <= warn <= alert) — tags. age_tag()'s cascading if/elif
+  silently misclassifies severity when warn >= alert, and nothing was rejecting that at
+  settings-save time.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- **ci**: Drop dead system-level pip install from release SBOM step
+  ([`48bfe1d`](https://github.com/cartagena/InkyPi/commit/48bfe1dd3d64c9d64a776103b27ce3bcf350e336))
+
+release.yml's "Generate SBOM" step installed install/requirements.txt at the system level, then
+  separately created a venv and installed the same requirements into that — the SBOM is generated
+  from .venv/bin/python, so the system-level install was never read from. Drop it; saves install
+  time on every release with no behavior change.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+- **homeboard**: Dedupe sheet-plugin wiring, apply truncate(), fix stale docs
+  ([`638b75d`](https://github.com/cartagena/InkyPi/commit/638b75db7fad42139e49370d2944aa46954a11cd))
+
+Addresses /code-review findings on PR #39 (verified independently before fixing, since an earlier
+  review run had targeted the wrong repo):
+
+- homeboard/adapters/gsheets.py gains validate_sheet_settings(), resolve_sheet_settings(),
+  cache_key(), and SERVICE_ACCOUNT_ENV_KEY — sheet-id/worksheet validation, credentials-key lookup,
+  and cache-key construction were copy-pasted near-identically between HomeMaintenance and Trips;
+  now both call the shared adapter-level helpers instead. - homeboard/chrome.py gains
+  sync_text(result, tz) — the "Synced …"/"As of …" footer formatting was duplicated verbatim in both
+  plugins too. - home_maintenance.py now truncates task names via homeboard.layout.truncate() (SPEC
+  §3.6) before rendering — free-text from the sheet was previously passed straight through with no
+  width-based truncation, risking overlap with the adjacent interval/status-chip columns on a long
+  task name. - Fixed stale docstring/comment references to the removed
+  `homeboard.cache.cached_fetch` (now `BasePlugin.cached_fetch` /
+  `utils.payload_cache.cached_fetch`) in gsheets.py, adapters/__init__.py, and a test comment. -
+  Added config_file to two pre-existing _FakeDeviceConfig test doubles (test_homeboard_palette.py,
+  test_homeboard_chrome.py) that stopped satisfying DeviceConfigLike once cached_fetch's protocol
+  addition landed.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- **trips**: Fix idea-section overflow bug, dedupe wiring, apply truncate()
+  ([`106b972`](https://github.com/cartagena/InkyPi/commit/106b972aa841b6aa710fe0739e7773124ae0a8ac))
+
+Addresses /code-review findings on PR #40 (verified independently before fixing):
+
+- Real, confirmed bug: visible_counts()'s capacity math and the plugin's render geometry each
+  computed the "where do idea rows start" offset independently and disagreed by one
+  BOOKED_LABEL_BAND_EM (~0.8em) — the render side reserved space for the "On the list" label's own
+  band that the capacity math never subtracted. Quantified up to ~20px of idea-row overflow past
+  body_height on some panel sizes (e.g. 400x300 with 2 booked trips). Fixed by making
+  trips_data.idea_start_em() the single source of truth both visible_counts() and trips.py's render
+  geometry call, so they can't drift apart again. - Second, related gap found while fixing the
+  first: visible_counts() always guarantees at least MIN_IDEAS rows once there's idea data, even on
+  a panel with no room for them — its job is picking a count, not vetoing the render. Added
+  trips_data.screen_fits() to check the actual computed counts against body_height and fall back to
+  the SPEC §3.5 "panel too small" message instead of silently overflowing. - Switched to the
+  homeboard.adapters.gsheets shared helpers
+  (validate_sheet_settings/resolve_sheet_settings/cache_key/ SERVICE_ACCOUNT_ENV_KEY) and
+  homeboard.chrome.sync_text(), added in the home_maintenance PR — trips had the same
+  sheet-validation/credentials/ cache-key/sync-text wiring duplicated verbatim. - Applied
+  homeboard.layout.truncate() (SPEC §3.6) to trip title, next_action, and idea title/target_window —
+  free text from the sheet was previously passed straight through, risking overlap between the text
+  column and adjacent countdown block / idea window column. Verified visually via a real Chromium
+  render with a deliberately long idea title/window.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- **weekends**: Fix recurring-event detection and several layout/data bugs
+  ([`4209cd7`](https://github.com/cartagena/InkyPi/commit/4209cd7720c4ed9ea3758f37164e6c21a61cf723))
+
+Code review (self-verified against the pinned recurring_ical_events==3.8.2) found the
+  ignore_recurring_minutes feature never actually fired: expanded occurrences never carry
+  RRULE/RDATE (recurring_ical_events strips both, replacing them with a synthesized RECURRENCE-ID
+  present even on one-off events), so checking those properties on the occurrence was always False.
+  Fixed by correlating occurrences back to their source VEVENT by UID instead.
+
+Also fixes, each verified before fixing: - layout.fits_min_rows() didn't accept header_band_em, so
+  it could pass on a panel where row_count()'s own min_rows clamp was silently masking a shortfall —
+  exactly the failure mode fits_min_rows exists to catch. - The spanning-cell template branch never
+  rendered long_weekend_note, so a weekend event spanning both days lost its "Fri off"/"Mon off"
+  note. - Truncation for a spanning row was budgeted against the single-cell width instead of the
+  actual (wider) spanning-cell width, over-truncating text. - apply_long_weekend() only reported
+  "Fri off" when both the adjacent Friday and Monday were off, silently dropping the Monday-off
+  case. - classify_weekend() re-filtered the full event list up to 3x per row; now filters once and
+  reuses the qualifying list. - Added a docstring to _classify_from_day_events per CLAUDE.md's
+  private helper convention.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+### Chores
+
+- Drop bookworm and bullseye from install/release surface
+  ([`9afb3a1`](https://github.com/cartagena/InkyPi/commit/9afb3a1ea8e09a8fe9be363791430447d4699dd7))
+
+trixie is the only real install target now (JTN-615 already established this for bullseye: Debian 11
+  ships Python 3.9.2, too old for pinned deps needing >=3.10; bookworm was dropped from
+  install-matrix.yml's PR gate in a prior change). This finishes the cleanup across the remaining
+  surface that still referenced them:
+
+- ci.yml: smoke job's container base image debian:bookworm -> debian:trixie - os-drift-nightly.yml:
+  drop both codenames from the nightly drift matrix and workflow_dispatch codename picker; trixie
+  only - scripts/sim_install.sh, scripts/test_install_memcap.sh: drop from VALID_CODENAMES and usage
+  text - scripts/Dockerfile.install-matrix: update stale comments - README.md, docs/testing.md:
+  update install-verification examples and the os-drift-nightly description
+
+install.sh/update.sh's zramswap OS-version detection (os_version =~ ^(11|12|13)$) is left untouched
+  — it's defensive runtime feature detection, not a support declaration, and stripping
+  bullseye/bookworm from that regex would only remove graceful degradation for anyone who runs the
+  installer there, with no simplification benefit.
+
+CLAUDE.md's "Supported hardware/OS matrix" line still lists Bookworm/ Bullseye but is untracked in
+  this repo (no git history), so it isn't touched by this change — flagged separately.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+### Code Style
+
+- Run black on test_install_scripts.py
+  ([`fe2b03a`](https://github.com/cartagena/InkyPi/commit/fe2b03a4cd254f5322c88b3110fcce7387953997))
+
+The one-line-per-arg re.search() call from the prior commit fit under 88 chars once collapsed; black
+  wants it on one line. Fixes the Black check failure on CI.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+### Continuous Integration
+
+- Cut pull_request wall-clock — advisory jobs to merge/nightly, trim matrices
+  ([`fda2291`](https://github.com/cartagena/InkyPi/commit/fda2291e489c68adc6259bdcbbdcdc2097dbca46))
+
+preflash-validate and flake-detection ran on every PR but were never in ci-gate's required list, so
+  they added wall-clock/runner cost without gating merge. Move both to push:main + the existing
+  nightly schedule (if: github.event_name != 'pull_request'), matching the pattern already used by
+  soak-nightly/mutation-nightly.
+
+Also: - Drop the sonarcloud job — permanently disabled via `&& false` (no SONAR_TOKEN configured),
+  pure dead weight in the job graph. - Run the tests matrix on Python 3.12 only for pull_request;
+  push to main (and schedule/dispatch) still run the full 3.11/3.12/3.13 matrix, so version-specific
+  breaks are still caught before release. - Drop bookworm from install-matrix's codename matrix
+  entirely — bookworm is being dropped as a release target, so trixie is the only remaining real
+  install target there.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+### Features
+
+- **board**: Add board plugin (rotating projects + always-visible to-do)
+  ([`76a6df2`](https://github.com/cartagena/InkyPi/commit/76a6df210e83d6a7163e23eb6513a588752ab4f4))
+
+Fourth and final bedroom-dashboard screen (SPEC §7) — the default screen. Reads two Google Keep
+  checklist notes via a new read-only gkeepapi adapter (homeboard.adapters.gkeep, master-token auth
+  against a dedicated throwaway account per SPEC §4.5's security requirements). Adds
+  gkeepapi/gpsoauth to pyproject.toml/uv.lock (gpsoauth pinned to >=2.0.0 — earlier releases pin
+  urllib3<2, incompatible with this project's urllib3>=2 requirement).
+
+Projects tolerate staleness and rotate a deterministically daily-seeded, age-weighted sample of the
+  backlog (plugins/board/sampling.py); to-do shows everything, oldest first, no rotation. Since
+  gkeepapi may not expose reliable per-item creation timestamps, a local item-age ledger
+  (plugins/board/board_data.py) is the source of truth for `first_seen` and the "N cleared this
+  week" freshness signal.
+
+Verified by hand-rendering the screen (mocked Keep data, saved to PNG and visually inspected) at
+  multiple dimensions and orientations, catching and fixing several real layout bugs before they
+  shipped: - the two-title header wrapped/overlapped at narrow widths (font-size and a missing
+  ellipsis/nowrap treatment) - in-flight/backlog item titles were truncated against half the actual
+  column width in stacked (portrait) layout - the "From the backlog" label overlapped its own first
+  row when the in-flight section was collapsed (SPEC §7.8's empty-in-flight edge case) - the to-do
+  column's "Nothing open" line overlapped the "N cleared this week" line when the to-do list was
+  empty
+
+Also applies the same RoleMap.warn_is_solid fix (from the weekends PR) to the backlog age chip, so
+  it doesn't ship with the same invisible black-on-black bw-palette bug.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- **homeboard**: Add gsheets adapter, fail-soft cache, and home_maintenance plugin
+  ([`11f79a2`](https://github.com/cartagena/InkyPi/commit/11f79a2cad67a53419013c22aed06c4975ae7ff3))
+
+Continues the SPEC.md §9 build order on top of the chrome/tags branch:
+
+- homeboard/cache.py: fail-soft on-disk cache wrapper (SPEC §4.4), modeled on
+  utils/plugin_history.py's atomic-write pattern. Per the product decision to keep these screens as
+  ordinary plugins, cache/ledger storage is per-plugin (get_plugin_dir("cache")) rather than a
+  shared location. - homeboard/adapters/gsheets.py: read-only Google Sheets adapter via a service
+  account (trips, home_maintenance's auth choice). - New deps: google-api-python-client, google-auth
+  (already transitively present via google-genai, now pinned directly). Regenerated via `uv lock` +
+  `uv export` per docs/dependency_locking.md — NOT pip-compile, which CLAUDE.md still references but
+  which silently drops sys_platform markers on packages sharing a dependency graph with Linux-only
+  ones (confirmed by a first, reverted attempt: it dropped `; sys_platform == "linux"` from
+  gpiod/gpiodevice/smbus2/spidev). docs/dependency_locking.md (JTN-616) is the current source of
+  truth. - plugins/home_maintenance/: first full end-to-end screen (SPEC §8.2), chosen per the build
+  order for having the simplest adapter and no auth exotica. due_dates.py holds the pure
+  next-due/status/sort logic.
+
+Bug found and fixed via an actual Chromium render, not just unit tests:
+  homeboard.layout.tokens_css() emitted the §3.3 vertical bands (header-rule, body-top, etc.) as CSS
+  `em` strings. Custom properties are late-bound, so `var(--header-rule)` used inside `.hb-header`
+  (which sets its own `font-size: var(--fs-title)`) resolved against fs-title instead of `base`,
+  visibly overlapping the header with the first content row. Fixed by pre-multiplying those tokens
+  to absolute px in Python. The same class of bug existed in home_maintenance's own per-row
+  positioning (an element setting its own font-size, then using an inline `em` offset) — fixed by
+  passing row pitch as px too. Worth watching for in the remaining three screens' templates.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+- **homeboard**: Add shared render chrome and tag rendering
+  ([`aeaca01`](https://github.com/cartagena/InkyPi/commit/aeaca01339edaec89f00e3ebdffbd076676d5283))
+
+Continues the build-order steps from specs/SPEC.md §9 on top of layout.py and palette.py:
+
+- chrome.py + render/_chrome.html + render/_chrome.css: the shared
+  header/footer/empty-state/too-small markup (SPEC §4.2, §3.5, §4.4) as Jinja macros, rendered
+  through a private Jinja environment independent of any plugin's BasePlugin env. Each screen's own
+  render/<id>.html stays a standalone document rather than extending
+  plugins/base_plugin/render/plugin.html, whose hardcoded body padding, per-side margins and
+  flex-centered .container fight a full-bleed layout. - palette.py: added palette_css() to emit
+  --color-<role> custom properties alongside layout.tokens_css(), consumed together by
+  chrome.build_chrome(). - tags.py: size-tag bracket parsing/normalization and the shared age-tag
+  threshold ladder (SPEC §4.3), plus item_key() — a stable hashed key for the board plugin's future
+  item-age ledger (SPEC §4.5).
+
+28 new unit tests, including HTML-escaping coverage for the header/footer templates (untrusted text
+  — event summaries, note text — will flow through these at render time).
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+- **trips**: Add trips plugin (booked countdowns + trip ideas)
+  ([`dfe1013`](https://github.com/cartagena/InkyPi/commit/dfe1013d2c006ef6e1d545e3c180a306006ad9ec))
+
+Second full end-to-end screen (SPEC §8.1), built on the same gsheets adapter and cache wrapper as
+  home_maintenance, per the build order.
+
+- trips_data.py: pure row parsing/filtering/sorting (drop a trip the day after it ends, sort booked
+  by start date ascending) and the two-section (booked cards + idea rows sharing one body region)
+  row-count split. The exact split isn't fully specified for this screen — SPEC §8.1 gives card
+  pitch (4.7em) and idea pitch (2.2em) but not the label/gap spacing between the two stacked
+  sections, unlike the explicit split board's two-COLUMN layout gets. Estimated from the mockup's
+  pixel positions and flagged UNVERIFIED pending the physical-panel check, same as
+  home_maintenance's row-height assumption. - trips.py + render/trips.{html,css}: countdown block
+  (emphasis fill), trip title/dates/next-action text column, section rule, idea list with
+  right-aligned target windows. Verified with an actual Chromium render against the mockup's example
+  data. - Applied the em-token lesson from the home_maintenance PR: all per-card and per-row
+  positioning is computed in Python as absolute px, not CSS em. - Fixed one real SPEC §2.1 gap while
+  building this: the next-action line's alert/ink colour distinction (blocking vs not) had no
+  non-colour differentiator, so it would be invisible on a bw fallback panel. Added font-weight as
+  the second channel.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+- **weekends**: Add weekends plugin (free/partly/booked weekend lookahead)
+  ([`bcfb4e6`](https://github.com/cartagena/InkyPi/commit/bcfb4e6bf0be2e3c1fe239fa5a298c38011ec75e))
+
+Reads one or more ICS-over-HTTP calendar feeds and an optional holiday feed, classifies each
+  upcoming weekend per SPEC §6.4 (transparent/ short-recurring discard,
+  all-day/overnight/hour-threshold classification, spanning-event merge, long-weekend detection),
+  and renders a column grid where free time reads as whitespace.
+
+Also fixes a real bug found while hand-verifying the render: home_maintenance's due-soon chip
+  hardcoded solid=True, ignoring RoleMap.warn_is_solid — on the bw/mock palette (where every
+  non-ink/paper role collapses to black) this rendered as invisible black-on-black text. Threaded
+  roles into _row_template_params so it follows the same solid/outline toggle the shared chip CSS
+  already supports.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+### Refactoring
+
+- **cache**: Make the fail-soft payload cache a system-wide BasePlugin capability
+  ([`7911f6c`](https://github.com/cartagena/InkyPi/commit/7911f6cbf45e387c436dfdff203c851a0cf6e7b7))
+
+Review feedback on #39: a homeboard-only cache module didn't make sense once the question was asked
+  directly — the fail-soft semantics in SPEC.md §4.4 aren't homeboard-specific, and building it as a
+  system capability any plugin can opt into is both more useful and fixes a real bug the
+  per-plugin-directory version had.
+
+- New src/utils/payload_cache.py replaces src/homeboard/cache.py. Same core logic (CacheResult,
+  atomic tempfile+os.replace writes, fail-soft on transient errors, re-raise on config errors), now
+  storing under <config_dir>/plugin_cache/<sha256(plugin_id:cache_key)[:16]>.json — modeled directly
+  on utils/plugin_history.py's existing hashed-filename convention rather than a bespoke
+  per-plugin-directory scheme. - BasePlugin.cached_fetch(device_config, cache_key, fetch_fn,
+  config_errors) is the new public entry point every plugin gets for free. The bug fix: the old
+  homeboard/cache.py keyed cache files by plugin_id alone, so two configured instances of the same
+  plugin (e.g. two `trips` sheets) would clobber each other's cached payload. generate_image() never
+  receives the instance's display name (only settings + device_config), so identity has to come from
+  the caller-supplied cache_key — home_maintenance now keys on f"{sheet_id}:{worksheet_name}", which
+  also fixes the collision. - Existing plugins (weather, calendar, apod, etc.) are untouched — this
+  is an opt-in capability, not a retrofit. Changing their fail-loud semantics to fail-soft is a
+  separate, plugin-by-plugin decision. - Test-suite side effect: device_config_dev already isolates
+  Config.config_file into tmp_path, so cache-dir test isolation is automatic now — dropped the
+  monkeypatch-the-instance's-get_plugin_dir helper the old design needed.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+- **homeboard**: Drop the private Jinja env from chrome.py
+  ([`f4696cf`](https://github.com/cartagena/InkyPi/commit/f4696cfa11d1a0409f922d3c72ff52a484d5e0dd))
+
+Review feedback on #38: a second, private jinja2.Environment just to render four small, fixed-shape
+  HTML snippets (header, footer, empty-state, too-small message) was more machinery than the job
+  needed. A dedicated module is still necessary — no plugin's own Jinja env can see outside its own
+  plugin directory / base_plugin/render/, so the shared markup has to live somewhere canonical — but
+  rendering it doesn't require a template engine. Rebuilt
+  build_chrome()/empty_state_html()/too_small_html() as plain Python string-building with
+  markupsafe.escape() for the same XSS-safety guarantee Jinja's autoescape gave, and dropped
+  render/_chrome.html entirely. Public API (function signatures, CHROME_CSS_PATH) is unchanged, so
+  downstream plugins need no changes.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+- **trips**: Switch to the system-wide BasePlugin.cached_fetch()
+  ([`b1f96b7`](https://github.com/cartagena/InkyPi/commit/b1f96b7321222ca07c08cfd818ecccd88b04c646))
+
+Follows the same change as home_maintenance in the previous commit: uses
+  self.cached_fetch(device_config, cache_key, fetch_fn) instead of the now-removed homeboard.cache
+  module, keyed on f"{sheet_id}:{worksheet_name}" so two differently-configured trips instances
+  don't clobber each other's cached payload. Test isolation simplifies for the same reason — no more
+  monkeypatching the instance's get_plugin_dir(), since device_config_dev already isolates
+  Config.config_file into tmp_path.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+### Testing
+
+- Update install-matrix codename assertion to trixie-only
+  ([`480d820`](https://github.com/cartagena/InkyPi/commit/480d820100a2b41dfd572ef5b77ab42226d60ab0))
+
+test_install_matrix_references_supported_os_bases still asserted the old {bookworm, trixie} set from
+  before this branch dropped bookworm from install-matrix.yml's codename matrix.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+
 ## v1.7.0 (2026-09-04)
 
 ### Features
