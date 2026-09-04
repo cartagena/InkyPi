@@ -3,17 +3,18 @@
 # mimics the Pi Zero 2 W environment, without real hardware.
 #
 # Usage:
-#   ./scripts/sim_install.sh [trixie|bookworm|bullseye]
+#   ./scripts/sim_install.sh [trixie]
 #   ./scripts/sim_install.sh --help
 #
-# Defaults to trixie when no codename is supplied.
+# Defaults to trixie when no codename is supplied. trixie is the only
+# supported/released install target — bookworm and bullseye were dropped.
 set -euo pipefail
 
-VALID_CODENAMES="trixie bookworm bullseye"
+VALID_CODENAMES="trixie"
 DEFAULT_CODENAME="trixie"
 
 usage() {
-    echo "Usage: $(basename "${0}") [--help] [trixie|bookworm|bullseye]"
+    echo "Usage: $(basename "${0}") [--help] [trixie]"
     echo ""
     echo "  Builds a local arm64 Docker image that mimics the Pi Zero 2 W and"
     echo "  runs install/install.sh end-to-end against the current checkout."

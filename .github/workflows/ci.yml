@@ -242,7 +242,7 @@ jobs:
     name: Install smoke (container)
     needs: tests
     runs-on: ubuntu-latest
-    container: debian:bookworm
+    container: debian:trixie
     timeout-minutes: 15
     steps:
       - name: Checkout

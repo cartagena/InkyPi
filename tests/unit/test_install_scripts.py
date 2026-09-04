@@ -2929,9 +2929,16 @@ class TestOsDriftNightlyWorkflow:
     def test_is_not_a_pr_gate(self) -> None:
         assert "pull_request:" not in self.content
 
-    def test_matrix_covers_all_three_codenames(self) -> None:
-        for codename in ("trixie", "bookworm", "bullseye"):
-            assert codename in self.content
+    def test_matrix_covers_supported_codename(self) -> None:
+        # bookworm and bullseye were dropped — trixie is the only
+        # supported/released install target now. Explanatory comments in the
+        # workflow may still name the dropped codenames for context, so
+        # assert on the actual matrix/options definitions rather than a
+        # blanket substring check over the whole file.
+        assert self.content.count("codename: [trixie]") == 2
+        assert re.search(
+            r"options:\s*\n\s*-\s*''\s*\n\s*-\s*trixie\s*\n", self.content
+        )
 
     def test_uses_unpinned_debian_images(self) -> None:
         assert re.search(

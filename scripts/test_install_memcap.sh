@@ -21,14 +21,15 @@
 #             where baseline RSS balloons past MemoryMax=350M).
 #
 # Usage:
-#   ./scripts/test_install_memcap.sh [trixie|bookworm|bullseye]
+#   ./scripts/test_install_memcap.sh [trixie]
 #   ./scripts/test_install_memcap.sh --help
 #
 # Defaults to trixie when no codename is supplied (matches the Dockerfile.sim-install
-# default used by the companion sim_install.sh tool).
+# default used by the companion sim_install.sh tool). trixie is the only
+# supported/released install target — bookworm and bullseye were dropped.
 set -euo pipefail
 
-VALID_CODENAMES="trixie bookworm bullseye"
+VALID_CODENAMES="trixie"
 DEFAULT_CODENAME="trixie"
 POLL_INTERVAL=5
 POLL_MAX=180
@@ -36,7 +37,7 @@ LOG_DIR="${TMPDIR:-/tmp}/inkypi-smoke-logs"
 mkdir -p "${LOG_DIR}"
 
 usage() {
-    echo "Usage: $(basename "${0}") [--help] [trixie|bookworm|bullseye]"
+    echo "Usage: $(basename "${0}") [--help] [trixie]"
     echo ""
     echo "  Phase 2: pip install of requirements.txt under 512 MB cap."
     echo "           Exit 137 = OOM kill = JTN-528 regression."
