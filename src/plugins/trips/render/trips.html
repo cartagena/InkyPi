@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>{{ root_css | safe }}</style>
+{% for style in inline_styles %}<style>{{ style | safe }}</style>{% endfor %}
+</head>
+<body>
+{{ header_html | safe }}
+
+{% if empty_html %}
+{{ empty_html | safe }}
+{% elif too_small %}
+<div class="hb-too-small">Panel too small for this screen</div>
+{% else %}
+<div class="trips-body">
+  {% if booked %}
+  <div class="trips-section-label" style="top: 0px;">Booked</div>
+  <div class="trips-booked" style="top: {{ booked_start_px }}px;">
+    {% for b in booked %}
+    <div class="trips-card" style="top: {{ loop.index0 * card_pitch_px }}px; height: {{ card_pitch_px }}px;">
+      <div class="trips-countdown" style="width: {{ countdown_w_pct }}%; height: {{ countdown_h_px }}px;">
+        <div class="trips-countdown-num">{{ b.days_until }}</div>
+        <div class="trips-countdown-label">days</div>
+      </div>
+      <div class="trips-text" style="left: {{ text_col_start_pct }}%;">
+        <div class="trips-title">{{ b.name }}</div>
+        <div class="trips-dates">{{ b.dates }}</div>
+        <div class="trips-next-action{% if b.blocking %} trips-next-action-blocking{% endif %}">{{ b.next_action }}</div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if ideas %}
+  <div class="trips-section-rule" style="top: {{ idea_label_top_px - 6 }}px;"></div>
+  <div class="trips-section-label" style="top: {{ idea_label_top_px }}px;">On the list</div>
+  <div class="trips-ideas" style="top: {{ idea_start_px }}px;">
+    {% for i in ideas %}
+    <div class="trips-idea-row" style="top: {{ loop.index0 * idea_pitch_px }}px;">
+      <div class="trips-idea-title">{{ i.name }}</div>
+      <div class="trips-idea-window">{{ i.target_window }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{{ footer_html | safe }}
+</body>
+</html>
