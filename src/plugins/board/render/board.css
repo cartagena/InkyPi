@@ -1,0 +1,174 @@
+/* SPEC §7.3 — board layout. */
+
+.board-header {
+  position: absolute;
+  left: var(--margin-x);
+  width: var(--content-w);
+  top: 0;
+  height: 1.4em;
+}
+
+.board-header-col {
+  position: absolute;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.4em;
+  /* SPEC §7.3's header shares one row between two independent
+     title+meta pairs (unlike every other screen's single full-width
+     title), so it uses --fs-item rather than --fs-title — at the
+     larger scale each half only has ~col-w of width to work with and
+     wraps/collides with its meta count, especially in the narrower
+     stacked/portrait layout (SPEC §3.5). */
+  font-size: var(--fs-item);
+  font-weight: 500;
+}
+
+.board-header-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.board-header-meta {
+  font-size: var(--fs-label);
+  font-weight: 400;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.board-col {
+  position: absolute;
+  left: var(--margin-x);
+  width: var(--col-w);
+}
+
+.board-col.stacked {
+  width: var(--content-w);
+}
+
+.board-todo {
+  left: calc(var(--margin-x) + var(--col-w) + var(--gutter));
+}
+
+.board-todo.stacked {
+  left: var(--margin-x);
+}
+
+.board-divider {
+  position: absolute;
+  background: var(--color-ink);
+}
+
+.board-divider.vertical {
+  width: 1px;
+}
+
+.board-divider.horizontal {
+  height: 1px;
+}
+
+.board-section-label {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  font-size: var(--fs-label);
+}
+
+.board-section-rule {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: var(--color-ink);
+}
+
+.board-inflight-row,
+.board-backlog-row {
+  position: absolute;
+  left: 0;
+  width: 100%;
+}
+
+.board-inflight-bar {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0.2em;
+  background: var(--color-emphasis);
+}
+
+.board-inflight-title {
+  font-size: var(--fs-item);
+  font-weight: 500;
+  padding-left: 0.8em;
+}
+
+.board-backlog-title {
+  font-size: var(--fs-cell);
+}
+
+.board-chip-row {
+  margin-top: 0.3em;
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  padding-left: 0.8em;
+}
+
+.board-backlog-row .board-chip-row {
+  padding-left: 0;
+}
+
+.board-note {
+  font-size: var(--fs-small);
+  color: var(--color-ink);
+}
+
+.board-age-chip {
+  margin-left: 0;
+}
+
+.board-todo-row {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2.6em;
+  display: flex;
+  align-items: center;
+}
+
+.board-todo-checkbox {
+  width: 0.83em;
+  height: 0.83em;
+  border: 1px solid var(--color-ink);
+  flex-shrink: 0;
+}
+
+.board-todo-title {
+  font-size: var(--fs-body);
+  padding-left: 1.4em;
+  flex: 1;
+}
+
+.board-todo-age {
+  flex-shrink: 0;
+}
+
+.board-todo-empty {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: var(--fs-body);
+  color: var(--color-ink);
+}
+
+.board-cleared-line {
+  position: absolute;
+  left: 0;
+  font-size: var(--fs-label);
+  color: var(--color-available);
+}
