@@ -308,6 +308,9 @@ class Board(BasePlugin):
                     today,
                 ),
                 today,
+                effort_days=self._int_or_none(r.get("effort_days")),
+                priority=self._str_or_none(r.get("priority")),
+                due_date=self._date_or_none(r.get("due_date")),
             )
             for r in open_project_rows
         ]
@@ -319,6 +322,8 @@ class Board(BasePlugin):
                     board_data.ledger_key("todo", str(r.get("text", ""))),
                     today,
                 ),
+                priority=self._str_or_none(r.get("priority")),
+                due_date=self._date_or_none(r.get("due_date")),
             )
             for r in open_todo_rows
         ]
@@ -388,7 +393,8 @@ class Board(BasePlugin):
 
         column_w_pct = layout.CONTENT_W_PCT if stacked else layout.COL_W_PCT
         base_params["in_flight"] = [
-            self._in_flight_params(item, t, column_w_pct) for item in visible_in_flight
+            self._in_flight_params(item, t, column_w_pct, today, roles)
+            for item in visible_in_flight
         ]
         base_params["backlog"] = [
             self._backlog_params(
@@ -476,6 +482,28 @@ class Board(BasePlugin):
             return default
 
     @staticmethod
+    def _int_or_none(raw: Any) -> int | None:
+        # boardbot validates effort_days is a positive int before ever
+        # storing it, but this is a network response — never trust it
+        # blindly on this side either.
+        if isinstance(raw, bool) or not isinstance(raw, int):
+            return None
+        return raw if raw > 0 else None
+
+    @staticmethod
+    def _str_or_none(raw: Any) -> str | None:
+        return raw if isinstance(raw, str) and raw.strip() else None
+
+    @staticmethod
+    def _date_or_none(raw: Any) -> date | None:
+        if not isinstance(raw, str) or not raw.strip():
+            return None
+        try:
+            return date.fromisoformat(raw.strip())
+        except ValueError:
+            return None
+
+    @staticmethod
     def _worse_cache_result(a: CacheResult, b: CacheResult) -> CacheResult:
         """The more pessimistic of two independent CacheResults, ranked
         empty (never succeeded, nothing cached) worse than stale (serving
@@ -488,12 +516,20 @@ class Board(BasePlugin):
 
     @staticmethod
     def _in_flight_params(
-        item: board_data.ProjectItem, t: layout.Tokens, column_w_pct: float
+        item: board_data.ProjectItem,
+        t: layout.Tokens,
+        column_w_pct: float,
+        today: date,
+        roles: palette.RoleMap,
     ) -> dict[str, Any]:
         title_w_px = t.width * column_w_pct / 100 * 0.8
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["item"]),
             "size_tag": _size_tag_params(item.size_tag),
+            "priority_tag": _priority_tag_params(
+                tags.priority_tag(item.priority), roles
+            ),
+            "due_tag": _due_tag_params(tags.due_tag(item.due_date, today), roles),
             "note_text": item.note_text,
         }
 
@@ -516,6 +552,10 @@ class Board(BasePlugin):
             "title": layout.truncate(item.title, title_w_px, t.fs["cell"]),
             "size_tag": _size_tag_params(item.size_tag),
             "age_tag": _age_tag_params(age, roles),
+            "priority_tag": _priority_tag_params(
+                tags.priority_tag(item.priority), roles
+            ),
+            "due_tag": _due_tag_params(tags.due_tag(item.due_date, today), roles),
         }
 
     @staticmethod
@@ -528,16 +568,31 @@ class Board(BasePlugin):
         age_warn: int,
         roles: palette.RoleMap,
     ) -> dict[str, Any]:
-        title_w_px = t.width * column_w_pct / 100 * 0.75
+        priority = tags.priority_tag(item.priority)
+        due = tags.due_tag(item.due_date, today)
         age = tags.age_tag(
             board_data.days_since(item.first_seen, today),
             age_show,
             age_warn,
             _TODO_AGE_ALERT_DAYS,
         )
+        # A to-do row lays title and chips out on one flex line (unlike
+        # in-flight/backlog project rows, which put chips on their own
+        # line below the title), so an untrimmed 0.75 title budget can
+        # claim more width than the row has left once priority/due chips
+        # (new — age_tag alone never needed this) actually render,
+        # overflowing the column. This is a backstop against a pathologically
+        # long title specifically — board.css's .board-todo-row width is
+        # what actually keeps a short title + several chips from
+        # overflowing (see that file's comment for why). UNVERIFIED
+        # per-chip discount — no physical-panel measurement backs 0.08.
+        chip_discount = sum(0.08 for tag in (priority, due) if tag is not None)
+        title_w_px = t.width * (column_w_pct / 100 * 0.75 - chip_discount)
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["body"]),
             "age_tag": _age_tag_params(age, roles),
+            "priority_tag": _priority_tag_params(priority, roles),
+            "due_tag": _due_tag_params(due, roles),
         }
 
 
@@ -562,3 +617,21 @@ def _age_tag_params(
     # bw/mock palette (every non-ink/paper role collapses to black there).
     solid = roles.warn_is_solid if age.role == Role.WARN else age.solid
     return {"label": age.label, "role": age.role.value, "solid": solid}
+
+
+def _priority_tag_params(
+    priority: tags.PriorityTag | None, roles: palette.RoleMap
+) -> dict[str, Any] | None:
+    if priority is None:
+        return None
+    solid = roles.warn_is_solid if priority.role == Role.WARN else priority.solid
+    return {"label": priority.label, "role": priority.role.value, "solid": solid}
+
+
+def _due_tag_params(
+    due: tags.DueTag | None, roles: palette.RoleMap
+) -> dict[str, Any] | None:
+    if due is None:
+        return None
+    solid = roles.warn_is_solid if due.role == Role.WARN else due.solid
+    return {"label": due.label, "role": due.role.value, "solid": solid}

@@ -46,6 +46,14 @@ _CLEARED_WINDOW_DAYS = 7
 _NOTE_SEP_RE = re.compile(r"\s+—\s+")
 _STARTED_RE = re.compile(r"^started\s+(\d{4}-\d{2}-\d{2})$", re.IGNORECASE)
 
+# Trailing "[...]" bracket some sender wrote that isn't boardbot's own
+# recognized [S]/[M]/[L] effort shorthand (that gets stripped upstream —
+# see boardbot/parser.py — before this text ever reaches InkyPi). Stripped
+# from the displayed title so stray bracket syntax doesn't show up as
+# literal text; unlike the old parse_size_tag, this never produces a size
+# chip — size now comes only from effort_days (tags.effort_tag).
+_TRAILING_BRACKET_RE = re.compile(r"\s*\[[^\[\]]*\]\s*$")
+
 
 def _split_note(text: str) -> tuple[str, str]:
     """Split a trailing `` — <note>`` (em dash) suffix off *text*."""
@@ -53,6 +61,10 @@ def _split_note(text: str) -> tuple[str, str]:
     if len(parts) == 2:
         return parts[0].rstrip(), parts[1].strip()
     return text, ""
+
+
+def _strip_trailing_bracket(text: str) -> str:
+    return _TRAILING_BRACKET_RE.sub("", text).strip()
 
 
 def render_project_note(note_raw: str, today: date) -> str:
@@ -79,6 +91,8 @@ class ProjectItem:
     note_text: str  # rendered; only meaningful for in-flight items
     in_flight: bool
     first_seen: date
+    priority: str | None = None
+    due_date: date | None = None
 
 
 @dataclass(frozen=True)
@@ -86,14 +100,25 @@ class TodoItem:
     key: str
     title: str
     first_seen: date
+    priority: str | None = None
+    due_date: date | None = None
 
 
 def parse_project_item(
-    raw_text: str, in_flight_prefix: str, first_seen: date, today: date
+    raw_text: str,
+    in_flight_prefix: str,
+    first_seen: date,
+    today: date,
+    effort_days: int | None = None,
+    priority: str | None = None,
+    due_date: date | None = None,
 ) -> ProjectItem:
-    """Parse one open Projects-note line (SPEC §7.4): an optional
-    ``in_flight_prefix``, an optional trailing size bracket, and — for
-    in-flight items only — an optional trailing `` — <note>``."""
+    """Parse one open Projects-list line (SPEC §7.4): an optional
+    ``in_flight_prefix``, and — for in-flight items only — an optional
+    trailing `` — <note>``. ``effort_days``/``priority``/``due_date`` come
+    from boardbot's structured fields (github.com/cartagena/boardbot), not
+    parsed out of *raw_text* — only the in-flight prefix and the started-
+    date note are still text conventions."""
     text = raw_text
     in_flight = False
     if in_flight_prefix and text.startswith(in_flight_prefix):
@@ -101,7 +126,8 @@ def parse_project_item(
         text = text[len(in_flight_prefix) :].lstrip()
 
     title_and_bracket, note_raw = _split_note(text)
-    title, size_tag = tags.parse_size_tag(title_and_bracket)
+    title = _strip_trailing_bracket(title_and_bracket)
+    size_tag = tags.effort_tag(effort_days)
     note_text = render_project_note(note_raw, today) if in_flight else ""
 
     return ProjectItem(
@@ -111,15 +137,27 @@ def parse_project_item(
         note_text=note_text,
         in_flight=in_flight,
         first_seen=first_seen,
+        priority=priority,
+        due_date=due_date,
     )
 
 
-def parse_todo_item(raw_text: str, first_seen: date) -> TodoItem:
-    """Parse one open To-do-note line: a trailing bracket is ignored here
-    (SPEC §7.4 — "a trailing bracket is ignored")."""
-    title, _ = tags.parse_size_tag(raw_text)
+def parse_todo_item(
+    raw_text: str,
+    first_seen: date,
+    priority: str | None = None,
+    due_date: date | None = None,
+) -> TodoItem:
+    """Parse one open To-do-list line: a trailing bracket is ignored here
+    (SPEC §7.4 — "a trailing bracket is ignored") — to-dos never carry a
+    size tag."""
+    title = _strip_trailing_bracket(raw_text)
     return TodoItem(
-        key=ledger_key("todo", raw_text), title=title, first_seen=first_seen
+        key=ledger_key("todo", raw_text),
+        title=title,
+        first_seen=first_seen,
+        priority=priority,
+        due_date=due_date,
     )
 
 

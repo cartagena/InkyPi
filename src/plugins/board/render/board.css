@@ -135,7 +135,17 @@
 .board-todo-row {
   position: absolute;
   left: 0;
-  width: 100%;
+  /* Less than 100%: SPEC §3.2's --margin-x/--col-w/--gutter add up to
+     102.5% of the panel width for the two-column layout, not 100% (a
+     pre-existing inconsistency in those shared constants, flagged
+     separately -- not fixed here since it's spec'd and used by every
+     board row, not just this one). This column's own box already
+     extends past the panel's right edge before any row content is
+     considered; trimming the row narrower than its (oversized) column
+     keeps the now-3-chip-capable row's real content inside the visible
+     panel. UNVERIFIED exact percentage — picked empirically against a
+     real render, not derived from a physical-panel measurement. */
+  width: 90%;
   height: 2.6em;
   display: flex;
   align-items: center;
@@ -152,10 +162,25 @@
   font-size: var(--fs-body);
   padding-left: 1.4em;
   flex: 1;
+  /* Flex items default to min-width: auto, so `flex: 1` alone never
+     shrinks this below its own text's intrinsic width -- with the
+     priority/due chips added alongside age_tag, that let a row's total
+     content (checkbox + title + up to 3 chips) exceed the column width
+     and spill past the panel edge instead of the title yielding space to
+     its siblings. overflow:hidden is the safety net for whatever
+     layout.truncate()'s pixel-width estimate (board.py's _todo_params)
+     doesn't already catch. */
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
+.board-todo-priority,
+.board-todo-due,
 .board-todo-age {
   flex-shrink: 0;
+  margin-left: 0.4em;
 }
 
 .board-todo-empty {

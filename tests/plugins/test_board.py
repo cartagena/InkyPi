@@ -120,6 +120,63 @@ class TestGenerateImageHappyPath:
         image = plugin.generate_image(_SETTINGS, device_config_dev)
         assert isinstance(image, Image.Image)
 
+    def test_renders_with_due_date_priority_and_effort_days(
+        self, device_config_dev: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        plugin = Board({"id": "board"})
+        monkeypatch.setattr(
+            device_config_dev.__class__, "load_env_key", lambda self, key: "fake-token"
+        )
+        rich_projects: list[dict[str, Any]] = [
+            {
+                "text": "Clean the garage",
+                "checked": False,
+                "due_date": "2026-09-10",
+                "priority": "high",
+                "effort_days": 2,
+            },
+            {
+                "text": "Fix the fence",
+                "checked": False,
+                "due_date": None,
+                "priority": "medium",
+                "effort_days": None,
+            },
+        ]
+        rich_todo: list[dict[str, Any]] = [
+            {
+                "text": "Buy filters",
+                "checked": False,
+                "due_date": "2026-09-04",
+                "priority": None,
+                "effort_days": None,
+            },
+        ]
+        monkeypatch.setattr(
+            boardbot, "fetch_checklist", _fetch_for(rich_projects, rich_todo)
+        )
+
+        image = plugin.generate_image(_SETTINGS, device_config_dev)
+        assert isinstance(image, Image.Image)
+
+    def test_renders_when_rows_omit_new_fields_entirely(
+        self, device_config_dev: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Rows shaped like a pre-schema-change boardbot response (no
+        due_date/priority/effort_days keys at all) must not crash."""
+        plugin = Board({"id": "board"})
+        monkeypatch.setattr(
+            device_config_dev.__class__, "load_env_key", lambda self, key: "fake-token"
+        )
+        bare_projects = [{"text": "Paint the fence", "checked": False}]
+        bare_todo = [{"text": "Buy filters", "checked": False}]
+        monkeypatch.setattr(
+            boardbot, "fetch_checklist", _fetch_for(bare_projects, bare_todo)
+        )
+
+        image = plugin.generate_image(_SETTINGS, device_config_dev)
+        assert isinstance(image, Image.Image)
+
 
 class TestGenerateImageFailSoft:
     def test_transient_failure_with_prior_cache_still_returns_an_image(

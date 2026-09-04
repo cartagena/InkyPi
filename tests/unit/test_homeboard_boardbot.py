@@ -64,6 +64,22 @@ class _FakeResponse:
         return self._payload
 
 
+def _item(
+    text: str,
+    checked: bool = False,
+    due_date: str | None = None,
+    priority: str | None = None,
+    effort_days: int | None = None,
+) -> dict[str, Any]:
+    return {
+        "text": text,
+        "checked": checked,
+        "due_date": due_date,
+        "priority": priority,
+        "effort_days": effort_days,
+    }
+
+
 class TestFetchChecklistParsing:
     def _patch_session(
         self, monkeypatch: pytest.MonkeyPatch, response: _FakeResponse
@@ -87,9 +103,36 @@ class TestFetchChecklistParsing:
         result = boardbot.fetch_checklist(
             "projects", "http://piserver.local:8765", "token"
         )
+        assert result == [_item("Item A"), _item("Item B", checked=True)]
+
+    def test_passes_through_due_date_priority_effort_days(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        response = _FakeResponse(
+            {
+                "items": [
+                    {
+                        "text": "Clean the garage",
+                        "checked": False,
+                        "due_date": "2026-09-10",
+                        "priority": "high",
+                        "effort_days": 2,
+                    }
+                ]
+            }
+        )
+        self._patch_session(monkeypatch, response)
+
+        result = boardbot.fetch_checklist(
+            "projects", "http://piserver.local:8765", "token"
+        )
         assert result == [
-            {"text": "Item A", "checked": False},
-            {"text": "Item B", "checked": True},
+            _item(
+                "Clean the garage",
+                due_date="2026-09-10",
+                priority="high",
+                effort_days=2,
+            )
         ]
 
     def test_empty_list_returns_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -133,4 +176,4 @@ class TestFetchChecklistParsing:
             monkeypatch, _FakeResponse({"items": [{"text": "No checked field"}]})
         )
         result = boardbot.fetch_checklist("todo", "http://piserver.local:8765", "token")
-        assert result == [{"text": "No checked field", "checked": False}]
+        assert result == [_item("No checked field")]

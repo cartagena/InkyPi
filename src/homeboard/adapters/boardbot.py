@@ -55,9 +55,12 @@ def fetch_checklist(
     """Fetch every item (open and checked) from *list_name* on the
     ``boardbot`` deployment at *base_url*.
 
-    Returns one dict per item: ``{"text": ..., "checked": ...}`` — same
-    shape ``homeboard.adapters.gkeep.fetch_checklist`` returned, so
-    ``board_data.py``'s parsing is unaffected by which adapter is in use.
+    Returns one dict per item: ``{"text": ..., "checked": ..., "due_date":
+    ... | None, "priority": ... | None, "effort_days": ... | None}`` —
+    ``text``/``checked`` match the shape ``homeboard.adapters.gkeep.
+    fetch_checklist`` used to return, so ``board_data.py``'s existing
+    parsing is unaffected; the three extra fields are new (see SPEC §4.3's
+    effort/priority/due tags).
 
     Raises ``RuntimeError`` for configuration problems (missing/blank
     settings) — callers should already have rejected these via
@@ -85,6 +88,12 @@ def fetch_checklist(
 
     items = data.get("items", [])
     return [
-        {"text": str(item.get("text", "")), "checked": bool(item.get("checked"))}
+        {
+            "text": str(item.get("text", "")),
+            "checked": bool(item.get("checked")),
+            "due_date": item.get("due_date"),
+            "priority": item.get("priority"),
+            "effort_days": item.get("effort_days"),
+        }
         for item in items
     ]
