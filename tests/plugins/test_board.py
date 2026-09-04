@@ -216,3 +216,96 @@ class TestLedger:
         )
         image = plugin.generate_image(_SETTINGS, device_config_dev)
         assert isinstance(image, Image.Image)
+
+    def test_ledger_path_is_independent_per_note(self, device_config_dev: Any) -> None:
+        """Regression: the ledger used to be keyed by a hash of both note
+        titles combined, so renaming either note in settings reset BOTH
+        notes' age tracking. Each note must get its own ledger file, keyed
+        the same way as that note's own payload cache entry."""
+        projects_path = Board._ledger_path(
+            device_config_dev, "a@example.com", "Projects"
+        )
+        todo_path = Board._ledger_path(device_config_dev, "a@example.com", "To do")
+        renamed_todo_path = Board._ledger_path(
+            device_config_dev, "a@example.com", "To do (renamed)"
+        )
+        assert projects_path != todo_path
+        # Renaming the to-do note must not change the projects ledger path.
+        assert projects_path == Board._ledger_path(
+            device_config_dev, "a@example.com", "Projects"
+        )
+        assert todo_path != renamed_todo_path
+
+
+class TestWorseCacheResult:
+    def test_empty_outranks_fresh(self) -> None:
+        from utils.payload_cache import CacheResult
+
+        empty = CacheResult(
+            payload=None, fresh=False, stale=False, empty=True, synced_at=None
+        )
+        fresh = CacheResult(
+            payload=[1], fresh=True, stale=False, empty=False, synced_at=None
+        )
+        assert Board._worse_cache_result(empty, fresh) is empty
+        assert Board._worse_cache_result(fresh, empty) is empty
+
+    def test_stale_outranks_fresh(self) -> None:
+        from utils.payload_cache import CacheResult
+
+        stale = CacheResult(
+            payload=[1], fresh=False, stale=True, empty=False, synced_at=None
+        )
+        fresh = CacheResult(
+            payload=[1], fresh=True, stale=False, empty=False, synced_at=None
+        )
+        assert Board._worse_cache_result(stale, fresh) is stale
+
+    def test_empty_outranks_stale(self) -> None:
+        from utils.payload_cache import CacheResult
+
+        empty = CacheResult(
+            payload=None, fresh=False, stale=False, empty=True, synced_at=None
+        )
+        stale = CacheResult(
+            payload=[1], fresh=False, stale=True, empty=False, synced_at=None
+        )
+        assert Board._worse_cache_result(empty, stale) is empty
+
+
+class TestBacklogSeedKey:
+    def test_seed_key_includes_email_not_just_note_title(
+        self, device_config_dev: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression: two board instances pointed at different Keep
+        accounts but sharing the same projects_note_title (e.g. both named
+        "Projects") must not get the exact same daily backlog rotation —
+        sampling.seeded_rng's seed_key needs to carry the account identity
+        too, not just the title."""
+        from plugins.board import board_data as board_data_module
+
+        seen_seed_keys: list[str] = []
+        real_select_backlog = board_data_module.select_backlog
+
+        def _spy_select_backlog(*args: Any, **kwargs: Any) -> Any:
+            seen_seed_keys.append(kwargs["seed_key"])
+            return real_select_backlog(*args, **kwargs)
+
+        monkeypatch.setattr(board_data_module, "select_backlog", _spy_select_backlog)
+        monkeypatch.setattr(
+            device_config_dev.__class__, "load_env_key", lambda self, key: "fake-token"
+        )
+        monkeypatch.setattr(
+            gkeep, "fetch_checklist", _fetch_for(_PROJECTS_ROWS, _TODO_ROWS)
+        )
+
+        plugin = Board({"id": "board"})
+        plugin.generate_image(
+            {**_SETTINGS, "keep_account_email": "a@example.com"}, device_config_dev
+        )
+        plugin.generate_image(
+            {**_SETTINGS, "keep_account_email": "b@example.com"}, device_config_dev
+        )
+
+        assert len(seen_seed_keys) == 2
+        assert seen_seed_keys[0] != seen_seed_keys[1]

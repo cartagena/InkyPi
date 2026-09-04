@@ -330,6 +330,36 @@ def todo_capacity(body_height_em: float) -> int:
     return _clamped_row_count(available_em, TODO_PITCH_EM, MIN_TODO, MAX_TODO)
 
 
-def todo_column_fits(body_height_em: float, visible_todo: int) -> bool:
-    bottom_em = visible_todo * TODO_PITCH_EM + CLEARED_LINE_BAND_EM
+def todo_cleared_line_rows(visible_todo: int, todo_is_empty: bool) -> int:
+    """Row-slots consumed before the cleared-count line begins. The
+    single source of truth for this offset — both ``todo_column_fits()``
+    and the plugin's render geometry call this, so the two can't drift
+    the way trips' idea-section offset once did (see
+    trips_data.idea_start_em's docstring for that history): the SPEC
+    §7.8 empty-state "Nothing open" line takes one row-slot even though
+    it isn't a normal to-do row, and the cleared line must always render
+    below it, not at the same top as a would-be zero-row list."""
+    return 1 if todo_is_empty else visible_todo
+
+
+def todo_column_fits(body_height_em: float, cleared_line_rows: int) -> bool:
+    bottom_em = cleared_line_rows * TODO_PITCH_EM + CLEARED_LINE_BAND_EM
     return bottom_em <= body_height_em
+
+
+# --- §7.6 threshold validation ---------------------------------------------
+
+
+def validate_age_thresholds(label: str, *thresholds: int) -> str | None:
+    """Return a human-readable error if *thresholds* (in ascending
+    intended order — e.g. show/warn/alert) aren't non-decreasing.
+
+    ``tags.age_tag()``'s ladder is a cascading if/elif that checks
+    ``show`` then ``warn`` then ``alert`` in that order — a misconfigured
+    ``warn >= alert`` would make an item that's already past the alert
+    threshold render at the lower-severity warn tier instead, since the
+    ``days < warn`` branch is checked first and never falls through.
+    """
+    if list(thresholds) != sorted(thresholds):
+        return f"{label} thresholds must be in non-decreasing order (show <= warn <= alert)."
+    return None

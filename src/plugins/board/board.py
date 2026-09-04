@@ -22,7 +22,7 @@ from homeboard.palette import Role
 from plugins.base_plugin.base_plugin import BasePlugin, DeviceConfigLike
 from plugins.base_plugin.settings_schema import field, row, schema, section
 from plugins.board import board_data
-from utils.payload_cache import atomic_write_json, read_json_or_none
+from utils.payload_cache import CacheResult, atomic_write_json, read_json_or_none
 from utils.time_utils import get_timezone, now_in_timezone
 
 logger = logging.getLogger(__name__)
@@ -49,7 +49,32 @@ _STACK_GAP_EM = 1.5
 
 class Board(BasePlugin):
     def validate_settings(self, settings: Mapping[str, Any]) -> str | None:
-        return gkeep.validate_board_settings(settings)
+        error = gkeep.validate_board_settings(settings)
+        if error:
+            return error
+
+        project_show = self._int_setting(
+            settings.get("project_age_show_days"), _DEFAULT_PROJECT_AGE_SHOW_DAYS
+        )
+        project_warn = self._int_setting(
+            settings.get("project_age_warn_days"), _DEFAULT_PROJECT_AGE_WARN_DAYS
+        )
+        project_alert = self._int_setting(
+            settings.get("project_age_alert_days"), _DEFAULT_PROJECT_AGE_ALERT_DAYS
+        )
+        error = board_data.validate_age_thresholds(
+            "Project age", project_show, project_warn, project_alert
+        )
+        if error:
+            return error
+
+        todo_show = self._int_setting(
+            settings.get("todo_age_show_days"), _DEFAULT_TODO_AGE_SHOW_DAYS
+        )
+        todo_warn = self._int_setting(
+            settings.get("todo_age_warn_days"), _DEFAULT_TODO_AGE_WARN_DAYS
+        )
+        return board_data.validate_age_thresholds("To-do age", todo_show, todo_warn)
 
     def build_settings_schema(self) -> dict[str, object]:
         return schema(
@@ -192,13 +217,16 @@ class Board(BasePlugin):
 
         source_text = "Google Keep"
         # Two independent fetches, two independent CacheResults — show the
-        # more pessimistic freshness status of the pair (a stale result
-        # wins over a fresh one) so a reader is never told "Synced" when
-        # one of the two notes is actually serving cached data.
-        sync_result = projects_result if projects_result.stale else todo_result
-        if not projects_result.stale and not todo_result.stale:
-            sync_result = projects_result if projects_result.synced_at else todo_result
-        sync_text = chrome.sync_text(sync_result, tz)
+        # more pessimistic freshness status of the pair so a reader is
+        # never told "Synced" when one of the two notes is actually
+        # serving cached (or, worse, zero) data. Ranked worst-first: a
+        # never-succeeded fetch (empty) outranks a stale one, which
+        # outranks fresh — comparing only `.stale` would treat `.empty`
+        # (fetch failed with nothing cached at all) as equivalent to
+        # fresh, since neither sets `stale`.
+        sync_text = chrome.sync_text(
+            self._worse_cache_result(projects_result, todo_result), tz
+        )
 
         both_empty = projects_result.empty and todo_result.empty
         base_params: dict[str, Any] = {
@@ -238,29 +266,40 @@ class Board(BasePlugin):
             )
             return self._render(dimensions, base_params)
 
-        ledger_path = self._ledger_path(
-            device_config, email, projects_title, todo_title
-        )
-        ledger = read_json_or_none(ledger_path) or {}
+        # Two independent ledger files, keyed the same way as the two
+        # payload caches (email + that note's own title) — a combined key
+        # over both titles would reset both notes' age tracking whenever
+        # either title alone changed in settings.
+        projects_ledger_path = self._ledger_path(device_config, email, projects_title)
+        todo_ledger_path = self._ledger_path(device_config, email, todo_title)
+        projects_ledger = read_json_or_none(projects_ledger_path) or {}
+        todo_ledger = read_json_or_none(todo_ledger_path) or {}
 
         projects_raw = projects_result.payload or []
         todo_raw = todo_result.payload or []
-        current_items = [
+        projects_current_items = [
             (
                 board_data.ledger_key("projects", str(r.get("text", ""))),
                 bool(r.get("checked")),
             )
             for r in projects_raw
-        ] + [
+        ]
+        todo_current_items = [
             (
                 board_data.ledger_key("todo", str(r.get("text", ""))),
                 bool(r.get("checked")),
             )
             for r in todo_raw
         ]
-        ledger = board_data.update_ledger(ledger, current_items, today)
-        ledger = board_data.prune_ledger(ledger, today)
-        atomic_write_json(ledger_path, ledger)
+        projects_ledger = board_data.prune_ledger(
+            board_data.update_ledger(projects_ledger, projects_current_items, today),
+            today,
+        )
+        todo_ledger = board_data.prune_ledger(
+            board_data.update_ledger(todo_ledger, todo_current_items, today), today
+        )
+        atomic_write_json(projects_ledger_path, projects_ledger)
+        atomic_write_json(todo_ledger_path, todo_ledger)
 
         open_project_rows = [r for r in projects_raw if not r.get("checked")]
         open_todo_rows = [r for r in todo_raw if not r.get("checked")]
@@ -270,7 +309,7 @@ class Board(BasePlugin):
                 str(r.get("text", "")),
                 in_flight_prefix,
                 board_data.first_seen_of(
-                    ledger,
+                    projects_ledger,
                     board_data.ledger_key("projects", str(r.get("text", ""))),
                     today,
                 ),
@@ -282,7 +321,9 @@ class Board(BasePlugin):
             board_data.parse_todo_item(
                 str(r.get("text", "")),
                 board_data.first_seen_of(
-                    ledger, board_data.ledger_key("todo", str(r.get("text", ""))), today
+                    todo_ledger,
+                    board_data.ledger_key("todo", str(r.get("text", ""))),
+                    today,
                 ),
             )
             for r in open_todo_rows
@@ -307,11 +348,15 @@ class Board(BasePlugin):
 
         todo_cap = board_data.todo_capacity(todo_body_em)
         visible_todo_count = min(len(todo_items), todo_cap)
+        todo_is_empty = len(todo_items) == 0
+        cleared_line_rows = board_data.todo_cleared_line_rows(
+            visible_todo_count, todo_is_empty
+        )
 
         projects_fits = board_data.projects_column_fits(
             projects_body_em, visible_in_flight_count, visible_backlog_count
         )
-        todo_fits = board_data.todo_column_fits(todo_body_em, visible_todo_count)
+        todo_fits = board_data.todo_column_fits(todo_body_em, cleared_line_rows)
         if not projects_fits or not todo_fits:
             chrome_html = chrome.build_chrome(
                 t, roles, "Board", "", source_text, sync_text
@@ -324,7 +369,10 @@ class Board(BasePlugin):
             in_flight_items, visible_in_flight_count
         )
         visible_backlog = board_data.select_backlog(
-            backlog_items, visible_backlog_count, today, seed_key=projects_title
+            backlog_items,
+            visible_backlog_count,
+            today,
+            seed_key=f"{email}:{projects_title}",
         )
         visible_todo = board_data.select_todo(todo_items, visible_todo_count)
 
@@ -367,8 +415,10 @@ class Board(BasePlugin):
             )
             for item in visible_todo
         ]
-        base_params["todo_empty"] = len(todo_items) == 0
-        base_params["cleared_count"] = board_data.cleared_this_week(ledger, today)
+        base_params["todo_empty"] = todo_is_empty
+        # SPEC §7.3 places the "Cleared" line under the To-do column
+        # specifically, so it counts to-do completions only, not projects.
+        base_params["cleared_count"] = board_data.cleared_this_week(todo_ledger, today)
 
         base_params["stacked"] = stacked
         base_params["backlog_label_top_px"] = (
@@ -381,10 +431,6 @@ class Board(BasePlugin):
         base_params["in_flight_pitch_px"] = board_data.IN_FLIGHT_PITCH_EM * t.base
         base_params["backlog_pitch_px"] = board_data.BACKLOG_PITCH_EM * t.base
         base_params["todo_pitch_px"] = board_data.TODO_PITCH_EM * t.base
-        # SPEC §7.8: an empty to-do list still renders one line ("Nothing
-        # open") plus the cleared count below it — reserve that line's row
-        # slot so the cleared line doesn't sit on top of it.
-        cleared_line_rows = 1 if base_params["todo_empty"] else visible_todo_count
         base_params["todo_cleared_top_px"] = (
             cleared_line_rows * board_data.TODO_PITCH_EM * t.base
         )
@@ -410,15 +456,14 @@ class Board(BasePlugin):
 
     @staticmethod
     def _ledger_path(
-        device_config: DeviceConfigLike,
-        email: str,
-        projects_title: str,
-        todo_title: str,
+        device_config: DeviceConfigLike, email: str, note_title: str
     ) -> str:
+        # Keyed the same way as BasePlugin.cached_fetch's cache_key for
+        # this note (email + that note's own title) — deliberately not
+        # combined with the other note's title, so renaming one note in
+        # settings doesn't reset the other note's age tracking too.
         config_dir = os.path.dirname(device_config.config_file) or "."
-        digest = hashlib.sha256(
-            f"{email}:{projects_title}:{todo_title}".encode()
-        ).hexdigest()[:16]
+        digest = hashlib.sha256(f"{email}:{note_title}".encode()).hexdigest()[:16]
         return os.path.join(
             config_dir, "plugin_cache", "board_ledger", f"{digest}.json"
         )
@@ -435,6 +480,17 @@ class Board(BasePlugin):
             return max(0, int(raw))
         except (TypeError, ValueError):
             return default
+
+    @staticmethod
+    def _worse_cache_result(a: CacheResult, b: CacheResult) -> CacheResult:
+        """The more pessimistic of two independent CacheResults, ranked
+        empty (never succeeded, nothing cached) worse than stale (serving
+        cached data) worse than fresh."""
+        if a.empty or b.empty:
+            return a if a.empty else b
+        if a.stale or b.stale:
+            return a if a.stale else b
+        return a if a.synced_at else b
 
     @staticmethod
     def _in_flight_params(

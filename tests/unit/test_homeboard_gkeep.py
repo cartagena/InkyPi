@@ -68,9 +68,10 @@ class TestFetchChecklistConfigErrors:
 
 
 class _FakeItem:
-    def __init__(self, text: str, checked: bool) -> None:
+    def __init__(self, text: str, checked: bool, indented: bool = False) -> None:
         self.text = text
         self.checked = checked
+        self.indented = indented
 
 
 class _FakeList:
@@ -111,6 +112,27 @@ class TestFetchChecklistParsing:
         monkeypatch.setattr(gkeepapi, "Keep", lambda: mock_keep)
 
         assert gkeep.fetch_checklist("Missing Note", "a@example.com", "token") == []
+
+    def test_indented_sub_items_are_excluded(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression: gkeepapi's List.items flattens indented sub-items
+        alongside top-level ones (confirmed against its source —
+        indentation is only a sort-order hint, not a separate container),
+        so an indented Keep sub-item must not be parsed as its own
+        independent Projects/To-do row."""
+        self._patch_list_class(monkeypatch)
+        items = [
+            _FakeItem("Top-level item", False, indented=False),
+            _FakeItem("A sub-note someone indented under it", False, indented=True),
+        ]
+        note = _FakeList("Projects", items)
+        mock_keep = MagicMock()
+        mock_keep.find.return_value = [note]
+        monkeypatch.setattr(gkeepapi, "Keep", lambda: mock_keep)
+
+        result = gkeep.fetch_checklist("Projects", "a@example.com", "token")
+        assert result == [{"text": "Top-level item", "checked": False}]
 
     def test_title_must_match_exactly_not_substring(
         self, monkeypatch: pytest.MonkeyPatch

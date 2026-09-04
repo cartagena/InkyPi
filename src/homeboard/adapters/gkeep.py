@@ -81,4 +81,13 @@ def fetch_checklist(
     if note is None or not isinstance(note, gkeepapi.node.List):
         return []
 
-    return [{"text": item.text, "checked": item.checked} for item in note.items]
+    # Excludes indented sub-items: gkeepapi's List.items flattens the whole
+    # checklist regardless of indentation (confirmed against its source —
+    # indentation is only a sort-order hint via item.indented/parent_item,
+    # not a separate container), so an indented Keep sub-item would
+    # otherwise be parsed as its own independent Projects/To-do row.
+    return [
+        {"text": item.text, "checked": item.checked}
+        for item in note.items
+        if not item.indented
+    ]

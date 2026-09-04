@@ -296,3 +296,48 @@ class TestTodoColumnGeometry:
         body_height_em = 2.0
         visible_todo = board_data.MIN_TODO  # capacity always clamps up to this floor
         assert not board_data.todo_column_fits(body_height_em, visible_todo)
+
+    def test_cleared_line_rows_reserves_one_slot_when_empty(self) -> None:
+        assert (
+            board_data.todo_cleared_line_rows(visible_todo=0, todo_is_empty=True) == 1
+        )
+
+    def test_cleared_line_rows_matches_visible_count_when_not_empty(self) -> None:
+        assert (
+            board_data.todo_cleared_line_rows(visible_todo=3, todo_is_empty=False) == 3
+        )
+
+    def test_fits_check_uses_the_same_reserved_row_as_the_empty_render(self) -> None:
+        """Regression: todo_column_fits() must be called with
+        todo_cleared_line_rows()'s result, not the raw visible-todo count —
+        an empty to-do list still renders one "Nothing open" row-slot
+        before the cleared line, so a fits-check against 0 rows would
+        underestimate the space actually needed and let the too-small
+        fallback be skipped on a panel where the cleared line then
+        overflows the column."""
+        # Just past CLEARED_LINE_BAND_EM (1.4em) but short of one full
+        # TODO_PITCH_EM (2.6em) row-slot plus the band.
+        body_height_em = 2.0
+        raw_visible_todo = 0
+        assert board_data.todo_column_fits(body_height_em, raw_visible_todo)
+        cleared_line_rows = board_data.todo_cleared_line_rows(
+            raw_visible_todo, todo_is_empty=True
+        )
+        assert not board_data.todo_column_fits(body_height_em, cleared_line_rows)
+
+
+class TestValidateAgeThresholds:
+    def test_non_decreasing_thresholds_pass(self) -> None:
+        assert board_data.validate_age_thresholds("Project age", 0, 90, 180) is None
+
+    def test_equal_thresholds_pass(self) -> None:
+        assert board_data.validate_age_thresholds("Project age", 10, 10, 10) is None
+
+    def test_warn_after_alert_is_rejected(self) -> None:
+        error = board_data.validate_age_thresholds("Project age", 0, 200, 100)
+        assert error is not None
+        assert "Project age" in error
+
+    def test_two_value_todo_thresholds_supported(self) -> None:
+        assert board_data.validate_age_thresholds("To-do age", 14, 30) is None
+        assert board_data.validate_age_thresholds("To-do age", 30, 14) is not None
