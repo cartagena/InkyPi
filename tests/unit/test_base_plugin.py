@@ -394,3 +394,74 @@ def test_build_inline_css_extra_css_lookup_failure_raises_and_logs(
     assert any(
         "Failed to process extra CSS string" in r.getMessage() for r in caplog.records
     )
+
+
+# ---- cached_fetch (utils.payload_cache integration) ----
+
+
+class _FakeDeviceConfig:
+    def __init__(self, config_file: str) -> None:
+        self.config_file = config_file
+
+
+def test_cached_fetch_resolves_config_dir_from_device_config(tmp_path: Path) -> None:
+    from plugins.base_plugin.base_plugin import BasePlugin
+
+    device_config = _FakeDeviceConfig(str(tmp_path / "device.json"))
+    p = BasePlugin({"id": "trips"})
+
+    result = p.cached_fetch(device_config, "sheet-a", lambda: {"n": 1})
+
+    assert result.fresh is True
+    assert result.payload == {"n": 1}
+    assert (tmp_path / "plugin_cache").is_dir()
+
+
+def test_cached_fetch_transient_failure_serves_prior_cache(tmp_path: Path) -> None:
+    from plugins.base_plugin.base_plugin import BasePlugin
+
+    device_config = _FakeDeviceConfig(str(tmp_path / "device.json"))
+    p = BasePlugin({"id": "trips"})
+
+    p.cached_fetch(device_config, "sheet-a", lambda: {"n": 1})
+
+    def _flaky() -> dict[str, int]:
+        raise TimeoutError("network blip")
+
+    result = p.cached_fetch(device_config, "sheet-a", _flaky)
+    assert result.stale is True
+    assert result.payload == {"n": 1}
+
+
+def test_cached_fetch_config_error_raises() -> None:
+    from plugins.base_plugin.base_plugin import BasePlugin
+
+    device_config = _FakeDeviceConfig("/tmp/does-not-matter/device.json")
+    p = BasePlugin({"id": "trips"})
+
+    def _misconfigured() -> None:
+        raise RuntimeError("missing sheet_id")
+
+    with pytest.raises(RuntimeError, match="missing sheet_id"):
+        p.cached_fetch(device_config, "sheet-a", _misconfigured)
+
+
+def test_cached_fetch_different_plugin_ids_do_not_collide(tmp_path: Path) -> None:
+    from plugins.base_plugin.base_plugin import BasePlugin
+
+    device_config = _FakeDeviceConfig(str(tmp_path / "device.json"))
+    trips = BasePlugin({"id": "trips"})
+    home_maintenance = BasePlugin({"id": "home_maintenance"})
+
+    trips.cached_fetch(device_config, "abc", lambda: {"who": "trips"})
+    home_maintenance.cached_fetch(
+        device_config, "abc", lambda: {"who": "home_maintenance"}
+    )
+
+    def _flaky() -> None:
+        raise TimeoutError("network blip")
+
+    trips_result = trips.cached_fetch(device_config, "abc", _flaky)
+    hm_result = home_maintenance.cached_fetch(device_config, "abc", _flaky)
+    assert trips_result.payload == {"who": "trips"}
+    assert hm_result.payload == {"who": "home_maintenance"}

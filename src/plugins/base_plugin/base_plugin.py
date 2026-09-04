@@ -1,7 +1,7 @@
 import base64
 import logging
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
@@ -14,6 +14,7 @@ from utils.app_utils import get_fonts, resolve_path
 from utils.image_loader import AdaptiveImageLoader
 from utils.image_utils import take_screenshot_html
 from utils.logging_utils import redact_secrets
+from utils.payload_cache import CacheResult, cached_fetch as _payload_cached_fetch
 from utils.progress import (
     complete_step,
     fail_step,
@@ -177,6 +178,32 @@ class BasePlugin:
         if path:
             plugin_dir = os.path.join(plugin_dir, path)
         return plugin_dir
+
+    def cached_fetch(
+        self,
+        device_config: "DeviceConfigLike",
+        cache_key: str,
+        fetch_fn: Callable[[], Any],
+        config_errors: tuple[type[BaseException], ...] = (RuntimeError,),
+    ) -> CacheResult:
+        """Fail-soft fetch wrapper any plugin can opt into (see
+        ``utils.payload_cache`` and ``specs/SPEC.md`` §4.4): on a transient
+        failure, serve the last successfully cached payload instead of
+        raising. Reserve *config_errors* (default: just ``RuntimeError``)
+        for genuine configuration problems, which should still raise and
+        surface in the web UI / trip the circuit breaker.
+
+        ``cache_key`` should reflect whatever distinguishes one configured
+        instance of this plugin from another (e.g. a sheet id, a set of
+        calendar ids) — ``generate_image()`` never receives the instance's
+        display name, only ``settings``, so identity has to come from the
+        data itself. Two instances that happen to use identical source data
+        sharing a cache entry is fine; that's the same data either way.
+        """
+        config_dir = os.path.dirname(device_config.config_file) or "."
+        return _payload_cached_fetch(
+            config_dir, self.get_plugin_id(), cache_key, fetch_fn, config_errors
+        )
 
     def to_file_url(self, path: str) -> str:
         """Convert a local filesystem path to a file:// URL if needed.
@@ -436,3 +463,5 @@ class DeviceConfigLike(Protocol):
     def get_config(self, key: str, default: object = ...) -> object: ...
 
     def load_env_key(self, key: str) -> str | None: ...
+
+    config_file: str

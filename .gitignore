@@ -183,6 +183,12 @@ src/static/images/saved/
 # Local-only device configuration used during development
 src/config/device.local.json
 
+# Runtime state living alongside device.json — settings-change history
+# (JTN-479) and the fail-soft payload cache any plugin can opt into via
+# BasePlugin.cached_fetch() (utils/payload_cache.py, SPEC.md §4.4).
+src/config/plugin_history/
+src/config/plugin_cache/
+
 # But keep static asset PNGs (icons, plugin assets) tracked
 !src/static/icons/*.png
 !src/plugins/**/icon.png
@@ -201,11 +207,6 @@ phosphor-icons/
 # Local benchmark database
 src/benchmarks.db
 benchmarks.db
-
-# Per-plugin runtime cache (homeboard.cache — fail-soft payload cache and,
-# for board, the item-age ledger). Written under each plugin's own
-# directory via get_plugin_dir("cache") rather than a shared location.
-src/plugins/*/cache/
 
 # Coverage/Reports (ensure not committed)
 htmlcov/

@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from datetime import date
 from typing import Any
 
-from homeboard import cache, chrome, layout, palette
+from homeboard import chrome, layout, palette
 from homeboard.adapters import gsheets
 from plugins.base_plugin.base_plugin import BasePlugin, DeviceConfigLike
 from plugins.base_plugin.settings_schema import field, row, schema, section
@@ -22,6 +22,7 @@ from plugins.home_maintenance.due_dates import (
     build_item,
     sort_items,
 )
+from utils.payload_cache import CacheResult
 from utils.time_utils import get_timezone, now_in_timezone
 
 logger = logging.getLogger(__name__)
@@ -113,9 +114,8 @@ class HomeMaintenance(BasePlugin):
         def _fetch() -> list[dict[str, str]]:
             return gsheets.read_worksheet(sheet_id, worksheet_name, credentials_path)
 
-        result = cache.cached_fetch(
-            self.get_plugin_dir("cache"), self.get_plugin_id(), _fetch
-        )
+        cache_key = f"{sheet_id}:{worksheet_name}"
+        result = self.cached_fetch(device_config, cache_key, _fetch)
 
         timezone_raw = device_config.get_config("timezone", default="UTC")
         timezone_name = timezone_raw if isinstance(timezone_raw, str) else "UTC"
@@ -193,7 +193,7 @@ class HomeMaintenance(BasePlugin):
             return _DEFAULT_DUE_SOON_DAYS
 
     @staticmethod
-    def _sync_text(result: cache.CacheResult, tz: Any) -> str:
+    def _sync_text(result: CacheResult, tz: Any) -> str:
         if result.synced_at is None:
             return ""
         stamp = result.synced_at.astimezone(tz).strftime("%a %-I:%M %p").lower()
