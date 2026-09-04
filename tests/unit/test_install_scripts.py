@@ -2936,9 +2936,7 @@ class TestOsDriftNightlyWorkflow:
         # assert on the actual matrix/options definitions rather than a
         # blanket substring check over the whole file.
         assert self.content.count("codename: [trixie]") == 2
-        assert re.search(
-            r"options:\s*\n\s*-\s*''\s*\n\s*-\s*trixie\s*\n", self.content
-        )
+        assert re.search(r"options:\s*\n\s*-\s*''\s*\n\s*-\s*trixie\s*\n", self.content)
 
     def test_uses_unpinned_debian_images(self) -> None:
         assert re.search(
