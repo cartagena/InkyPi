@@ -8,8 +8,19 @@ from typing import Any
 import pytest
 from PIL import Image
 
+from homeboard import palette
 from homeboard.adapters import gsheets
+from plugins.home_maintenance.due_dates import Status
 from plugins.home_maintenance.home_maintenance import HomeMaintenance
+
+
+def _bw_roles() -> palette.RoleMap:
+    colors: dict[palette.Role, tuple[int, int, int]] = dict.fromkeys(
+        palette.Role, (0, 0, 0)
+    )
+    colors[palette.Role.PAPER] = (255, 255, 255)
+    return palette.RoleMap(colors=colors, six_colour=False, warn_is_solid=False)
+
 
 _FIXTURE_ROWS = [
     {
@@ -196,7 +207,7 @@ class TestRowTemplateParamsTruncation:
             today=date(2026, 1, 1),
             due_soon_days=14,
         )
-        params = HomeMaintenance._row_template_params(item, t)
+        params = HomeMaintenance._row_template_params(item, t, _bw_roles())
         assert params["task"] != item.task
         assert params["task"].endswith("…")
 
@@ -216,5 +227,33 @@ class TestRowTemplateParamsTruncation:
             today=date(2026, 1, 1),
             due_soon_days=14,
         )
-        params = HomeMaintenance._row_template_params(item, t)
+        params = HomeMaintenance._row_template_params(item, t, _bw_roles())
         assert params["task"] == "Flush water heater"
+
+    def test_due_soon_chip_solid_follows_role_map_not_hardcoded(self) -> None:
+        from datetime import date, timedelta
+
+        from homeboard import layout
+        from plugins.home_maintenance.due_dates import IntervalUnit, build_item
+
+        t = layout.tokens(800, 480)
+        today = date(2026, 1, 1)
+        item = build_item(
+            "Rotate mattress",
+            1,
+            IntervalUnit.YEARS,
+            today - timedelta(days=350),
+            None,
+            today=today,
+            due_soon_days=30,
+        )
+        assert item.status == Status.DUE_SOON
+
+        params = HomeMaintenance._row_template_params(item, t, _bw_roles())
+        assert params["chip"]["solid"] is False
+
+        solid_roles = palette.RoleMap(
+            colors=_bw_roles().colors, six_colour=True, warn_is_solid=True
+        )
+        params = HomeMaintenance._row_template_params(item, t, solid_roles)
+        assert params["chip"]["solid"] is True

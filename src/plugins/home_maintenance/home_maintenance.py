@@ -173,7 +173,7 @@ class HomeMaintenance(BasePlugin):
         template_params.update(chrome_html)
         template_params["total_count"] = len(items)
         template_params["rows"] = [
-            self._row_template_params(item, t) for item in visible
+            self._row_template_params(item, t, roles) for item in visible
         ]
 
         image = self.render_image(
@@ -235,7 +235,9 @@ class HomeMaintenance(BasePlugin):
             return None
 
     @staticmethod
-    def _row_template_params(item: Any, t: layout.Tokens) -> dict[str, Any]:
+    def _row_template_params(
+        item: Any, t: layout.Tokens, roles: palette.RoleMap
+    ) -> dict[str, Any]:
         chip = None
         if item.status == Status.OVERDUE:
             chip = {
@@ -247,7 +249,17 @@ class HomeMaintenance(BasePlugin):
             chip = {
                 "label": f"Due in {item.days_until_due} days",
                 "role": "warn",
-                "solid": True,
+                # The alert chip above hardcodes solid=True safely — its CSS
+                # sets an explicit paper-coloured foreground either way. The
+                # warn chip's solid treatment sets an ink-coloured
+                # foreground (legible against a real yellow warn fill, but
+                # identical to the background on the bw-fallback palette,
+                # where every non-ink/paper role collapses to black) — so
+                # this must follow RoleMap.warn_is_solid, not hardcode True,
+                # or a due-soon chip renders as invisible black-on-black on
+                # any bw/mock panel (SPEC §2.1 "never rely on colour
+                # alone").
+                "solid": roles.warn_is_solid,
             }
 
         due_text = ""

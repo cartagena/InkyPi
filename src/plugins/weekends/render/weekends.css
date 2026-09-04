@@ -1,0 +1,112 @@
+/* SPEC §6.2-§6.3 — weekends layout. */
+
+.wk-column-labels {
+  position: absolute;
+  left: var(--margin-x);
+  width: var(--content-w);
+  height: 1.15em;
+}
+
+.wk-col-label {
+  position: absolute;
+  top: 0;
+  font-size: var(--fs-label);
+  font-weight: 500;
+}
+
+.wk-body {
+  position: absolute;
+  left: var(--margin-x);
+  width: var(--content-w);
+}
+
+.wk-row {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2.75em;
+}
+
+.wk-date {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  font-size: var(--fs-cell);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  box-sizing: border-box;
+  padding-right: 0.3em;
+}
+
+.wk-date-emphasis {
+  color: var(--color-emphasis);
+  font-weight: 500;
+}
+
+.wk-cell {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.wk-cell-free {
+  background: var(--color-paper);
+  border: 1px solid var(--color-available);
+}
+
+.wk-free-label {
+  color: var(--color-available);
+  font-size: var(--fs-cell);
+}
+
+.wk-cell-text {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Solid warn fill only when RoleMap.warn_is_solid is true (dark-on-yellow
+   confirmed legible on the physical panel, SPEC §2.2) — otherwise an
+   outline treatment, since a solid fill with default ink text is
+   indistinguishable from booked's ink-black bw fallback (SPEC §2.1 "never
+   rely on colour alone"). Mirrors the shared `.hb-chip[data-solid]` split
+   in homeboard/render/_chrome.css. */
+.wk-cell-partly[data-warn-solid="1"] {
+  background: var(--color-warn);
+}
+
+.wk-cell-partly[data-warn-solid="0"] {
+  background: var(--color-paper);
+  border: 2px solid var(--color-warn);
+}
+
+.wk-cell-booked {
+  background: var(--color-alert);
+  color: var(--color-paper);
+}
+
+.wk-cell-label,
+.wk-cell-single {
+  font-size: var(--fs-body);
+  font-weight: 500;
+}
+
+.wk-cell-note {
+  font-size: var(--fs-label);
+}
+
+.wk-legend {
+  position: absolute;
+  left: var(--margin-x);
+  bottom: calc(var(--footer-rule) + 1.2em);
+  font-size: var(--fs-small);
+  color: var(--color-ink);
+}
