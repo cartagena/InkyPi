@@ -2,53 +2,114 @@
 
 from __future__ import annotations
 
-import pytest
+from datetime import date
 
 from homeboard import tags
 from homeboard.palette import Role
 
 
-class TestParseSizeTag:
-    @pytest.mark.parametrize(
-        ("raw", "expected_title", "expected_label"),
-        [
-            ("Replace the hose bib [30m]", "Replace the hose bib", "30 minutes"),
-            ("Replace the hose bib [30 minutes]", "Replace the hose bib", "30 minutes"),
-            ("Run the gas line [half day]", "Run the gas line", "Half a day"),
-            ("Run the gas line [2h]", "Run the gas line", "Half a day"),
-            ("Frame the BBQ counter [weekend]", "Frame the BBQ counter", "One weekend"),
-            ("Frame the BBQ counter [1d]", "Frame the BBQ counter", "One weekend"),
-            # Matching should be case-insensitive on the bracket contents.
-            ("Task [HALF DAY]", "Task", "Half a day"),
-        ],
-    )
-    def test_recognized_brackets_normalize(
-        self, raw: str, expected_title: str, expected_label: str
-    ) -> None:
-        title, tag = tags.parse_size_tag(raw)
-        assert title == expected_title
+class TestEffortTag:
+    def test_one_day_buckets_to_one_day_label(self) -> None:
+        tag = tags.effort_tag(1)
         assert tag is not None
-        assert tag.label == expected_label
+        assert tag.label == "One day"
         assert tag.role == Role.AVAILABLE
         assert tag.solid is False
 
-    def test_unrecognized_bracket_renders_verbatim(self) -> None:
-        title, tag = tags.parse_size_tag("Paint the shed [ask Dave]")
-        assert title == "Paint the shed"
+    def test_two_days_buckets_to_a_few_days_label(self) -> None:
+        tag = tags.effort_tag(2)
         assert tag is not None
-        assert tag.label == "ask Dave"
+        assert tag.label == "A few days"
 
-    def test_absent_bracket_omits_tag_entirely(self) -> None:
-        title, tag = tags.parse_size_tag("Insulate the garage door")
-        assert title == "Insulate the garage door"
-        assert tag is None
+    def test_three_days_still_a_few_days_label(self) -> None:
+        tag = tags.effort_tag(3)
+        assert tag is not None
+        assert tag.label == "A few days"
 
-    def test_non_trailing_brackets_are_not_treated_as_size_tags(self) -> None:
-        # A bracket that isn't at the end of the string shouldn't be parsed
-        # as a size tag.
-        title, tag = tags.parse_size_tag("Fix [the] gate")
-        assert title == "Fix [the] gate"
-        assert tag is None
+    def test_four_days_buckets_to_multiple_days_label(self) -> None:
+        tag = tags.effort_tag(4)
+        assert tag is not None
+        assert tag.label == "Multiple days"
+
+    def test_well_beyond_four_days_still_multiple_days_label(self) -> None:
+        tag = tags.effort_tag(30)
+        assert tag is not None
+        assert tag.label == "Multiple days"
+
+    def test_none_renders_no_chip(self) -> None:
+        assert tags.effort_tag(None) is None
+
+    def test_non_positive_renders_no_chip(self) -> None:
+        assert tags.effort_tag(0) is None
+        assert tags.effort_tag(-1) is None
+
+
+class TestPriorityTag:
+    def test_high_is_alert_solid(self) -> None:
+        tag = tags.priority_tag("high")
+        assert tag is not None
+        assert tag.label == "High"
+        assert tag.role == Role.ALERT
+        assert tag.solid is True
+
+    def test_medium_is_warn_solid(self) -> None:
+        tag = tags.priority_tag("medium")
+        assert tag is not None
+        assert tag.label == "Medium"
+        assert tag.role == Role.WARN
+        assert tag.solid is True
+
+    def test_low_renders_no_chip(self) -> None:
+        assert tags.priority_tag("low") is None
+
+    def test_none_renders_no_chip(self) -> None:
+        assert tags.priority_tag(None) is None
+
+    def test_unrecognized_value_renders_no_chip(self) -> None:
+        assert tags.priority_tag("urgent!!!") is None
+
+    def test_matching_is_case_insensitive(self) -> None:
+        tag = tags.priority_tag("High")
+        assert tag is not None
+        assert tag.label == "High"
+
+    def test_matching_tolerates_surrounding_whitespace(self) -> None:
+        tag = tags.priority_tag(" Medium ")
+        assert tag is not None
+        assert tag.label == "Medium"
+
+
+class TestDueTag:
+    def test_none_renders_no_chip(self) -> None:
+        assert tags.due_tag(None, date(2026, 9, 4)) is None
+
+    def test_overdue_is_alert_solid(self) -> None:
+        tag = tags.due_tag(date(2026, 9, 1), today=date(2026, 9, 4))
+        assert tag is not None
+        assert tag.label == "Overdue 3d"
+        assert tag.role == Role.ALERT
+        assert tag.solid is True
+
+    def test_due_today_is_warn_solid(self) -> None:
+        tag = tags.due_tag(date(2026, 9, 4), today=date(2026, 9, 4))
+        assert tag is not None
+        assert tag.label == "Today"
+        assert tag.role == Role.WARN
+        assert tag.solid is True
+
+    def test_due_tomorrow_is_warn_solid(self) -> None:
+        tag = tags.due_tag(date(2026, 9, 5), today=date(2026, 9, 4))
+        assert tag is not None
+        assert tag.label == "Tomorrow"
+        assert tag.role == Role.WARN
+        assert tag.solid is True
+
+    def test_further_out_is_ink_outline(self) -> None:
+        tag = tags.due_tag(date(2026, 9, 10), today=date(2026, 9, 4))
+        assert tag is not None
+        assert tag.label == "Due 6d"
+        assert tag.role == Role.INK
+        assert tag.solid is False
 
 
 class TestAgeTag:

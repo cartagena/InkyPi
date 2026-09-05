@@ -1,9 +1,11 @@
 """Board — projects (rotating backlog) + to-do (SPEC §7). The default
 bedroom-dashboard screen.
 
-Reads two Google Keep checklist notes (a rotation-tolerant Projects list
-and a show-everything To-do list) via the read-only `gkeepapi` adapter, and
-maintains a local item-age ledger since Keep may not expose reliable
+Reads two lists (a rotation-tolerant Projects list and a show-everything
+To-do list) from a self-hosted `boardbot` deployment
+(github.com/cartagena/boardbot — a WhatsApp bridge + HTTP API replacing
+Google Keep as the data source) via the read-only HTTP adapter, and
+maintains a local item-age ledger since the source may not expose reliable
 per-item creation timestamps (SPEC §4.5).
 """
 
@@ -17,7 +19,7 @@ from datetime import date
 from typing import Any
 
 from homeboard import chrome, layout, palette, tags
-from homeboard.adapters import gkeep
+from homeboard.adapters import boardbot
 from homeboard.palette import Role
 from plugins.base_plugin.base_plugin import BasePlugin, DeviceConfigLike
 from plugins.base_plugin.settings_schema import field, row, schema, section
@@ -49,7 +51,7 @@ _STACK_GAP_EM = 1.5
 
 class Board(BasePlugin):
     def validate_settings(self, settings: Mapping[str, Any]) -> str | None:
-        error = gkeep.validate_board_settings(settings)
+        error = boardbot.validate_board_settings(settings)
         if error:
             return error
 
@@ -82,19 +84,11 @@ class Board(BasePlugin):
                 "Source",
                 row(
                     field(
-                        "keep_account_email",
-                        label="Keep Account Email",
+                        "base_url",
+                        label="BoardBot URL",
                         required=True,
-                        hint="The throwaway account the two notes are shared with.",
+                        hint="Base URL of your boardbot deployment, e.g. http://piserver.local:8765",
                     ),
-                ),
-                row(
-                    field(
-                        "projects_note_title",
-                        label="Projects Note Title",
-                        required=True,
-                    ),
-                    field("todo_note_title", label="To-do Note Title", required=True),
                 ),
                 field(
                     "in_flight_prefix",
@@ -156,21 +150,19 @@ class Board(BasePlugin):
         template_params = super().generate_settings_template()
         template_params["api_key"] = {
             "required": True,
-            "service": "Google Keep (master token)",
-            "expected_key": gkeep.MASTER_TOKEN_ENV_KEY,
+            "service": "BoardBot",
+            "expected_key": boardbot.BOARDBOT_API_TOKEN_ENV_KEY,
         }
         return template_params
 
     def generate_image(
         self, settings: Mapping[str, Any], device_config: DeviceConfigLike
     ) -> Any:
-        error = gkeep.validate_board_settings(settings)
+        error = boardbot.validate_board_settings(settings)
         if error:
             raise RuntimeError(error)
 
-        email = str(settings["keep_account_email"]).strip()
-        projects_title = str(settings["projects_note_title"]).strip()
-        todo_title = str(settings["todo_note_title"]).strip()
+        base_url = str(settings["base_url"]).strip()
         in_flight_prefix = self._str_setting(
             settings.get("in_flight_prefix"), _DEFAULT_IN_FLIGHT_PREFIX
         )
@@ -195,19 +187,21 @@ class Board(BasePlugin):
         t = layout.tokens(*dimensions)
         roles = palette.resolve(device_config)
 
-        master_token = device_config.load_env_key(gkeep.MASTER_TOKEN_ENV_KEY) or ""
+        api_token = (
+            device_config.load_env_key(boardbot.BOARDBOT_API_TOKEN_ENV_KEY) or ""
+        )
 
         def _fetch_projects() -> list[dict[str, Any]]:
-            return gkeep.fetch_checklist(projects_title, email, master_token)
+            return boardbot.fetch_checklist("projects", base_url, api_token)
 
         def _fetch_todo() -> list[dict[str, Any]]:
-            return gkeep.fetch_checklist(todo_title, email, master_token)
+            return boardbot.fetch_checklist("todo", base_url, api_token)
 
         projects_result = self.cached_fetch(
-            device_config, f"{email}:{projects_title}", _fetch_projects
+            device_config, boardbot.cache_key(base_url, "projects"), _fetch_projects
         )
         todo_result = self.cached_fetch(
-            device_config, f"{email}:{todo_title}", _fetch_todo
+            device_config, boardbot.cache_key(base_url, "todo"), _fetch_todo
         )
 
         timezone_raw = device_config.get_config("timezone", default="UTC")
@@ -215,7 +209,7 @@ class Board(BasePlugin):
         tz = get_timezone(timezone_name)
         today = now_in_timezone(timezone_name).date()
 
-        source_text = "Google Keep"
+        source_text = "BoardBot"
         # Two independent fetches, two independent CacheResults — show the
         # more pessimistic freshness status of the pair so a reader is
         # never told "Synced" when one of the two notes is actually
@@ -267,11 +261,11 @@ class Board(BasePlugin):
             return self._render(dimensions, base_params)
 
         # Two independent ledger files, keyed the same way as the two
-        # payload caches (email + that note's own title) — a combined key
-        # over both titles would reset both notes' age tracking whenever
-        # either title alone changed in settings.
-        projects_ledger_path = self._ledger_path(device_config, email, projects_title)
-        todo_ledger_path = self._ledger_path(device_config, email, todo_title)
+        # payload caches (base_url + that list's own name) — a combined key
+        # over both lists would reset both lists' age tracking whenever
+        # either one changed.
+        projects_ledger_path = self._ledger_path(device_config, base_url, "projects")
+        todo_ledger_path = self._ledger_path(device_config, base_url, "todo")
         projects_ledger = read_json_or_none(projects_ledger_path) or {}
         todo_ledger = read_json_or_none(todo_ledger_path) or {}
 
@@ -314,6 +308,9 @@ class Board(BasePlugin):
                     today,
                 ),
                 today,
+                effort_days=self._int_or_none(r.get("effort_days")),
+                priority=self._str_or_none(r.get("priority")),
+                due_date=self._date_or_none(r.get("due_date")),
             )
             for r in open_project_rows
         ]
@@ -325,6 +322,8 @@ class Board(BasePlugin):
                     board_data.ledger_key("todo", str(r.get("text", ""))),
                     today,
                 ),
+                priority=self._str_or_none(r.get("priority")),
+                due_date=self._date_or_none(r.get("due_date")),
             )
             for r in open_todo_rows
         ]
@@ -372,7 +371,7 @@ class Board(BasePlugin):
             backlog_items,
             visible_backlog_count,
             today,
-            seed_key=f"{email}:{projects_title}",
+            seed_key=boardbot.cache_key(base_url, "projects"),
         )
         visible_todo = board_data.select_todo(todo_items, visible_todo_count)
 
@@ -394,7 +393,8 @@ class Board(BasePlugin):
 
         column_w_pct = layout.CONTENT_W_PCT if stacked else layout.COL_W_PCT
         base_params["in_flight"] = [
-            self._in_flight_params(item, t, column_w_pct) for item in visible_in_flight
+            self._in_flight_params(item, t, column_w_pct, today, roles)
+            for item in visible_in_flight
         ]
         base_params["backlog"] = [
             self._backlog_params(
@@ -456,14 +456,14 @@ class Board(BasePlugin):
 
     @staticmethod
     def _ledger_path(
-        device_config: DeviceConfigLike, email: str, note_title: str
+        device_config: DeviceConfigLike, base_url: str, list_name: str
     ) -> str:
         # Keyed the same way as BasePlugin.cached_fetch's cache_key for
-        # this note (email + that note's own title) — deliberately not
-        # combined with the other note's title, so renaming one note in
-        # settings doesn't reset the other note's age tracking too.
+        # this list (base_url + that list's own name) — deliberately not
+        # combined with the other list's name, so a settings change to one
+        # doesn't reset the other's age tracking too.
         config_dir = os.path.dirname(device_config.config_file) or "."
-        digest = hashlib.sha256(f"{email}:{note_title}".encode()).hexdigest()[:16]
+        digest = hashlib.sha256(f"{base_url}:{list_name}".encode()).hexdigest()[:16]
         return os.path.join(
             config_dir, "plugin_cache", "board_ledger", f"{digest}.json"
         )
@@ -482,6 +482,45 @@ class Board(BasePlugin):
             return default
 
     @staticmethod
+    def _int_or_none(raw: Any) -> int | None:
+        # boardbot validates effort_days is a positive int before ever
+        # storing it, but this is a network response — never trust it
+        # blindly on this side either. A whole-number float (e.g. a SQLite
+        # REAL column round-tripping through JSON as 2.0) is coerced rather
+        # than dropped; a fractional float (2.5) is not a valid day count
+        # and falls through to None same as any other malformed value.
+        if isinstance(raw, bool):
+            return None
+        if isinstance(raw, float) and raw.is_integer():
+            raw = int(raw)
+        if not isinstance(raw, int):
+            return None
+        return raw if raw > 0 else None
+
+    @staticmethod
+    def _str_or_none(raw: Any) -> str | None:
+        return raw if isinstance(raw, str) and raw.strip() else None
+
+    @staticmethod
+    def _date_or_none(raw: Any) -> date | None:
+        if not isinstance(raw, str) or not raw.strip():
+            return None
+        value = raw.strip()
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            pass
+        # boardbot's own contract (docs/api.md) is a bare YYYY-MM-DD date,
+        # never a timestamp, but tolerate a leading date component anyway
+        # (e.g. a datetime column that starts serializing with a time
+        # part) rather than silently dropping an otherwise-valid due date.
+        try:
+            return date.fromisoformat(value[:10])
+        except ValueError:
+            logger.warning("boardbot returned an unparseable date: %r", raw)
+            return None
+
+    @staticmethod
     def _worse_cache_result(a: CacheResult, b: CacheResult) -> CacheResult:
         """The more pessimistic of two independent CacheResults, ranked
         empty (never succeeded, nothing cached) worse than stale (serving
@@ -494,12 +533,18 @@ class Board(BasePlugin):
 
     @staticmethod
     def _in_flight_params(
-        item: board_data.ProjectItem, t: layout.Tokens, column_w_pct: float
+        item: board_data.ProjectItem,
+        t: layout.Tokens,
+        column_w_pct: float,
+        today: date,
+        roles: palette.RoleMap,
     ) -> dict[str, Any]:
         title_w_px = t.width * column_w_pct / 100 * 0.8
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["item"]),
             "size_tag": _size_tag_params(item.size_tag),
+            "priority_tag": _chip_params(tags.priority_tag(item.priority), roles),
+            "due_tag": _chip_params(tags.due_tag(item.due_date, today), roles),
             "note_text": item.note_text,
         }
 
@@ -521,7 +566,9 @@ class Board(BasePlugin):
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["cell"]),
             "size_tag": _size_tag_params(item.size_tag),
-            "age_tag": _age_tag_params(age, roles),
+            "age_tag": _chip_params(age, roles),
+            "priority_tag": _chip_params(tags.priority_tag(item.priority), roles),
+            "due_tag": _chip_params(tags.due_tag(item.due_date, today), roles),
         }
 
     @staticmethod
@@ -534,16 +581,31 @@ class Board(BasePlugin):
         age_warn: int,
         roles: palette.RoleMap,
     ) -> dict[str, Any]:
-        title_w_px = t.width * column_w_pct / 100 * 0.75
+        priority = tags.priority_tag(item.priority)
+        due = tags.due_tag(item.due_date, today)
         age = tags.age_tag(
             board_data.days_since(item.first_seen, today),
             age_show,
             age_warn,
             _TODO_AGE_ALERT_DAYS,
         )
+        # A to-do row lays title and chips out on one flex line (unlike
+        # in-flight/backlog project rows, which put chips on their own
+        # line below the title), so an untrimmed 0.75 title budget can
+        # claim more width than the row has left once priority/due chips
+        # (new — age_tag alone never needed this) actually render,
+        # overflowing the column. This is a backstop against a pathologically
+        # long title specifically — board.css's .board-todo-row width is
+        # what actually keeps a short title + several chips from
+        # overflowing (see that file's comment for why). UNVERIFIED
+        # per-chip discount — no physical-panel measurement backs 0.08.
+        chip_discount = sum(0.08 for tag in (priority, due) if tag is not None)
+        title_w_px = t.width * (column_w_pct / 100 * 0.75 - chip_discount)
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["body"]),
-            "age_tag": _age_tag_params(age, roles),
+            "age_tag": _chip_params(age, roles),
+            "priority_tag": _chip_params(priority, roles),
+            "due_tag": _chip_params(due, roles),
         }
 
 
@@ -557,14 +619,17 @@ def _size_tag_params(size_tag: tags.SizeTag | None) -> dict[str, Any] | None:
     }
 
 
-def _age_tag_params(
-    age: tags.AgeTag | None, roles: palette.RoleMap
-) -> dict[str, Any] | None:
-    if age is None:
+_Chip = tags.AgeTag | tags.PriorityTag | tags.DueTag
+
+
+def _chip_params(chip: _Chip | None, roles: palette.RoleMap) -> dict[str, Any] | None:
+    """Shared rendering for AgeTag/PriorityTag/DueTag — all three are the
+    same (label, role, solid) shape. The warn bucket's solid fill needs
+    RoleMap.warn_is_solid, same as home_maintenance's due-soon chip and
+    weekends' partly cell — an unconditional solid=True renders as
+    invisible ink-on-ink text on the bw/mock palette (every non-ink/paper
+    role collapses to black there)."""
+    if chip is None:
         return None
-    # The warn bucket's solid fill needs RoleMap.warn_is_solid, same as
-    # home_maintenance's due-soon chip and weekends' partly cell — an
-    # unconditional solid=True renders as invisible ink-on-ink text on the
-    # bw/mock palette (every non-ink/paper role collapses to black there).
-    solid = roles.warn_is_solid if age.role == Role.WARN else age.solid
-    return {"label": age.label, "role": age.role.value, "solid": solid}
+    solid = roles.warn_is_solid if chip.role == Role.WARN else chip.solid
+    return {"label": chip.label, "role": chip.role.value, "solid": solid}

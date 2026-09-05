@@ -223,7 +223,7 @@ class TestTokensCss:
             "--margin-x: 2.5%;",
             "--content-w: 95.0%;",
             "--gutter: 5.0%;",
-            "--col-w: 47.5%;",
+            "--col-w: 45.0%;",
             "--header-rule: 52.8000px;",
             "--body-top: 63.3600px;",
             "--body-bottom: 34.9440px;",
