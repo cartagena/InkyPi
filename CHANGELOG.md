@@ -1,6 +1,151 @@
 # CHANGELOG
 
 
+## v1.9.0 (2026-09-05)
+
+### Bug Fixes
+
+- **board**: Address code review findings on the boardbot response fields
+  ([`fa2a191`](https://github.com/cartagena/InkyPi/commit/fa2a1919c23ffa079790450dee2f778112f20131))
+
+From /code-review high on PR #46:
+
+- boardbot.py: reject a non-http(s) base_url scheme (validate_board_settings and fetch_checklist) as
+  defense-in-depth against the settings-editable base_url being pointed at a non-HTTP handler.
+  Doesn't change the documented trust boundary (an http(s) base_url is still trusted per the module
+  docstring) -- only closes off the file://, gopher://, etc. class. - board.css: .board-chip-row
+  gets overflow:hidden, matching the same backstop .board-todo-row/.board-todo-title already use,
+  since a backlog row can carry up to 4 chips with no title alongside to yield space. - board.py
+  _date_or_none: tolerates an ISO datetime with a time component (takes the date prefix) instead of
+  silently dropping the due date, and logs a warning on a truly unparseable value instead of
+  swallowing it silently. - board.py _int_or_none: coerces a whole-number float (e.g. 2.0) instead
+  of dropping it; a fractional float still correctly falls through to None. - tags.py priority_tag:
+  matches "high"/"medium" case-insensitively (and trims whitespace) instead of exact lowercase
+  equality. - board.py: collapsed _age_tag_params/_priority_tag_params/_due_tag_params (three
+  identical-shape functions) into one _chip_params helper.
+
+Added regression tests for each of the above. Verified the chip-row CSS change with real
+  (non-mocked) Chromium renders at several stress levels (long titles, all chips present, extreme
+  overdue/age day counts) -- render output is visually identical with and without the fix in every
+  case tried, since .hb-chip spans already wrap internally rather than overflowing the row; kept the
+  change anyway as a safe, low-risk backstop consistent with the to-do row's established pattern,
+  not as a confirmed visual fix.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+- **board**: Correct --col-w so the two-column layout fits the panel
+  ([`6d9584f`](https://github.com/cartagena/InkyPi/commit/6d9584ff522a69cddfa686fb98d60ad2cbac251c))
+
+For the two-column board layout, margin-x + col-w + gutter + col-w must equal 100% (with the two
+  margins symmetric). The previous COL_W_PCT=47.5 instead satisfied 2*col_w + gutter = 100, putting
+  the second column's right edge at 102.5% of the panel width -- past the right edge, before even
+  reserving a right margin. Board's own CSS was already compensating for this at the row level
+  (.board-todo-row's 90% width, from the due_date/priority/effort_days commit); this is the
+  root-cause fix.
+
+COL_W_PCT=45.0 makes 2*col_w + gutter = 95 = --content-w, giving symmetric 2.5% margins on both
+  sides. --col-w has no other consumer in homeboard/plugins besides board, so this only affects that
+  screen.
+
+Verified with real Chromium renders (normal + a long-title/all-three-chips stress case) — clean
+  margins on both sides, no overflow, chip row headroom from the prior commit still holds.
+
+Also fixes the same inconsistency in specs/SPEC.md §3.2's --col-w value (47.5% -> 45%) — that file
+  is untracked in this repo, so the fix isn't part of this commit's diff, but it's corrected on
+  disk.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+- **board**: Match boardbot's actual bare-array response shape
+  ([`ecc7c3f`](https://github.com/cartagena/InkyPi/commit/ecc7c3f26993e649dd4c1a4535382fa374a1ef84))
+
+boardbot's docs/api.md is explicit that every read endpoint returns a bare JSON array with no
+  envelope, but this adapter still did `data.get("items", [])` -- a leftover from an earlier
+  envelope design that never got updated when the real API shipped. Every real request would crash
+  with AttributeError: 'list' object has no attribute 'get', and the unit tests didn't catch it
+  because they mocked the same wrong {"items": [...]} shape.
+
+Verified against a live local boardbot instance (real /ingest + /todo + /projects round trip, then
+  fetch_checklist() against it) -- not just updated mocks.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+### Features
+
+- **board**: Render due_date, priority, and effort_days from boardbot
+  ([`ed51bd6`](https://github.com/cartagena/InkyPi/commit/ed51bd613c13d94903dae8a94e1207872f6c2e76))
+
+Extends the board plugin to consume the three structured fields boardbot's Claude classifier now
+  extracts (github.com/cartagena/ boardbot). effort_days replaces the old [S]/[M]/[L]
+  bracket-in-text size convention entirely -- board_data.py no longer parses a bracket out of item
+  text at all, it comes from boardbot's own structured field.
+
+- homeboard/tags.py: parse_size_tag() removed; effort_tag(effort_days) buckets a raw day-count into
+  the same SizeTag chip (1d="One day", 2-3d="A few days", 4+d="Multiple days" -- matching boardbot's
+  own [S]/[M]/[L]=1/2/4 shorthand so a project tagged "[M]" round-trips to a stable label). New
+  priority_tag()/PriorityTag and due_tag()/DueTag, reusing AgeTag's shape and the same
+  show/warn/alert-style ladder. Labels are bare ("High"/"Medium", "Today"/"Tomorrow") rather than
+  "High priority"/"Due today" -- found via visual testing that the longer forms don't leave enough
+  room on a crowded row (see below). - homeboard/adapters/boardbot.py: fetch_checklist() now also
+  returns due_date/priority/effort_days per item. - board_data.py: ProjectItem/TodoItem gain
+  priority/due_date fields; parse_project_item/parse_todo_item take effort_days/priority/ due_date
+  as explicit params instead of parsing size out of raw text. - board.py: threads the three fields
+  through to render params, adding _priority_tag_params/_due_tag_params (mirroring the existing
+  _age_tag_params, including the warn_is_solid bw-palette fix). - board.html/board.css: new chips in
+  the existing chip-row markup for in-flight/backlog project rows; new inline chips for to-do rows.
+
+Verified with real Chromium renders (render_image()'s actual production pipeline, not a mock) at
+  multiple content sizes, including a deliberate stress test (very long titles + all three chips
+  simultaneously overdue/high-priority/large-effort) -- caught and fixed a real overflow bug in the
+  process: a to-do row lays title and chips on one flex line, and `.board-todo-title`'s `flex: 1`
+  doesn't shrink below its own text's intrinsic width without `min-width: 0`, so adding two more
+  chips let a row's content spill past the panel edge. Fixed with min-width:0 + overflow:hidden +
+  text-overflow:ellipsis on the title, a matching Python-side truncation-width discount in board.py
+  for pathologically long titles, and a narrower .board-todo-row width (90% vs 100%) as headroom
+  against a separate pre-existing layout issue (see below).
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+- **board**: Replace Google Keep with boardbot as the data source
+  ([`6f00752`](https://github.com/cartagena/InkyPi/commit/6f0075226d8b75554a70fcd116c191fa3c77205e))
+
+The board plugin's Projects/To-do lists previously came from Google Keep via gkeepapi, an unofficial
+  reverse-engineered client authenticated with a master token from a throwaway account (its own
+  docstring called out that it "can break without notice"). Replace it with boardbot
+  (github.com/cartagena/boardbot), a self-hosted WhatsApp bridge + HTTP API built specifically to
+  back this plugin.
+
+- New src/homeboard/adapters/boardbot.py: read-only HTTP client for boardbot's GET /todo and
+  /projects, same {"text","checked"} shape gkeep.fetch_checklist() returned so board_data.py's
+  parsing is unaffected. Uses the shared pooled requests.Session (utils.http_client) rather than
+  utils.http_utils.safe_http_get, which would reject a boardbot deployment on a private LAN host as
+  an SSRF risk -- that protection is for arbitrary user-supplied URLs (RSS feeds etc.), not this
+  explicitly-configured internal service. - board.py: swaps the gkeep import for boardbot, collapses
+  the old three-field Source section (Keep account email + two note titles) down to a single
+  base_url field, and re-keys the payload cache/ ledger/backlog-seed identity from email+note-title
+  to base_url+list-name. - Removed src/homeboard/adapters/gkeep.py and its tests (dead code --
+  board.py was its only caller); removed gkeepapi/gpsoauth from pyproject.toml and regenerated
+  uv.lock + install/requirements.txt via `uv lock` + `uv export` (also drops the
+  future/pycryptodomex transitive deps that existed only for gkeepapi). - apikeys.py:
+  GOOGLE_KEEP_MASTER_TOKEN -> BOARDBOT_API_TOKEN in the API-keys page's plugin-attribution map.
+
+Not yet done: deployment of the boardbot service itself (github.com/cartagena/boardbot) to
+  piserver.local -- this PR only swaps the client side, so the Board plugin's settings.base_url
+  points at a service that doesn't exist yet until that's deployed.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01YKTnvayYQD54wcYsjU5jtB
+
+
 ## v1.8.0 (2026-09-04)
 
 ### Bug Fixes
