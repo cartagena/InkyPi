@@ -84,9 +84,8 @@ def fetch_checklist(
         timeout=_REQUEST_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
-    data = response.json()
+    items = response.json()
 
-    items = data.get("items", [])
     return [
         {
             "text": str(item.get("text", "")),

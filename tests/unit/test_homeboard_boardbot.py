@@ -52,7 +52,7 @@ class TestFetchChecklistConfigErrors:
 
 
 class _FakeResponse:
-    def __init__(self, payload: dict[str, Any], status_ok: bool = True) -> None:
+    def __init__(self, payload: list[dict[str, Any]], status_ok: bool = True) -> None:
         self._payload = payload
         self._status_ok = status_ok
 
@@ -60,7 +60,7 @@ class _FakeResponse:
         if not self._status_ok:
             raise requests.exceptions.HTTPError("boom")
 
-    def json(self) -> dict[str, Any]:
+    def json(self) -> list[dict[str, Any]]:
         return self._payload
 
 
@@ -91,12 +91,10 @@ class TestFetchChecklistParsing:
 
     def test_returns_items_in_list_order(self, monkeypatch: pytest.MonkeyPatch) -> None:
         response = _FakeResponse(
-            {
-                "items": [
-                    {"text": "Item A", "checked": False},
-                    {"text": "Item B", "checked": True},
-                ]
-            }
+            [
+                {"text": "Item A", "checked": False},
+                {"text": "Item B", "checked": True},
+            ]
         )
         self._patch_session(monkeypatch, response)
 
@@ -109,17 +107,15 @@ class TestFetchChecklistParsing:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         response = _FakeResponse(
-            {
-                "items": [
-                    {
-                        "text": "Clean the garage",
-                        "checked": False,
-                        "due_date": "2026-09-10",
-                        "priority": "high",
-                        "effort_days": 2,
-                    }
-                ]
-            }
+            [
+                {
+                    "text": "Clean the garage",
+                    "checked": False,
+                    "due_date": "2026-09-10",
+                    "priority": "high",
+                    "effort_days": 2,
+                }
+            ]
         )
         self._patch_session(monkeypatch, response)
 
@@ -136,7 +132,7 @@ class TestFetchChecklistParsing:
         ]
 
     def test_empty_list_returns_empty(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._patch_session(monkeypatch, _FakeResponse({"items": []}))
+        self._patch_session(monkeypatch, _FakeResponse([]))
         assert (
             boardbot.fetch_checklist("todo", "http://piserver.local:8765", "token")
             == []
@@ -145,7 +141,7 @@ class TestFetchChecklistParsing:
     def test_sends_bearer_token_and_correct_url(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        session = self._patch_session(monkeypatch, _FakeResponse({"items": []}))
+        session = self._patch_session(monkeypatch, _FakeResponse([]))
         boardbot.fetch_checklist("todo", "http://piserver.local:8765", "secret-tok")
 
         session.get.assert_called_once()
@@ -156,7 +152,7 @@ class TestFetchChecklistParsing:
     def test_strips_trailing_slash_from_base_url(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        session = self._patch_session(monkeypatch, _FakeResponse({"items": []}))
+        session = self._patch_session(monkeypatch, _FakeResponse([]))
         boardbot.fetch_checklist("projects", "http://piserver.local:8765/", "token")
 
         args, _kwargs = session.get.call_args
@@ -165,7 +161,7 @@ class TestFetchChecklistParsing:
     def test_http_error_propagates_for_fail_soft_handling(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        self._patch_session(monkeypatch, _FakeResponse({"items": []}, status_ok=False))
+        self._patch_session(monkeypatch, _FakeResponse([], status_ok=False))
         with pytest.raises(requests.exceptions.HTTPError):
             boardbot.fetch_checklist("todo", "http://piserver.local:8765", "token")
 
@@ -173,7 +169,7 @@ class TestFetchChecklistParsing:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         self._patch_session(
-            monkeypatch, _FakeResponse({"items": [{"text": "No checked field"}]})
+            monkeypatch, _FakeResponse([{"text": "No checked field"}])
         )
         result = boardbot.fetch_checklist("todo", "http://piserver.local:8765", "token")
         assert result == [_item("No checked field")]
