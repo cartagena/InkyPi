@@ -485,8 +485,15 @@ class Board(BasePlugin):
     def _int_or_none(raw: Any) -> int | None:
         # boardbot validates effort_days is a positive int before ever
         # storing it, but this is a network response — never trust it
-        # blindly on this side either.
-        if isinstance(raw, bool) or not isinstance(raw, int):
+        # blindly on this side either. A whole-number float (e.g. a SQLite
+        # REAL column round-tripping through JSON as 2.0) is coerced rather
+        # than dropped; a fractional float (2.5) is not a valid day count
+        # and falls through to None same as any other malformed value.
+        if isinstance(raw, bool):
+            return None
+        if isinstance(raw, float) and raw.is_integer():
+            raw = int(raw)
+        if not isinstance(raw, int):
             return None
         return raw if raw > 0 else None
 
@@ -498,9 +505,19 @@ class Board(BasePlugin):
     def _date_or_none(raw: Any) -> date | None:
         if not isinstance(raw, str) or not raw.strip():
             return None
+        value = raw.strip()
         try:
-            return date.fromisoformat(raw.strip())
+            return date.fromisoformat(value)
         except ValueError:
+            pass
+        # boardbot's own contract (docs/api.md) is a bare YYYY-MM-DD date,
+        # never a timestamp, but tolerate a leading date component anyway
+        # (e.g. a datetime column that starts serializing with a time
+        # part) rather than silently dropping an otherwise-valid due date.
+        try:
+            return date.fromisoformat(value[:10])
+        except ValueError:
+            logger.warning("boardbot returned an unparseable date: %r", raw)
             return None
 
     @staticmethod
@@ -526,10 +543,8 @@ class Board(BasePlugin):
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["item"]),
             "size_tag": _size_tag_params(item.size_tag),
-            "priority_tag": _priority_tag_params(
-                tags.priority_tag(item.priority), roles
-            ),
-            "due_tag": _due_tag_params(tags.due_tag(item.due_date, today), roles),
+            "priority_tag": _chip_params(tags.priority_tag(item.priority), roles),
+            "due_tag": _chip_params(tags.due_tag(item.due_date, today), roles),
             "note_text": item.note_text,
         }
 
@@ -551,11 +566,9 @@ class Board(BasePlugin):
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["cell"]),
             "size_tag": _size_tag_params(item.size_tag),
-            "age_tag": _age_tag_params(age, roles),
-            "priority_tag": _priority_tag_params(
-                tags.priority_tag(item.priority), roles
-            ),
-            "due_tag": _due_tag_params(tags.due_tag(item.due_date, today), roles),
+            "age_tag": _chip_params(age, roles),
+            "priority_tag": _chip_params(tags.priority_tag(item.priority), roles),
+            "due_tag": _chip_params(tags.due_tag(item.due_date, today), roles),
         }
 
     @staticmethod
@@ -590,9 +603,9 @@ class Board(BasePlugin):
         title_w_px = t.width * (column_w_pct / 100 * 0.75 - chip_discount)
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["body"]),
-            "age_tag": _age_tag_params(age, roles),
-            "priority_tag": _priority_tag_params(priority, roles),
-            "due_tag": _due_tag_params(due, roles),
+            "age_tag": _chip_params(age, roles),
+            "priority_tag": _chip_params(priority, roles),
+            "due_tag": _chip_params(due, roles),
         }
 
 
@@ -606,32 +619,17 @@ def _size_tag_params(size_tag: tags.SizeTag | None) -> dict[str, Any] | None:
     }
 
 
-def _age_tag_params(
-    age: tags.AgeTag | None, roles: palette.RoleMap
-) -> dict[str, Any] | None:
-    if age is None:
+_Chip = tags.AgeTag | tags.PriorityTag | tags.DueTag
+
+
+def _chip_params(chip: _Chip | None, roles: palette.RoleMap) -> dict[str, Any] | None:
+    """Shared rendering for AgeTag/PriorityTag/DueTag — all three are the
+    same (label, role, solid) shape. The warn bucket's solid fill needs
+    RoleMap.warn_is_solid, same as home_maintenance's due-soon chip and
+    weekends' partly cell — an unconditional solid=True renders as
+    invisible ink-on-ink text on the bw/mock palette (every non-ink/paper
+    role collapses to black there)."""
+    if chip is None:
         return None
-    # The warn bucket's solid fill needs RoleMap.warn_is_solid, same as
-    # home_maintenance's due-soon chip and weekends' partly cell — an
-    # unconditional solid=True renders as invisible ink-on-ink text on the
-    # bw/mock palette (every non-ink/paper role collapses to black there).
-    solid = roles.warn_is_solid if age.role == Role.WARN else age.solid
-    return {"label": age.label, "role": age.role.value, "solid": solid}
-
-
-def _priority_tag_params(
-    priority: tags.PriorityTag | None, roles: palette.RoleMap
-) -> dict[str, Any] | None:
-    if priority is None:
-        return None
-    solid = roles.warn_is_solid if priority.role == Role.WARN else priority.solid
-    return {"label": priority.label, "role": priority.role.value, "solid": solid}
-
-
-def _due_tag_params(
-    due: tags.DueTag | None, roles: palette.RoleMap
-) -> dict[str, Any] | None:
-    if due is None:
-        return None
-    solid = roles.warn_is_solid if due.role == Role.WARN else due.solid
-    return {"label": due.label, "role": due.role.value, "solid": solid}
+    solid = roles.warn_is_solid if chip.role == Role.WARN else chip.solid
+    return {"label": chip.label, "role": chip.role.value, "solid": solid}

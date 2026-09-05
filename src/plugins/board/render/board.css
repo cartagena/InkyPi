@@ -117,6 +117,15 @@
   align-items: center;
   gap: 0.4em;
   padding-left: 0.8em;
+  /* Bounded to the column width by its non-absolute parent row
+     (.board-inflight-row/.board-backlog-row, width:100% of --col-w), but a
+     flex container doesn't clip or wrap overflowing children by default --
+     a backlog row can carry up to 4 chips (size/priority/due/age) and an
+     in-flight row up to 3 chips plus note_text, with no title alongside to
+     yield space to them. overflow:hidden is the same last-resort backstop
+     .board-todo-row/.board-todo-title use: clip rather than let content
+     spill into the adjacent column. */
+  overflow: hidden;
 }
 
 .board-backlog-row .board-chip-row {

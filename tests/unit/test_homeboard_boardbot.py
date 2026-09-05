@@ -28,6 +28,21 @@ class TestValidateBoardSettings:
         )
         assert error is None
 
+    def test_https_base_url_passes(self) -> None:
+        error = boardbot.validate_board_settings(
+            {"base_url": "https://piserver.local:8765"}
+        )
+        assert error is None
+
+    def test_non_http_scheme_is_rejected(self) -> None:
+        error = boardbot.validate_board_settings({"base_url": "file:///etc/passwd"})
+        assert error is not None
+        assert "http" in error.lower()
+
+    def test_schemeless_value_is_rejected(self) -> None:
+        error = boardbot.validate_board_settings({"base_url": "piserver.local:8765"})
+        assert error is not None
+
 
 class TestCacheKey:
     def test_combines_base_url_and_list_name(self) -> None:
@@ -45,6 +60,10 @@ class TestFetchChecklistConfigErrors:
     def test_missing_base_url_raises(self) -> None:
         with pytest.raises(RuntimeError, match="URL"):
             boardbot.fetch_checklist("todo", "", "token")
+
+    def test_non_http_scheme_raises(self) -> None:
+        with pytest.raises(RuntimeError, match="http"):
+            boardbot.fetch_checklist("todo", "file:///etc/passwd", "token")
 
     def test_missing_token_raises(self) -> None:
         with pytest.raises(RuntimeError, match="API token"):
@@ -168,8 +187,6 @@ class TestFetchChecklistParsing:
     def test_missing_checked_field_defaults_to_falsy(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        self._patch_session(
-            monkeypatch, _FakeResponse([{"text": "No checked field"}])
-        )
+        self._patch_session(monkeypatch, _FakeResponse([{"text": "No checked field"}]))
         result = boardbot.fetch_checklist("todo", "http://piserver.local:8765", "token")
         assert result == [_item("No checked field")]

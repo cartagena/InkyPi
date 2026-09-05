@@ -68,6 +68,16 @@ class TestPriorityTag:
     def test_unrecognized_value_renders_no_chip(self) -> None:
         assert tags.priority_tag("urgent!!!") is None
 
+    def test_matching_is_case_insensitive(self) -> None:
+        tag = tags.priority_tag("High")
+        assert tag is not None
+        assert tag.label == "High"
+
+    def test_matching_tolerates_surrounding_whitespace(self) -> None:
+        tag = tags.priority_tag(" Medium ")
+        assert tag is not None
+        assert tag.label == "Medium"
+
 
 class TestDueTag:
     def test_none_renders_no_chip(self) -> None:

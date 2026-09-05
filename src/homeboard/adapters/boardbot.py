@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from utils.http_client import get_http_session
 
@@ -34,11 +35,20 @@ _REQUEST_TIMEOUT_SECONDS = 10
 
 
 def validate_board_settings(settings: Mapping[str, Any]) -> str | None:
-    """Return a human-readable error if ``base_url`` is missing/blank, else
-    ``None``. For use from a plugin's ``validate_settings()``."""
+    """Return a human-readable error if ``base_url`` is missing/blank or
+    doesn't use ``http``/``https``, else ``None``. For use from a plugin's
+    ``validate_settings()``.
+
+    The scheme check is defense-in-depth, not SSRF protection — ``base_url``
+    is trusted (see the module docstring), so this doesn't stop it pointing
+    at an attacker-controlled *http(s)* host, only at a non-HTTP scheme
+    (``file://``, ``gopher://``, ...) being entered by mistake or malice.
+    """
     base_url = settings.get("base_url")
     if not isinstance(base_url, str) or not base_url.strip():
         return "BoardBot URL is required."
+    if urlsplit(base_url.strip()).scheme not in ("http", "https"):
+        return "BoardBot URL must start with http:// or https://."
     return None
 
 
@@ -72,6 +82,8 @@ def fetch_checklist(
     """
     if not base_url:
         raise RuntimeError("BoardBot URL is required")
+    if urlsplit(base_url).scheme not in ("http", "https"):
+        raise RuntimeError("BoardBot URL must start with http:// or https://")
     if not token:
         raise RuntimeError(
             f"BoardBot API token is not configured ({BOARDBOT_API_TOKEN_ENV_KEY})"

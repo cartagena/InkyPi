@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 import pytest
@@ -47,6 +48,50 @@ class TestValidateSettings:
     def test_valid_settings_pass(self) -> None:
         plugin = Board({"id": "board"})
         assert plugin.validate_settings(_SETTINGS) is None
+
+    def test_non_http_scheme_is_rejected(self) -> None:
+        plugin = Board({"id": "board"})
+        settings = {**_SETTINGS, "base_url": "file:///etc/passwd"}
+        error = plugin.validate_settings(settings)
+        assert error is not None
+        assert "http" in error.lower()
+
+
+class TestIntOrNone:
+    def test_positive_int_passes_through(self) -> None:
+        assert Board._int_or_none(2) == 2
+
+    def test_whole_number_float_is_coerced(self) -> None:
+        assert Board._int_or_none(2.0) == 2
+
+    def test_fractional_float_is_rejected(self) -> None:
+        assert Board._int_or_none(2.5) is None
+
+    def test_zero_and_negative_are_rejected(self) -> None:
+        assert Board._int_or_none(0) is None
+        assert Board._int_or_none(-1) is None
+
+    def test_bool_is_rejected(self) -> None:
+        assert Board._int_or_none(True) is None
+
+    def test_none_and_string_are_rejected(self) -> None:
+        assert Board._int_or_none(None) is None
+        assert Board._int_or_none("2") is None
+
+
+class TestDateOrNone:
+    def test_bare_iso_date_parses(self) -> None:
+        assert Board._date_or_none("2026-09-10") == date(2026, 9, 10)
+
+    def test_iso_datetime_with_time_component_is_tolerated(self) -> None:
+        assert Board._date_or_none("2026-09-10T00:00:00") == date(2026, 9, 10)
+
+    def test_unparseable_string_returns_none(self) -> None:
+        assert Board._date_or_none("not-a-date") is None
+
+    def test_none_and_blank_return_none(self) -> None:
+        assert Board._date_or_none(None) is None
+        assert Board._date_or_none("   ") is None
 
 
 class TestGenerateImageConfigErrors:

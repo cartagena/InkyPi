@@ -61,20 +61,22 @@ class PriorityTag:
 
 def priority_tag(priority: str | None) -> PriorityTag | None:
     """Compute the priority chip for a raw ``"high"``/``"medium"``/
-    ``"low"`` value (or ``None``) — only Claude's classifier on the
-    boardbot side sets this (see ``classifier.py``'s tool schema), never
-    the structured fast path. ``"low"`` and anything unrecognised render
-    no chip, matching the "no placeholder" convention: an item with no
-    stated urgency is the default, not a fourth visible tier.
+    ``"low"`` value (or ``None``), matched case-insensitively — only
+    Claude's classifier on the boardbot side sets this (see
+    ``classifier.py``'s tool schema), never the structured fast path.
+    ``"low"`` and anything unrecognised render no chip, matching the "no
+    placeholder" convention: an item with no stated urgency is the
+    default, not a fourth visible tier.
 
     Labels are bare ("High"/"Medium") rather than "High priority" — a row
     can carry this chip alongside size/age/due chips too, and the ALERT/
     WARN color already reads as urgency in that context; the word
     "priority" would be the single biggest consumer of a crowded row's
     limited width for no added clarity."""
-    if priority == "high":
+    normalized = priority.strip().lower() if isinstance(priority, str) else priority
+    if normalized == "high":
         return PriorityTag(label="High", role=Role.ALERT, solid=True)
-    if priority == "medium":
+    if normalized == "medium":
         return PriorityTag(label="Medium", role=Role.WARN, solid=True)
     return None
 
