@@ -117,6 +117,15 @@
   align-items: center;
   gap: 0.4em;
   padding-left: 0.8em;
+  /* Bounded to the column width by its non-absolute parent row
+     (.board-inflight-row/.board-backlog-row, width:100% of --col-w), but a
+     flex container doesn't clip or wrap overflowing children by default --
+     a backlog row can carry up to 4 chips (size/priority/due/age) and an
+     in-flight row up to 3 chips plus note_text, with no title alongside to
+     yield space to them. overflow:hidden is the same last-resort backstop
+     .board-todo-row/.board-todo-title use: clip rather than let content
+     spill into the adjacent column. */
+  overflow: hidden;
 }
 
 .board-backlog-row .board-chip-row {
@@ -135,7 +144,16 @@
 .board-todo-row {
   position: absolute;
   left: 0;
-  width: 100%;
+  /* Less than 100%: a to-do row can now carry up to 3 trailing chips
+     (age/priority/due) plus the checkbox and title on one flex line, and
+     even with the title free to shrink (see .board-todo-title below) a
+     short title + 2-3 chips can still claim more width than looks
+     comfortable right at the column edge. UNVERIFIED exact percentage —
+     picked empirically against a real render (including a long-title +
+     all-three-chips stress case), not derived from a physical-panel
+     measurement. (--col-w itself no longer overflows the panel — that
+     was a separate bug, fixed in homeboard/layout.py.) */
+  width: 90%;
   height: 2.6em;
   display: flex;
   align-items: center;
@@ -152,10 +170,25 @@
   font-size: var(--fs-body);
   padding-left: 1.4em;
   flex: 1;
+  /* Flex items default to min-width: auto, so `flex: 1` alone never
+     shrinks this below its own text's intrinsic width -- with the
+     priority/due chips added alongside age_tag, that let a row's total
+     content (checkbox + title + up to 3 chips) exceed the column width
+     and spill past the panel edge instead of the title yielding space to
+     its siblings. overflow:hidden is the safety net for whatever
+     layout.truncate()'s pixel-width estimate (board.py's _todo_params)
+     doesn't already catch. */
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
+.board-todo-priority,
+.board-todo-due,
 .board-todo-age {
   flex-shrink: 0;
+  margin-left: 0.4em;
 }
 
 .board-todo-empty {

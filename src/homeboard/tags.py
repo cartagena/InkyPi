@@ -1,27 +1,13 @@
-"""Size and age tag parsing/rendering shared by every screen (SPEC §4.3)."""
+"""Size, priority, due-date, and age tag rendering shared by every screen
+(SPEC §4.3)."""
 
 from __future__ import annotations
 
 import hashlib
-import re
 from dataclasses import dataclass
+from datetime import date
 
 from homeboard.palette import Role
-
-# Trailing "[...]" bracket, optionally preceded by whitespace, anchored to
-# the end of the string — e.g. "Rebuild the side gate [half day]".
-_SIZE_BRACKET_RE = re.compile(r"\s*\[([^\[\]]+)\]\s*$")
-
-# Recognised bracket contents -> normalised display label (SPEC §4.3 table).
-# Matching is case-insensitive; unrecognised contents render verbatim.
-_SIZE_LABELS: dict[str, str] = {
-    "30m": "30 minutes",
-    "30 minutes": "30 minutes",
-    "half day": "Half a day",
-    "2h": "Half a day",
-    "weekend": "One weekend",
-    "1d": "One weekend",
-}
 
 
 @dataclass(frozen=True)
@@ -34,22 +20,110 @@ class SizeTag:
     solid: bool = False
 
 
-def parse_size_tag(text: str) -> tuple[str, SizeTag | None]:
-    """Split a trailing size bracket off *text*.
+# Bucket boundaries (inclusive upper edge) -> display label, in ascending
+# order. boardbot (github.com/cartagena/boardbot) is the only producer of
+# effort_days — either its Claude classifier extracts a day estimate from a
+# freeform message, or its structured "project <text> [S|M|L]" shorthand
+# maps directly to 1/2/4 days. These buckets intentionally match that
+# shorthand's own values so a project tagged "[M]" round-trips back to a
+# stable label rather than drifting if either side's thresholds change
+# independently.
+_EFFORT_BUCKETS: tuple[tuple[int, str], ...] = (
+    (1, "One day"),
+    (3, "A few days"),
+)
+_EFFORT_LABEL_OVERFLOW = "Multiple days"
 
-    Returns ``(title, size_tag)`` — *title* has the bracket (and any
-    separating whitespace) stripped; *size_tag* is ``None`` when no bracket
-    is present, per SPEC §4.3: "An item with no bracket renders with no
-    size tag — never a placeholder."
+
+def effort_tag(effort_days: int | None) -> SizeTag | None:
+    """Bucket a raw day-count into a size chip, per SPEC §4.3: "An item
+    with no size tag — never a placeholder." *effort_days* of ``None`` or
+    non-positive (shouldn't happen — boardbot validates before sending —
+    but never trust an upstream int blindly) renders no chip."""
+    if effort_days is None or effort_days < 1:
+        return None
+    for upper_bound, label in _EFFORT_BUCKETS:
+        if effort_days <= upper_bound:
+            return SizeTag(label=label)
+    return SizeTag(label=_EFFORT_LABEL_OVERFLOW)
+
+
+@dataclass(frozen=True)
+class PriorityTag:
+    """A rendered priority chip: label text plus the role/fill-treatment
+    for the sender-supplied urgency level (SPEC §4.3-style ladder, reusing
+    the same visual vocabulary as ``AgeTag``)."""
+
+    label: str
+    role: Role
+    solid: bool
+
+
+def priority_tag(priority: str | None) -> PriorityTag | None:
+    """Compute the priority chip for a raw ``"high"``/``"medium"``/
+    ``"low"`` value (or ``None``), matched case-insensitively — only
+    Claude's classifier on the boardbot side sets this (see
+    ``classifier.py``'s tool schema), never the structured fast path.
+    ``"low"`` and anything unrecognised render no chip, matching the "no
+    placeholder" convention: an item with no stated urgency is the
+    default, not a fourth visible tier.
+
+    Labels are bare ("High"/"Medium") rather than "High priority" — a row
+    can carry this chip alongside size/age/due chips too, and the ALERT/
+    WARN color already reads as urgency in that context; the word
+    "priority" would be the single biggest consumer of a crowded row's
+    limited width for no added clarity."""
+    normalized = priority.strip().lower() if isinstance(priority, str) else priority
+    if normalized == "high":
+        return PriorityTag(label="High", role=Role.ALERT, solid=True)
+    if normalized == "medium":
+        return PriorityTag(label="Medium", role=Role.WARN, solid=True)
+    return None
+
+
+@dataclass(frozen=True)
+class DueTag:
+    """A rendered due-date chip: label text plus the role/fill-treatment
+    for how close *due_date* is (SPEC §4.3-style ladder, reusing the same
+    visual vocabulary as ``AgeTag``)."""
+
+    label: str
+    role: Role
+    solid: bool
+
+
+# UNVERIFIED — no explicit "how many days counts as due soon" spec exists
+# for this new field (SPEC predates due_date entirely); picked to mirror
+# age_tag's three-tier shape rather than invent a fourth. Adjust once this
+# has been seen on a real board for a few weeks.
+_DUE_SOON_DAYS = 1
+
+
+def due_tag(due_date: date | None, today: date) -> DueTag | None:
+    """Compute the due-date chip, per the shared ladder:
+
+    - no ``due_date`` — omitted entirely (``None``)
+    - overdue — `alert` solid, "Overdue Nd"
+    - due today/tomorrow — `warn` solid, "Today"/"Tomorrow"
+    - further out — `ink` outline, "Due Nd"
+
+    "Overdue"/"Due" prefixes stay on the numeric-day forms — a row can
+    also carry ``AgeTag``, whose label is a bare "Nd", so an unprefixed
+    due-date "Nd" would be ambiguous about which date it's counting from.
+    "Today"/"Tomorrow" aren't numeric, so they don't need the prefix to
+    stay unambiguous, and dropping it saves width on a potentially
+    crowded row.
     """
-    match = _SIZE_BRACKET_RE.search(text)
-    if not match:
-        return text.strip(), None
-
-    title = text[: match.start()].rstrip()
-    raw = match.group(1).strip()
-    label = _SIZE_LABELS.get(raw.lower(), raw)
-    return title, SizeTag(label=label)
+    if due_date is None:
+        return None
+    days_until = (due_date - today).days
+    if days_until < 0:
+        return DueTag(label=f"Overdue {abs(days_until)}d", role=Role.ALERT, solid=True)
+    if days_until == 0:
+        return DueTag(label="Today", role=Role.WARN, solid=True)
+    if days_until <= _DUE_SOON_DAYS:
+        return DueTag(label="Tomorrow", role=Role.WARN, solid=True)
+    return DueTag(label=f"Due {days_until}d", role=Role.INK, solid=False)
 
 
 @dataclass(frozen=True)

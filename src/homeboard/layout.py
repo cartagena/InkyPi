@@ -34,7 +34,14 @@ _FONT_SCALE = {
 MARGIN_X_PCT = 2.5
 CONTENT_W_PCT = 95.0
 GUTTER_PCT = 5.0
-COL_W_PCT = 47.5
+# Two columns + one gutter must fill --content-w (95%), not the full panel
+# width: 2*col_w + gutter = content_w -> col_w = (95 - 5) / 2 = 45. The
+# previous value (47.5, matching 2*col_w + gutter = 100) put the second
+# column's right edge at margin_x + col_w + gutter + col_w = 102.5% of the
+# panel width -- past the right edge, before even reserving the intended
+# right margin. Board's own CSS was already compensating for this at the
+# row level (.board-todo-row's 90% width); this is the root-cause fix.
+COL_W_PCT = 45.0
 
 # --- §3.3 vertical bands (em of base) -----------------------------------
 
