@@ -38,6 +38,28 @@ def test_export_includes_api_keys_when_opted_in(
     assert env_keys.get("OPEN_WEATHER_MAP_SECRET") == "owm"
 
 
+def test_export_includes_boardbot_api_token_when_opted_in(
+    client: FlaskClient, device_config_dev: Any
+) -> None:
+    device_config_dev.set_env_key("BOARDBOT_API_TOKEN", "boardbot-secret")
+
+    resp = client.post("/settings/export", json={"include_keys": True})
+    assert resp.status_code == 200
+    payload = resp.get_json()["data"]
+    assert payload["env_keys"].get("BOARDBOT_API_TOKEN") == "boardbot-secret"
+
+
+def test_import_restores_boardbot_api_token(
+    client: FlaskClient, device_config_dev: Any
+) -> None:
+    resp = client.post(
+        "/settings/import",
+        json={"env_keys": {"BOARDBOT_API_TOKEN": "restored-token"}},
+    )
+    assert resp.status_code == 200
+    assert device_config_dev.load_env_key("BOARDBOT_API_TOKEN") == "restored-token"
+
+
 def test_export_excludes_api_keys_when_opted_out(client: FlaskClient) -> None:
     resp = client.get("/settings/export?include_keys=0")
     assert resp.status_code == 200

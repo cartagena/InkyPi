@@ -210,9 +210,30 @@ class TestDeleteApiKey:
             "OPEN_WEATHER_MAP_SECRET",
             "NASA_SECRET",
             "UNSPLASH_ACCESS_KEY",
+            "BOARDBOT_API_TOKEN",
         ):
             resp = client.post("/settings/delete_api_key", data={"key": key})
             assert resp.status_code == 200, f"Failed for key={key}"
+
+    def test_save_and_delete_boardbot_api_token(
+        self, client: FlaskClient, device_config_dev: Any
+    ) -> None:
+        resp = client.post(
+            "/settings/save_api_keys",
+            data={"BOARDBOT_API_TOKEN": "test-boardbot-token"},
+        )
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert "BOARDBOT_API_TOKEN" in data["updated"]
+        assert device_config_dev.load_env_key("BOARDBOT_API_TOKEN") == (
+            "test-boardbot-token"
+        )
+
+        resp = client.post(
+            "/settings/delete_api_key", data={"key": "BOARDBOT_API_TOKEN"}
+        )
+        assert resp.status_code == 200
+        assert device_config_dev.load_env_key("BOARDBOT_API_TOKEN") is None
 
     def test_delete_api_key_error(
         self, client: FlaskClient, device_config_dev: Any
