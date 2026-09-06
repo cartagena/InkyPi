@@ -591,18 +591,15 @@ class Board(BasePlugin):
             age_warn,
             _TODO_AGE_ALERT_DAYS,
         )
-        # A to-do row lays title and chips out on one flex line (unlike
-        # in-flight/backlog project rows, which put chips on their own
-        # line below the title), so an untrimmed 0.75 title budget can
-        # claim more width than the row has left once priority/due chips
-        # (new — age_tag alone never needed this) actually render,
-        # overflowing the column. This is a backstop against a pathologically
-        # long title specifically — board.css's .board-todo-row width is
-        # what actually keeps a short title + several chips from
-        # overflowing (see that file's comment for why). UNVERIFIED
-        # per-chip discount — no physical-panel measurement backs 0.08.
-        chip_discount = sum(0.08 for tag in (priority, due) if tag is not None)
-        title_w_px = t.width * (column_w_pct / 100 * 0.75 - chip_discount)
+        # Chips now render on their own line below the title (board.html/
+        # board.css) rather than sharing the title's flex line, so the
+        # title's budget no longer needs to reserve room for trailing
+        # chips — only for the checkbox + its own left padding that share
+        # line 1 with it (checkbox 0.83em + title's own 1.4em padding-left,
+        # matching board.css's .board-todo-title/.board-todo-chip-row).
+        row_w_px = t.width * column_w_pct / 100
+        checkbox_and_padding_px = (0.83 + 1.4) * t.fs["body"]
+        title_w_px = row_w_px - checkbox_and_padding_px
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["body"]),
             "age_tag": _chip_params(age, roles),

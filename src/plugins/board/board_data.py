@@ -31,7 +31,17 @@ BACKLOG_PITCH_EM = 3.1
 MIN_BACKLOG = 2
 MAX_BACKLOG = 4
 
-TODO_PITCH_EM = 2.35
+# SPEC §7.3 originally sized this for a single-line row (title + one
+# right-aligned age tag) at 2.6em, predating boardbot's priority_tag/
+# due_tag fields — once those were added, up to 3 chips were squeezed
+# onto that same line alongside the title, overlapping/cutting into it on
+# anything but a short title. Chips now render on their own line below
+# the title (board.py/board.css), so the row needs room for two lines
+# again, not one — 2.9em, between BACKLOG_PITCH_EM's 3.1em (title +
+# chip-row at the slightly larger --fs-cell, up to 4 chips including a
+# size chip) and the old single-line 2.6em (todo's title is --fs-body,
+# smaller, and carries at most 3 simpler chips, no size chip).
+TODO_PITCH_EM = 2.9
 MIN_TODO = 4
 MAX_TODO = 9
 # Space reserved below the last to-do row for the "Cleared" line. UNVERIFIED
