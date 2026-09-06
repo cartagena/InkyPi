@@ -165,7 +165,12 @@ cython_debug/
 
 # Editor / agent / per-user tooling config
 .vscode/
-.claude/
+# Track the shared Claude Code agent roster; everything else under .claude/ is
+# per-user (settings.local.json, session state) or transient (worktrees/).
+# Note: this must be `.claude/*`, not `.claude/` — git does not descend into an
+# excluded directory, so a `!` negation under an excluded dir never matches.
+.claude/*
+!.claude/agents/
 .codex/
 .envrc
 
