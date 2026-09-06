@@ -72,15 +72,14 @@ def _header_html(title: str, meta: str) -> str:
     )
 
 
-def _footer_html(source: str, sync_text: str) -> str:
+def _footer_html(sync_text: str) -> str:
     return str(
         Markup(
             '<div class="hb-footer-rule"></div>'
             '<div class="hb-footer">'
-            '<div class="hb-source">{source}</div>'
             '<div class="hb-sync">{sync_text}</div>'
             "</div>"
-        ).format(source=escape(source), sync_text=escape(sync_text))
+        ).format(sync_text=escape(sync_text))
     )
 
 
@@ -96,15 +95,19 @@ def build_chrome(
     CSS custom-property block for one screen render.
 
     ``title``/``meta`` populate the header (screen name, right-aligned meta
-    line); ``source``/``sync_text`` populate the footer (data source,
-    "Synced …" / "As of …" per SPEC §4.4). All four are escaped — they may
-    carry untrusted text (calendar event summaries, Keep note titles).
+    line); ``sync_text`` populates the footer ("Synced …" / "As of …" per
+    SPEC §4.4). ``source`` is accepted but no longer rendered — every
+    screen's data source was always "BoardBot" in practice, adding no
+    signal, so the footer now shows only sync freshness. Kept as a
+    parameter so callers (board.py/trips.py/home_maintenance.py) don't
+    need updating. All text is escaped — it may carry untrusted content
+    (calendar event summaries, Keep note titles).
     """
     root_css = layout.tokens_css(t) + "\n" + palette.palette_css(roles)
     return Chrome(
         root_css=root_css,
         header_html=_header_html(title, meta),
-        footer_html=_footer_html(source, sync_text),
+        footer_html=_footer_html(sync_text),
     )
 
 

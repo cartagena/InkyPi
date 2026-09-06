@@ -52,7 +52,11 @@ body {
 .hb-footer {
   bottom: 0;
   display: flex;
-  justify-content: space-between;
+  /* Only .hb-sync remains (the .hb-source data-source label was dropped —
+     every screen's source was always "BoardBot", no signal) — flex-end
+     keeps it right-aligned same as before, where space-between relied on
+     a second child to push this one to the far side. */
+  justify-content: flex-end;
   font-size: var(--fs-small);
 }
 

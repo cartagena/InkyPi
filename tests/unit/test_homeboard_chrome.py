@@ -49,13 +49,18 @@ class TestBuildChrome:
         assert "Projects &amp; to do" in result["header_html"]
         assert "11 open" in result["header_html"]
 
-    def test_footer_html_contains_source_and_sync_text(self) -> None:
+    def test_footer_html_contains_sync_text_but_not_source(self) -> None:
+        # The bottom-left "BoardBot" source label was dropped from every
+        # screen's footer — it never carried signal (always the same
+        # value). `source` is still accepted by build_chrome() (existing
+        # call sites pass it unchanged) but no longer rendered.
         t, roles = _tokens_and_roles()
         result = chrome.build_chrome(
             t, roles, "Trips", "2 booked", "Sheets", "As of Tue 6:30 am"
         )
-        assert "Sheets" in result["footer_html"]
         assert "As of Tue 6:30 am" in result["footer_html"]
+        assert "Sheets" not in result["footer_html"]
+        assert "hb-source" not in result["footer_html"]
 
     def test_header_html_escapes_untrusted_text(self) -> None:
         t, roles = _tokens_and_roles()
