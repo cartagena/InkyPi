@@ -168,7 +168,7 @@ class HomeMaintenance(BasePlugin):
         )
         visible = items[:max_rows]
 
-        meta = f"{len(items)} tasks" if len(items) != max_rows else ""
+        meta = self._status_meta(items)
         chrome_html = chrome.build_chrome(t, roles, "Home", meta, "BoardBot", sync_text)
         template_params.update(chrome_html)
         template_params["total_count"] = len(items)
@@ -185,6 +185,21 @@ class HomeMaintenance(BasePlugin):
         if not image:
             raise RuntimeError("Failed to take screenshot, please check logs.")
         return image
+
+    @staticmethod
+    def _status_meta(items: list[Any]) -> str:
+        """Header meta: "N overdue · N due soon" (SPEC §8.2 mockup),
+        counting the full list rather than just the visible rows — a task
+        pushed off-screen by the row cap is still worth surfacing in the
+        header. Either half is omitted when its count is zero."""
+        overdue = sum(1 for i in items if i.status == Status.OVERDUE)
+        due_soon = sum(1 for i in items if i.status == Status.DUE_SOON)
+        parts = []
+        if overdue:
+            parts.append(f"{overdue} overdue")
+        if due_soon:
+            parts.append(f"{due_soon} due soon")
+        return " · ".join(parts)
 
     @staticmethod
     def _parse_due_soon_days(raw: Any) -> int:
@@ -264,8 +279,11 @@ class HomeMaintenance(BasePlugin):
 
         due_text = ""
         if chip is None:
+            # Month only, no year (SPEC §8.2 mockup: "Oct", "Nov", not
+            # "Oct 2026") — a plain row is by definition >due_soon_days out,
+            # so the year is rarely ambiguous enough to be worth the width.
             due_text = (
-                item.next_due.strftime("%b %Y") if item.next_due else item.interval_text
+                item.next_due.strftime("%b") if item.next_due else item.interval_text
             )
 
         task_region_px = t.width * _TASK_COL_END_PCT / 100
