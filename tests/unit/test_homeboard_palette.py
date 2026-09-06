@@ -90,6 +90,30 @@ class TestDetectCapability:
 
         assert palette._detect_capability(_FakeDeviceConfig("inky")) is False
 
+    def test_mock_stays_bw_with_preview_env_unset(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("INKYPI_ENV", "dev")
+        monkeypatch.delenv("HOMEBOARD_COLOUR_PREVIEW", raising=False)
+        assert palette._detect_capability(_FakeDeviceConfig("mock")) is False
+
+    def test_mock_is_six_colour_with_preview_env_enabled_in_dev(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("INKYPI_ENV", "dev")
+        monkeypatch.setenv("HOMEBOARD_COLOUR_PREVIEW", "1")
+        assert palette._detect_capability(_FakeDeviceConfig("mock")) is True
+
+    def test_preview_env_enabled_outside_dev_mode_stays_bw(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The toggle is dev-only by design — it must never activate against
+        # a real device's config just because the env var leaked in.
+        monkeypatch.delenv("INKYPI_ENV", raising=False)
+        monkeypatch.delenv("FLASK_ENV", raising=False)
+        monkeypatch.setenv("HOMEBOARD_COLOUR_PREVIEW", "1")
+        assert palette._detect_capability(_FakeDeviceConfig("mock")) is False
+
     def test_inky_hardware_detection_raising_falls_back_to_bw(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
