@@ -55,6 +55,15 @@ _PLUGIN_TIMEOUT_DEFAULTS_S = {
     # OpenAI/Google image generation routinely takes longer than the generic
     # 60s guard, especially when a prompt remix runs first.
     "ai_image": 180.0,
+    # Unlike most plugins' single fetch, board.py calls boardbot's
+    # fetch_checklist() TWICE per refresh (projects, then todo),
+    # sequentially -- extra headroom against the generic 60s guard so a
+    # boardbot outage's own (short, LAN-tuned) HTTP timeout/retry sequence
+    # has room to fail on both calls and hand off to BasePlugin.cached_fetch's
+    # graceful stale-cache/empty-state fallback, rather than getting killed
+    # by this timeout first (see homeboard.adapters.boardbot's timeout
+    # comment for the measured worst-case numbers).
+    "board": 90.0,
 }
 _MANUAL_WAIT_DEFAULTS_S = {
     # Wait for the generated image to be saved, not the slow e-paper write.
