@@ -65,16 +65,29 @@ _WAVESHARE_FULL_COLOUR_MODELS = frozenset(
 # conservative bw-fallback default (SPEC §9 step 2, §10 item 1).
 _INKY_SIX_COLOUR_COLOUR_VALUES = frozenset({"seven_colour", "seven-colour"})
 
-# Placeholder RGB values. UNVERIFIED — must be re-measured against the
-# physical panel; saturated e-paper inks read duller than these look on a
-# monitor (SPEC §2.2).
+# The Inky Impression 7.3" (Spectra 6) panel's real native ink colours —
+# not a guess. Sourced from the `inky` package's own `inky_e673.py` driver
+# (SATURATED_PALETTE/DESATURATED_PALETTE), blended at this fork's own
+# default `inky_saturation` of 0.5 (see display/inky_display.py and
+# display/mock_display.py, both `image_settings.inky_saturation` default),
+# so this matches what a real panel configured at the default saturation
+# actually shows — e-paper ink reads duller than a vivid on-monitor guess
+# would. Re-derive with `blended = sat*SATURATED[i] + (1-sat)*DESATURATED[i]`
+# if this fork's default saturation ever changes. `paper` is kept pure
+# white rather than the driver's true (208, 209, 210) substrate colour —
+# every screen uses it as the full-panel background, and a visibly grey
+# background reads as a rendering glitch rather than "faithful preview";
+# the real panel's substrate tint is a hardware limit, not something worth
+# simulating at the cost of every other screen looking dingy. Still
+# pending SPEC §9 step 2's physical-panel legibility check (warn_is_solid
+# below), but the ink colour values themselves are no longer a placeholder.
 _SIX_COLOUR_RGB: dict[Role, RGB] = {
     Role.INK: (0, 0, 0),
     Role.PAPER: (255, 255, 255),
-    Role.AVAILABLE: (0, 150, 64),
-    Role.WARN: (255, 209, 0),
-    Role.ALERT: (200, 16, 46),
-    Role.EMPHASIS: (0, 90, 181),
+    Role.AVAILABLE: (29, 173, 35),
+    Role.WARN: (231, 222, 35),
+    Role.ALERT: (205, 36, 37),
+    Role.EMPHASIS: (30, 29, 174),
 }
 
 _BW_RGB: dict[Role, RGB] = {
@@ -122,6 +135,28 @@ def _is_dev_mode() -> bool:
     return env_mode in ("dev", "development")
 
 
+# Opt-in, dev-only override to preview the six-colour Spectra 6 palette
+# against `display_type: "mock"` instead of the bw fallback. Deliberately
+# does not change what "mock" resolves to by default — SPEC §2.1's "never
+# rely on colour alone" guarantee is verified throughout board/trips/
+# home_maintenance/weekends specifically by rendering against the bw
+# collapse (every non-ink/paper role -> black), and that check needs to
+# keep running against the *default* mock behaviour, not an opt-in one.
+# Gated on _is_dev_mode() so it can never activate against a real device's
+# config.
+_COLOUR_PREVIEW_ENV_KEY = "HOMEBOARD_COLOUR_PREVIEW"
+
+
+def _colour_preview_enabled() -> bool:
+    if not _is_dev_mode():
+        return False
+    return os.getenv(_COLOUR_PREVIEW_ENV_KEY, "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+
 def _detect_inky_six_colour() -> bool:
     """Best-effort hardware introspection for an `inky`-driven panel.
 
@@ -149,7 +184,7 @@ def _detect_capability(device_config: DeviceConfigLike) -> bool:
         return False
 
     if display_type == "mock":
-        return False
+        return _colour_preview_enabled()
     if fnmatch(display_type, "epd*"):
         return display_type in _WAVESHARE_FULL_COLOUR_MODELS
     if display_type == "inky":
