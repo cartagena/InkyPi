@@ -47,7 +47,7 @@ def parse_date(raw: object) -> date | None:
 @dataclass(frozen=True)
 class TripRow:
     name: str
-    status: str  # "booked" | "idea"
+    status: str  # "idea" | "planned" | "booked" | "past" (boardbot's full enum)
     start: date | None
     end: date | None
     target_window: str
@@ -83,12 +83,19 @@ class IdeaTrip:
     target_window: str
 
 
+_DATED_STATUSES = {"booked", "planned"}
+
+
 def select_booked(rows: list[TripRow], today: date) -> list[BookedTrip]:
-    """Booked trips sorted by start date ascending. A trip is dropped the
-    day after it ends (i.e. kept while ``end >= today``)."""
+    """Dated trips (``booked`` or ``planned`` — boardbot's ``docs/api.md``
+    status enum also has ``idea`` and ``past``, but this screen only has one
+    "has a countdown card" bucket and one "fuzzy idea" bucket; ``planned``
+    renders identically to ``booked`` here) sorted by start date ascending.
+    A trip is dropped the day after it ends (i.e. kept while ``end >=
+    today``)."""
     out: list[BookedTrip] = []
     for row in rows:
-        if row.status != "booked" or row.start is None or row.end is None:
+        if row.status not in _DATED_STATUSES or row.start is None or row.end is None:
             continue
         if row.end < today:
             continue
