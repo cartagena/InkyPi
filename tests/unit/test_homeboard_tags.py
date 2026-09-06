@@ -131,18 +131,21 @@ class TestAgeTag:
         assert tag is not None
         assert tag.role == Role.INK
         assert tag.solid is False
+        assert tag.label == "New"
 
     def test_at_warn_days_boundary_is_warn_solid(self) -> None:
         tag = tags.age_tag(30, age_show_days=14, age_warn_days=30, age_alert_days=90)
         assert tag is not None
         assert tag.role == Role.WARN
         assert tag.solid is True
+        assert tag.label == "Aging"
 
     def test_at_alert_days_boundary_is_alert_solid(self) -> None:
         tag = tags.age_tag(90, age_show_days=14, age_warn_days=30, age_alert_days=90)
         assert tag is not None
         assert tag.role == Role.ALERT
         assert tag.solid is True
+        assert tag.label == "Stale"
 
     def test_well_past_alert_days_is_still_alert_solid(self) -> None:
         tag = tags.age_tag(400, age_show_days=14, age_warn_days=30, age_alert_days=90)

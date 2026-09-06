@@ -156,17 +156,29 @@ def age_tag(
     """Compute the age chip for an item *days* old, per the shared ladder:
 
     - below ``age_show_days`` — omitted entirely (``None``)
-    - up to ``age_warn_days`` — `ink` outline
-    - up to ``age_alert_days`` — `warn` solid
-    - beyond — `alert` solid
+    - up to ``age_warn_days`` — `ink` outline, "New"
+    - up to ``age_alert_days`` — `warn` solid, "Aging"
+    - beyond — `alert` solid, "Stale"
+
+    Word buckets, not a bare day count — the previous "Nd" label sat right
+    next to ``DueTag``'s own numeric "Due Nd"/"Overdue Nd" labels with
+    nothing to tell a reader which one was counting *up* (time since this
+    fork's local ledger first saw the item — not the task's real age) and
+    which was counting *down* (time until a deadline). A bare "0d" was
+    also actively misleading on a fresh install: every pre-existing item
+    gets ``first_seen = today`` the first time it's tracked, so every row
+    read "0d" regardless of how old the task actually was. Word buckets
+    (matching ``effort_tag``'s style) sidestep both problems at the cost
+    of exact-day precision, which this chip's purpose — a coarse "does
+    this need attention" signal, not a precise timestamp — doesn't need.
     """
     if days < age_show_days:
         return None
     if days < age_warn_days:
-        return AgeTag(label=f"{days}d", role=Role.INK, solid=False)
+        return AgeTag(label="New", role=Role.INK, solid=False)
     if days < age_alert_days:
-        return AgeTag(label=f"{days}d", role=Role.WARN, solid=True)
-    return AgeTag(label=f"{days}d", role=Role.ALERT, solid=True)
+        return AgeTag(label="Aging", role=Role.WARN, solid=True)
+    return AgeTag(label="Stale", role=Role.ALERT, solid=True)
 
 
 def item_key(text: str) -> str:
