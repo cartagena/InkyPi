@@ -1,6 +1,37 @@
 # CHANGELOG
 
 
+## v1.10.0 (2026-09-06)
+
+### Features
+
+- **settings**: Add BoardBot API token card to the managed API keys page
+  ([`5b32779`](https://github.com/cartagena/InkyPi/commit/5b3277998f8cd63c87cfd5f7e54f663117324635))
+
+BOARDBOT_API_TOKEN was already wired into the generic-mode /api-keys route's api_key_plugins map
+  (apikeys.py), but the actual page linked from Settings (/settings/api-keys, "managed" mode) had no
+  card for it at all -- board.py's own settings page could point at the API-keys page as the place
+  to add the token, but there was nowhere to actually enter it, a real UX dead end since Board went
+  from Google Keep to this self-hosted service.
+
+Wires BOARDBOT_API_TOKEN through every place the other six managed keys already flow: -
+  settings/_config.py: api_keys_page() (card data + masked value), save_api_keys(),
+  delete_api_key(), and the settings/export key list - settings/__init__.py:
+  _ALLOWED_IMPORT_ENV_KEYS (backup/restore) - api_keys.html: new BoardBot card in "More providers",
+  provider-count updated 6 -> 7, plus the matching preset button in generic mode (apikeys.py's
+  api_key_plugins entry already existed there with no button to go with it) - api_keys_page.js:
+  MANAGED_KEY_MAPPING entry for the optimistic configured/deleted status update - tests/conftest.py:
+  added to MANAGED_API_KEY_ENV_VARS so tests stay hermetic (found via a real cross-test env leak
+  while adding coverage for this)
+
+Verified end-to-end against the real running dev server (not just mocks): save -> configured status
+  with masked value -> delete -> back to "Not configured", via actual CSRF-protected POSTs.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01LGjc833bmpkiSBvwrkHiMK
+
+
 ## v1.9.0 (2026-09-05)
 
 ### Bug Fixes
