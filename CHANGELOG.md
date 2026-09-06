@@ -1,6 +1,29 @@
 # CHANGELOG
 
 
+## v1.12.0 (2026-09-06)
+
+### Features
+
+- **homeboard**: Real Spectra 6 colours + dev colour-preview toggle
+  ([`c458ef2`](https://github.com/cartagena/InkyPi/commit/c458ef2c64714c5927632121a7a763b955222614))
+
+_SIX_COLOUR_RGB was a placeholder guess. Replaced it with the Inky Impression 7.3 (Spectra 6)
+  panel's actual ink colours, sourced from the installed `inky` package's own inky_e673.py driver
+  and blended at this fork's own default inky_saturation (0.5), so it matches what a real panel
+  would show.
+
+Added an opt-in HOMEBOARD_COLOUR_PREVIEW env var (dev-mode only) that makes display_type: "mock"
+  resolve to six-colour instead of black-and-white, for previewing these screens in colour during
+  development. The bw-by-default behaviour for "mock" is unchanged so the existing "never rely on
+  colour alone" accessibility checks (which render against the bw collapse) keep running exactly as
+  before.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+
 ## v1.11.0 (2026-09-06)
 
 ### Bug Fixes
