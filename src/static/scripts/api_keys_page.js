@@ -109,6 +109,7 @@
     UNSPLASH_ACCESS_KEY: ["unsplash-status", "unsplash-input", "unsplash"],
     GITHUB_SECRET: ["github-status", "github-input", "github"],
     GOOGLE_AI_SECRET: ["googleai-status", "googleai-input", "googleai"],
+    BOARDBOT_API_TOKEN: ["boardbot-status", "boardbot-input", "boardbot"],
   };
 
   // Mirror the server's `mask()` helper in src/blueprints/settings/_config.py

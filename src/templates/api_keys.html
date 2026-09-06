@@ -19,13 +19,14 @@
         {{ breadcrumb([{'label': 'Home', 'url': url_for('main.main_page')}, {'label': 'Settings', 'url': url_for('settings.settings_page')}, {'label': 'API Keys'}]) }}
         {% set key_summary = namespace(provider_count=(entries|length if entries is defined else 0), configured_count=0) %}
         {% if api_keys_mode == 'managed' %}
-            {% set key_summary.provider_count = 6 %}
+            {% set key_summary.provider_count = 7 %}
             {% if masked.OPEN_AI_SECRET %}{% set key_summary.configured_count = key_summary.configured_count + 1 %}{% endif %}
             {% if masked.OPEN_WEATHER_MAP_SECRET %}{% set key_summary.configured_count = key_summary.configured_count + 1 %}{% endif %}
             {% if masked.NASA_SECRET %}{% set key_summary.configured_count = key_summary.configured_count + 1 %}{% endif %}
             {% if masked.UNSPLASH_ACCESS_KEY %}{% set key_summary.configured_count = key_summary.configured_count + 1 %}{% endif %}
             {% if masked.GITHUB_SECRET %}{% set key_summary.configured_count = key_summary.configured_count + 1 %}{% endif %}
             {% if masked.GOOGLE_AI_SECRET %}{% set key_summary.configured_count = key_summary.configured_count + 1 %}{% endif %}
+            {% if masked.BOARDBOT_API_TOKEN %}{% set key_summary.configured_count = key_summary.configured_count + 1 %}{% endif %}
         {% else %}
             {% set key_summary.configured_count = entries|length if entries is defined else 0 %}
         {% endif %}
@@ -54,6 +55,7 @@
                     <div class="api-keys-more-grid">
                         {{ api_key_card('GitHub', 'GITHUB_SECRET', 'github-input', 'github-status', 'Enter GitHub personal access token', masked, api_key_plugins) }}
                         {{ api_key_card('Google AI', 'GOOGLE_AI_SECRET', 'googleai-input', 'googleai-status', 'Enter Google AI API key', masked, api_key_plugins) }}
+                        {{ api_key_card('BoardBot', 'BOARDBOT_API_TOKEN', 'boardbot-input', 'boardbot-status', 'Enter BoardBot API token', masked, api_key_plugins, delete_label='Board') }}
                     </div>
                 </details>
             </div>
@@ -85,6 +87,7 @@
                 <button type="button" class="btn-preset" data-api-action="add-preset" data-key="UNSPLASH_ACCESS_KEY" data-test-skip-click="true" title="Used by: {{ api_key_plugins.get('UNSPLASH_ACCESS_KEY', []) | join(', ') }}">UNSPLASH_ACCESS_KEY</button>
                 <button type="button" class="btn-preset" data-api-action="add-preset" data-key="GITHUB_SECRET" data-test-skip-click="true" title="Used by: {{ api_key_plugins.get('GITHUB_SECRET', []) | join(', ') }}">GITHUB_SECRET</button>
                 <button type="button" class="btn-preset" data-api-action="add-preset" data-key="GOOGLE_AI_SECRET" data-test-skip-click="true" title="Used by: {{ api_key_plugins.get('GOOGLE_AI_SECRET', []) | join(', ') }}">GOOGLE_AI_SECRET</button>
+                <button type="button" class="btn-preset" data-api-action="add-preset" data-key="BOARDBOT_API_TOKEN" data-test-skip-click="true" title="Used by: {{ api_key_plugins.get('BOARDBOT_API_TOKEN', []) | join(', ') }}">BOARDBOT_API_TOKEN</button>
             </div>
         </div>
         {% endif %}

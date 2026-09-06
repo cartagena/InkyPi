@@ -214,6 +214,7 @@ def export_settings() -> Any:
                 "UNSPLASH_ACCESS_KEY",
                 "GITHUB_SECRET",
                 "GOOGLE_AI_SECRET",
+                "BOARDBOT_API_TOKEN",
             ):
                 try:
                     v = device_config.load_env_key(k)
@@ -322,6 +323,7 @@ def api_keys_page() -> Any:
         "UNSPLASH_ACCESS_KEY": device_config.load_env_key("UNSPLASH_ACCESS_KEY"),
         "GITHUB_SECRET": device_config.load_env_key("GITHUB_SECRET"),
         "GOOGLE_AI_SECRET": device_config.load_env_key("GOOGLE_AI_SECRET"),
+        "BOARDBOT_API_TOKEN": device_config.load_env_key("BOARDBOT_API_TOKEN"),
     }
     masked = {k: mask(v) for k, v in keys.items()}
     api_key_plugins = {
@@ -331,6 +333,7 @@ def api_keys_page() -> Any:
         "UNSPLASH_ACCESS_KEY": ["Unsplash Background"],
         "GITHUB_SECRET": ["GitHub"],
         "GOOGLE_AI_SECRET": ["AI Image", "AI Text"],
+        "BOARDBOT_API_TOKEN": ["Board"],
     }
     return render_template(
         "api_keys.html",
@@ -360,6 +363,7 @@ def save_api_keys() -> Any:
             "UNSPLASH_ACCESS_KEY",
             "GITHUB_SECRET",
             "GOOGLE_AI_SECRET",
+            "BOARDBOT_API_TOKEN",
         ):
             value = form_data.get(key)
             if not value:
@@ -407,6 +411,7 @@ def delete_api_key() -> Any:
         "UNSPLASH_ACCESS_KEY",
         "GITHUB_SECRET",
         "GOOGLE_AI_SECRET",
+        "BOARDBOT_API_TOKEN",
     }
     if key not in valid_keys:
         raise ClientInputError("Invalid key name", status=400)

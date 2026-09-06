@@ -934,6 +934,7 @@ _ALLOWED_IMPORT_ENV_KEYS = frozenset(
         "UNSPLASH_ACCESS_KEY",
         "GITHUB_SECRET",
         "GOOGLE_AI_SECRET",
+        "BOARDBOT_API_TOKEN",
     }
 )
 
