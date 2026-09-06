@@ -105,10 +105,21 @@
   font-size: var(--fs-item);
   font-weight: 500;
   padding-left: 0.8em;
+  /* max-width is set inline per-row (board.py's title_w_px) — the exact
+     same pixel budget layout.truncate() used, so this can never overflow
+     even if ADVANCE_RATIO's character-count estimate runs a little hot on
+     a particular string (see layout.py's comment on that constant). */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .board-backlog-title {
   font-size: var(--fs-cell);
+  /* Same backstop as .board-inflight-title above, same reason. */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .board-chip-row {

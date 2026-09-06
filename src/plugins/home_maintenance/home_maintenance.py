@@ -273,6 +273,7 @@ class HomeMaintenance(BasePlugin):
 
         return {
             "task": task,
+            "task_w_px": task_region_px,
             "interval_text": item.interval_text,
             "chip": chip,
             "due_text": due_text,

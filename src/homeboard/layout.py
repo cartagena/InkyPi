@@ -58,9 +58,19 @@ _LANDSCAPE_ASPECT_THRESHOLD = 1.2
 # --- §3.6 truncation ------------------------------------------------------
 
 # Average glyph-advance ratio used to turn a pixel width into a character
-# budget. UNVERIFIED — calibrate against the bundled font before trusting
-# this value for anything narrower than a rough estimate (SPEC §3.6).
-ADVANCE_RATIO = 0.52
+# budget. Measured against the actual rendered `font-family: sans-serif`
+# fallback (headless Chrome, the same engine BasePlugin.render_image uses)
+# across a sample of realistic sentence-case task/trip titles: true average
+# glyph width came out to ~0.40-0.48 of the font size, not the previous
+# 0.52 — that overshoot was silently truncating titles far earlier than
+# necessary (e.g. a 152px-wide 21-char string was getting cut to 9 chars
+# for a 142px budget). 0.46 sits in that measured range; it can run a
+# little hot on glyph-wide content (all-caps, digit-heavy strings pushed
+# the measured ratio as high as ~0.66), which is why every title element
+# that uses this budget also carries a CSS `max-width` + `overflow:
+# hidden; text-overflow: ellipsis` backstop (SPEC §3.6) — this constant
+# only needs to get *close*, not be overflow-proof on its own.
+ADVANCE_RATIO = 0.46
 
 _ELLIPSIS = "…"
 

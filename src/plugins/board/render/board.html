@@ -29,7 +29,7 @@
   {% for p in in_flight %}
   <div class="board-inflight-row" style="top: {{ in_flight_start_px + loop.index0 * in_flight_pitch_px }}px;">
     <div class="board-inflight-bar"></div>
-    <div class="board-inflight-title">{{ p.title }}</div>
+    <div class="board-inflight-title" style="max-width: {{ p.title_w_px }}px;">{{ p.title }}</div>
     <div class="board-chip-row">
       {% if p.size_tag %}<span class="hb-chip" data-role="{{ p.size_tag.role }}" data-solid="{{ 1 if p.size_tag.solid else 0 }}">{{ p.size_tag.label }}</span>{% endif %}
       {% if p.priority_tag %}<span class="hb-chip" data-role="{{ p.priority_tag.role }}" data-solid="{{ 1 if p.priority_tag.solid else 0 }}">{{ p.priority_tag.label }}</span>{% endif %}
@@ -47,7 +47,7 @@
   <div class="board-section-label" style="top: {{ backlog_label_top_px }}px;">From the backlog</div>
   {% for p in backlog %}
   <div class="board-backlog-row" style="top: {{ backlog_start_px + loop.index0 * backlog_pitch_px }}px;">
-    <div class="board-backlog-title">{{ p.title }}</div>
+    <div class="board-backlog-title" style="max-width: {{ p.title_w_px }}px;">{{ p.title }}</div>
     <div class="board-chip-row">
       {% if p.size_tag %}<span class="hb-chip" data-role="{{ p.size_tag.role }}" data-solid="{{ 1 if p.size_tag.solid else 0 }}">{{ p.size_tag.label }}</span>{% endif %}
       {% if p.priority_tag %}<span class="hb-chip" data-role="{{ p.priority_tag.role }}" data-solid="{{ 1 if p.priority_tag.solid else 0 }}">{{ p.priority_tag.label }}</span>{% endif %}

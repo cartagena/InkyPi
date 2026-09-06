@@ -542,6 +542,7 @@ class Board(BasePlugin):
         title_w_px = t.width * column_w_pct / 100 * 0.8
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["item"]),
+            "title_w_px": title_w_px,
             "size_tag": _size_tag_params(item.size_tag),
             "priority_tag": _chip_params(tags.priority_tag(item.priority), roles),
             "due_tag": _chip_params(tags.due_tag(item.due_date, today), roles),
@@ -565,6 +566,7 @@ class Board(BasePlugin):
         )
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["cell"]),
+            "title_w_px": title_w_px,
             "size_tag": _size_tag_params(item.size_tag),
             "age_tag": _chip_params(age, roles),
             "priority_tag": _chip_params(tags.priority_tag(item.priority), roles),
