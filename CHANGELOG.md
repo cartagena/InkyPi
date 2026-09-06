@@ -1,6 +1,39 @@
 # CHANGELOG
 
 
+## v1.11.0 (2026-09-06)
+
+### Bug Fixes
+
+- **trips**: Treat boardbot's "planned" trips like "booked" ones
+  ([`5a9d1cf`](https://github.com/cartagena/InkyPi/commit/5a9d1cffbc3f401d6ed87fa5b7deca6d45ef8183))
+
+Live-tested against boardbot: it returns status "planned" for trips with real dates, but
+  select_booked() only recognized "booked" and "idea" (the old two-status Google Sheets model), so
+  every planned trip was silently dropped and never rendered. boardbot's docs/api.md status enum is
+  idea/planned/booked/past; planned and booked share the same countdown-card rendering, so both now
+  select together.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+### Features
+
+- **trips,home-maintenance**: Source trips and home maintenance from boardbot
+  ([`aeca05a`](https://github.com/cartagena/InkyPi/commit/aeca05ab47d3b626fd1628cd0156508b56361cbc))
+
+boardbot now backs four collections (to-dos, projects, trips, home maintenance), so switch these two
+  plugins off the Google Sheets adapter onto the same boardbot HTTP client the board plugin already
+  uses — base_url + BOARDBOT_API_TOKEN instead of a service-account sheet_id/ worksheet_name pair.
+  Adds the `weeks` interval unit boardbot's maintenance schema supports. Drops the now-unused
+  gsheets adapter and its google-api-python-client/google-auth dependency.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+
 ## v1.10.1 (2026-09-06)
 
 ### Bug Fixes
