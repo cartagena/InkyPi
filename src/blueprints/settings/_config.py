@@ -333,7 +333,7 @@ def api_keys_page() -> Any:
         "UNSPLASH_ACCESS_KEY": ["Unsplash Background"],
         "GITHUB_SECRET": ["GitHub"],
         "GOOGLE_AI_SECRET": ["AI Image", "AI Text"],
-        "BOARDBOT_API_TOKEN": ["Board"],
+        "BOARDBOT_API_TOKEN": ["Board", "Trips", "Home"],
     }
     return render_template(
         "api_keys.html",

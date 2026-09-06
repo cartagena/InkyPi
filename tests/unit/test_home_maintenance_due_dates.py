@@ -27,6 +27,11 @@ class TestComputeNextDue:
             2026, 1, 31
         )
 
+    def test_weeks_interval(self) -> None:
+        assert compute_next_due(2, IntervalUnit.WEEKS, date(2026, 1, 1), None) == date(
+            2026, 1, 15
+        )
+
     def test_months_interval(self) -> None:
         assert compute_next_due(
             3, IntervalUnit.MONTHS, date(2026, 1, 15), None
@@ -65,6 +70,12 @@ class TestIntervalText:
 
     def test_days_singular(self) -> None:
         assert interval_text(1, IntervalUnit.DAYS) == "Every 1 day"
+
+    def test_weeks_plural(self) -> None:
+        assert interval_text(2, IntervalUnit.WEEKS) == "Every 2 weeks"
+
+    def test_weeks_singular(self) -> None:
+        assert interval_text(1, IntervalUnit.WEEKS) == "Every 1 week"
 
     def test_months(self) -> None:
         assert interval_text(3, IntervalUnit.MONTHS) == "Every 3 months"

@@ -14,6 +14,7 @@ from enum import StrEnum
 
 class IntervalUnit(StrEnum):
     DAYS = "days"
+    WEEKS = "weeks"
     MONTHS = "months"
     YEARS = "years"
     MILES = "miles"
@@ -28,11 +29,13 @@ class Status(StrEnum):
 
 _UNIT_SINGULAR = {
     IntervalUnit.DAYS: "day",
+    IntervalUnit.WEEKS: "week",
     IntervalUnit.MONTHS: "month",
     IntervalUnit.YEARS: "year",
 }
 _UNIT_PLURAL = {
     IntervalUnit.DAYS: "days",
+    IntervalUnit.WEEKS: "weeks",
     IntervalUnit.MONTHS: "months",
     IntervalUnit.YEARS: "years",
 }
@@ -65,6 +68,8 @@ def compute_next_due(
         return None
     if interval_unit == IntervalUnit.DAYS:
         return last_done + timedelta(days=interval_value)
+    if interval_unit == IntervalUnit.WEEKS:
+        return last_done + timedelta(weeks=interval_value)
     if interval_unit == IntervalUnit.MONTHS:
         return _add_months(last_done, interval_value)
     return _add_months(last_done, interval_value * 12)
