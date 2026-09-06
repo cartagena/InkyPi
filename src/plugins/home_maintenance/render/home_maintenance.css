@@ -62,7 +62,15 @@
   position: absolute;
   left: 0;
   width: 100%;
-  bottom: -0.9em;
+  /* Rows are packed edge-to-edge (row_height_em == row_pitch_em, no inter-
+     row gap — see home_maintenance.py's _ROW_HEIGHT_EM comment), so the
+     natural boundary between row N and row N+1 is row N's own bottom
+     edge. The previous `bottom: -0.9em` pushed this line *past* that edge
+     (negative `bottom` moves an absolutely-positioned element outward,
+     not inward) and ~19px into the following row's own box, cutting
+     straight through its task text's descenders instead of sitting
+     between the two rows. */
+  bottom: 0;
   height: 1px;
   background: var(--color-ink);
 }
