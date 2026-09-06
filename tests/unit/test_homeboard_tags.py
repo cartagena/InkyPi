@@ -52,12 +52,15 @@ class TestPriorityTag:
         assert tag.role == Role.ALERT
         assert tag.solid is True
 
-    def test_medium_is_warn_solid(self) -> None:
+    def test_medium_is_warn_outline(self) -> None:
+        # Deliberately outline, not solid — a stable, permanent design
+        # choice (high shouts, medium notices), not gated by
+        # RoleMap.warn_is_solid the way AgeTag/DueTag's warn tiers are.
         tag = tags.priority_tag("medium")
         assert tag is not None
         assert tag.label == "Medium"
         assert tag.role == Role.WARN
-        assert tag.solid is True
+        assert tag.solid is False
 
     def test_low_renders_no_chip(self) -> None:
         assert tags.priority_tag("low") is None

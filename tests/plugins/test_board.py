@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 from PIL import Image
 
+from homeboard import palette, tags
 from homeboard.adapters import boardbot
 from plugins.board.board import Board
 
@@ -406,3 +407,41 @@ class TestBacklogSeedKey:
 
         assert len(seen_seed_keys) == 2
         assert seen_seed_keys[0] != seen_seed_keys[1]
+
+
+class TestChipParamsPriorityExclusion:
+    """PriorityTag must not be swept up in AgeTag/DueTag's warn_is_solid
+    gate — Medium priority's outline treatment is a permanent design
+    choice (tags.priority_tag's docstring), not a placeholder pending
+    physical-panel legibility confirmation like the age/due ladders."""
+
+    @staticmethod
+    def _role_map(*, warn_is_solid: bool) -> palette.RoleMap:
+        return palette.RoleMap(
+            colors=dict.fromkeys(palette.Role, (0, 0, 0)),
+            six_colour=True,
+            warn_is_solid=warn_is_solid,
+        )
+
+    def test_medium_priority_stays_outline_when_warn_is_solid_true(self) -> None:
+        from plugins.board.board import _chip_params
+
+        priority = tags.priority_tag("medium")
+        params = _chip_params(priority, self._role_map(warn_is_solid=True))
+        assert params is not None
+        assert params["solid"] is False
+
+    def test_age_tag_warn_tier_still_follows_warn_is_solid(self) -> None:
+        from plugins.board.board import _chip_params
+
+        age = tags.age_tag(
+            days=10, age_show_days=0, age_warn_days=5, age_alert_days=100
+        )
+        assert age is not None
+        assert age.role == palette.Role.WARN
+
+        params_off = _chip_params(age, self._role_map(warn_is_solid=False))
+        params_on = _chip_params(age, self._role_map(warn_is_solid=True))
+        assert params_off is not None and params_on is not None
+        assert params_off["solid"] is False
+        assert params_on["solid"] is True

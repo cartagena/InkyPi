@@ -626,12 +626,22 @@ _Chip = tags.AgeTag | tags.PriorityTag | tags.DueTag
 
 def _chip_params(chip: _Chip | None, roles: palette.RoleMap) -> dict[str, Any] | None:
     """Shared rendering for AgeTag/PriorityTag/DueTag — all three are the
-    same (label, role, solid) shape. The warn bucket's solid fill needs
-    RoleMap.warn_is_solid, same as home_maintenance's due-soon chip and
-    weekends' partly cell — an unconditional solid=True renders as
+    same (label, role, solid) shape. AgeTag/DueTag's warn-tier solid fill
+    needs RoleMap.warn_is_solid, same as home_maintenance's due-soon chip
+    and weekends' partly cell — an unconditional solid=True renders as
     invisible ink-on-ink text on the bw/mock palette (every non-ink/paper
-    role collapses to black there)."""
+    role collapses to black there). PriorityTag is deliberately excluded
+    from that gate: unlike the age/due ladders (which escalate toward
+    solid as a threshold is crossed and are conservatively outline-only
+    pending physical-panel legibility confirmation), priority is a
+    stable, sender-declared two-value category — Medium's outline
+    treatment is a permanent design choice (see tags.priority_tag's
+    docstring), not a placeholder that should jump to solid once the
+    unrelated warn_is_solid flag flips."""
     if chip is None:
         return None
-    solid = roles.warn_is_solid if chip.role == Role.WARN else chip.solid
+    if isinstance(chip, tags.PriorityTag):
+        solid = chip.solid
+    else:
+        solid = roles.warn_is_solid if chip.role == Role.WARN else chip.solid
     return {"label": chip.label, "role": chip.role.value, "solid": solid}

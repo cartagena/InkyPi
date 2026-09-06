@@ -72,12 +72,20 @@ def priority_tag(priority: str | None) -> PriorityTag | None:
     can carry this chip alongside size/age/due chips too, and the ALERT/
     WARN color already reads as urgency in that context; the word
     "priority" would be the single biggest consumer of a crowded row's
-    limited width for no added clarity."""
+    limited width for no added clarity.
+
+    Medium's ``solid=False`` is a deliberate, permanent design choice
+    (high shouts, medium notices) — NOT gated by ``RoleMap.warn_is_solid``
+    the way ``AgeTag``/``DueTag``'s warn-tier solid fills are (see
+    ``board.py``'s ``_chip_params``). Priority is a stable, sender-declared
+    two-value category, not an escalating ladder, so its visual treatment
+    shouldn't jump to solid the moment an unrelated hardware-legibility
+    question about the due/age ladders gets resolved."""
     normalized = priority.strip().lower() if isinstance(priority, str) else priority
     if normalized == "high":
         return PriorityTag(label="High", role=Role.ALERT, solid=True)
     if normalized == "medium":
-        return PriorityTag(label="Medium", role=Role.WARN, solid=True)
+        return PriorityTag(label="Medium", role=Role.WARN, solid=False)
     return None
 
 
