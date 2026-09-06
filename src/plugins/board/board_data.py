@@ -16,7 +16,7 @@ from plugins.board import sampling
 
 # --- §7.3 layout constants (em of `base`) -------------------------------
 
-IN_FLIGHT_LABEL_BAND_EM = 0.8
+IN_FLIGHT_LABEL_BAND_EM = 0.9
 IN_FLIGHT_PITCH_EM = 3.4
 MIN_IN_FLIGHT = 0
 MAX_IN_FLIGHT = 2
@@ -31,7 +31,7 @@ BACKLOG_PITCH_EM = 3.1
 MIN_BACKLOG = 2
 MAX_BACKLOG = 4
 
-TODO_PITCH_EM = 2.6
+TODO_PITCH_EM = 2.35
 MIN_TODO = 4
 MAX_TODO = 9
 # Space reserved below the last to-do row for the "Cleared" line. UNVERIFIED

@@ -165,7 +165,10 @@
      measurement. (--col-w itself no longer overflows the panel — that
      was a separate bug, fixed in homeboard/layout.py.) */
   width: 90%;
-  height: 2.6em;
+  /* height set inline per-row (board.py's todo_pitch_px), same reasoning
+     as .hm-row in home_maintenance.css: an em value here would resolve
+     against this rule's own font-size rather than `base`, drifting the
+     row pitch. */
   display: flex;
   align-items: center;
 }
@@ -208,6 +211,21 @@
   top: 0;
   font-size: var(--fs-body);
   color: var(--color-ink);
+}
+
+.board-row-sep {
+  /* Same fix as home_maintenance.css's .hm-row-sep: `bottom: 0`, not a
+     negative em offset. Rows are packed edge-to-edge at their own pitch
+     (each row's inline height == that list's pitch constant), so the
+     natural boundary between row N and row N+1 is row N's own bottom
+     edge — a negative `bottom` would push the line past that edge and
+     into the following row's text instead of sitting between the two. */
+  position: absolute;
+  left: 0;
+  width: 100%;
+  bottom: 0;
+  height: 1px;
+  background: var(--color-ink);
 }
 
 .board-cleared-line {

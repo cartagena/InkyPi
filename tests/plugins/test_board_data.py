@@ -359,7 +359,7 @@ class TestTodoColumnGeometry:
         fallback be skipped on a panel where the cleared line then
         overflows the column."""
         # Just past CLEARED_LINE_BAND_EM (1.4em) but short of one full
-        # TODO_PITCH_EM (2.6em) row-slot plus the band.
+        # TODO_PITCH_EM row-slot plus the band.
         body_height_em = 2.0
         raw_visible_todo = 0
         assert board_data.todo_column_fits(body_height_em, raw_visible_todo)
