@@ -44,6 +44,26 @@ class TestValidateBoardSettings:
         assert error is not None
 
 
+class TestRequestTimeoutBudget:
+    def test_request_timeout_leaves_room_for_two_sequential_fetches(self) -> None:
+        """board.py calls fetch_checklist() twice per refresh (projects,
+        then todo). With the shared HTTP session's retry policy (see
+        utils.http_client._PLUGIN_RETRY_TOTAL = 3, i.e. 4 attempts), the
+        worst-case wall-clock time for a single fetch against a genuinely
+        unreachable host is roughly `4 * timeout` seconds plus retry
+        backoff -- measured at ~19s for a 4s timeout in the field. Two
+        sequential fetches at that worst case must stay comfortably under
+        board's own plugin-execution timeout allowance
+        (refresh_task.task._PLUGIN_TIMEOUT_DEFAULTS_S["board"] = 90.0), or
+        the outer watchdog kills the plugin before
+        BasePlugin.cached_fetch's graceful fallback ever runs."""
+        from refresh_task.task import _PLUGIN_TIMEOUT_DEFAULTS_S
+
+        board_timeout_budget = _PLUGIN_TIMEOUT_DEFAULTS_S["board"]
+        worst_case_two_fetches = 2 * (4 * boardbot._REQUEST_TIMEOUT_SECONDS + 4)
+        assert worst_case_two_fetches < board_timeout_budget
+
+
 class TestCacheKey:
     def test_combines_base_url_and_list_name(self) -> None:
         assert (

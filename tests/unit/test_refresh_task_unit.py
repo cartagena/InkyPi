@@ -177,6 +177,21 @@ def test_ai_image_timeout_defaults_are_longer(monkeypatch: Any) -> None:
     assert RefreshTask._manual_update_wait_seconds("clock") == 60.0
 
 
+def test_board_timeout_default_allows_for_two_sequential_fetches(
+    monkeypatch: Any,
+) -> None:
+    """board.py calls boardbot's fetch_checklist() twice per refresh
+    (projects, then todo) -- the generic 60s guard measured too tight
+    against a real boardbot outage (see homeboard.adapters.boardbot's
+    timeout comment)."""
+    from refresh_task import RefreshTask
+
+    monkeypatch.delenv("INKYPI_PLUGIN_TIMEOUT_S", raising=False)
+    monkeypatch.delenv("INKYPI_PLUGIN_TIMEOUT_S_BOARD", raising=False)
+
+    assert RefreshTask._plugin_timeout_seconds("board") == 90.0
+
+
 def test_plugin_specific_timeout_env_overrides_global(monkeypatch: Any) -> None:
     from refresh_task import RefreshTask
 

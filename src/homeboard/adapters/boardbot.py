@@ -31,7 +31,22 @@ ListName = Literal["todo", "projects"]
 # services use for the same shared secret.
 BOARDBOT_API_TOKEN_ENV_KEY = "BOARDBOT_API_TOKEN"
 
-_REQUEST_TIMEOUT_SECONDS = 10
+# boardbot is a self-hosted LAN service (see module docstring) -- if it's
+# unreachable, a real response is not coming, so fail fast rather than wait
+# out a generous timeout. This matters doubly here because board.py calls
+# fetch_checklist() TWICE per generate_image() (projects, then todo),
+# sequentially, and the shared HTTP session retries up to 3 times
+# (utils.http_client._PLUGIN_RETRY_TOTAL) on a connect failure -- at the
+# previous 10s value, a single fetch's worst case (4 attempts x 10s + retry
+# backoff) measured ~43s against a genuinely unreachable host, so the pair
+# together could exceed the 60s generic plugin execution timeout
+# (refresh_task.task._PLUGIN_TIMEOUT_DEFAULTS_S) and get killed by that
+# outer watchdog before BasePlugin.cached_fetch's own graceful
+# stale-cache/empty-state fallback ever got a chance to run. At 4s this
+# same worst case is ~19s per fetch, ~38s for both -- safely inside the
+# window with margin for rendering (also given headroom via board's own
+# entry in _PLUGIN_TIMEOUT_DEFAULTS_S).
+_REQUEST_TIMEOUT_SECONDS = 4
 
 
 def validate_board_settings(settings: Mapping[str, Any]) -> str | None:
