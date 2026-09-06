@@ -104,6 +104,13 @@ class TestDueTag:
         assert tag.role == Role.WARN
         assert tag.solid is True
 
+    def test_approaching_is_warn_outline(self) -> None:
+        tag = tags.due_tag(date(2026, 9, 9), today=date(2026, 9, 4))
+        assert tag is not None
+        assert tag.label == "Due 5d"
+        assert tag.role == Role.WARN
+        assert tag.solid is False
+
     def test_further_out_is_ink_outline(self) -> None:
         tag = tags.due_tag(date(2026, 9, 10), today=date(2026, 9, 4))
         assert tag is not None

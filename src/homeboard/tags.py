@@ -93,10 +93,21 @@ class DueTag:
 
 
 # UNVERIFIED — no explicit "how many days counts as due soon" spec exists
-# for this new field (SPEC predates due_date entirely); picked to mirror
-# age_tag's three-tier shape rather than invent a fourth. Adjust once this
-# has been seen on a real board for a few weeks.
-_DUE_SOON_DAYS = 1
+# for this new field (SPEC predates due_date entirely). Previously a single
+# threshold (1 day) collapsed everything from "due in 2 days" to "due in 3
+# months" into the same plain ink-outline bucket, so a task closing in on
+# its due date carried zero visual urgency until the literal day it was
+# due — reported as "hard to tell an approaching due date apart from a
+# distant one." Split into two thresholds instead: a wider "approaching"
+# window (warn outline — some colour, not yet alarming) before the
+# existing "imminent" tier (solid warn) takes over. 5 days picked as a
+# rough "this week" window for board's todo/project items (shorter-lived
+# than home_maintenance's 14-day due_soon_days, which governs recurring
+# household chores on a much longer cadence) — adjust once seen on a real
+# board for a few weeks, same as the original single threshold was meant
+# to be revisited.
+_DUE_IMMINENT_DAYS = 1
+_DUE_SOON_DAYS = 5
 
 
 def due_tag(due_date: date | None, today: date) -> DueTag | None:
@@ -105,6 +116,7 @@ def due_tag(due_date: date | None, today: date) -> DueTag | None:
     - no ``due_date`` — omitted entirely (``None``)
     - overdue — `alert` solid, "Overdue Nd"
     - due today/tomorrow — `warn` solid, "Today"/"Tomorrow"
+    - approaching (within ``_DUE_SOON_DAYS``) — `warn` outline, "Due Nd"
     - further out — `ink` outline, "Due Nd"
 
     "Overdue"/"Due" prefixes stay on the numeric-day forms — a row can
@@ -121,8 +133,10 @@ def due_tag(due_date: date | None, today: date) -> DueTag | None:
         return DueTag(label=f"Overdue {abs(days_until)}d", role=Role.ALERT, solid=True)
     if days_until == 0:
         return DueTag(label="Today", role=Role.WARN, solid=True)
-    if days_until <= _DUE_SOON_DAYS:
+    if days_until <= _DUE_IMMINENT_DAYS:
         return DueTag(label="Tomorrow", role=Role.WARN, solid=True)
+    if days_until <= _DUE_SOON_DAYS:
+        return DueTag(label=f"Due {days_until}d", role=Role.WARN, solid=False)
     return DueTag(label=f"Due {days_until}d", role=Role.INK, solid=False)
 
 
