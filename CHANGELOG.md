@@ -1,6 +1,37 @@
 # CHANGELOG
 
 
+## v1.10.1 (2026-09-06)
+
+### Bug Fixes
+
+- **board**: Fail gracefully on a boardbot connection timeout
+  ([`4fdcfda`](https://github.com/cartagena/InkyPi/commit/4fdcfdad04e229bf0cbb95939db0f63758672b00))
+
+board.py calls boardbot's fetch_checklist() twice per refresh (projects, then todo), sequentially.
+  Each call went through the shared HTTP session's retry policy (3 retries -> 4 attempts) at a 10s
+  per-attempt timeout -- measured at ~43s worst case against a genuinely unreachable host. Two of
+  those in a row could exceed the generic 60s plugin-execution timeout (refresh_task.task), so the
+  outer watchdog killed the plugin with a hard TimeoutError before BasePlugin.cached_fetch's own
+  graceful stale-cache/empty-state fallback ever got a chance to run -- the "failing" the user saw
+  instead of the intended graceful degradation.
+
+Fixes: - homeboard/adapters/boardbot.py: lower the per-request timeout from 10s to 4s. boardbot is a
+  self-hosted LAN service (see module docstring) -- if it's unreachable, waiting out a long timeout
+  just delays the graceful fallback for no benefit. Measured worst case is now ~19s per fetch, ~38s
+  for both. - refresh_task/task.py: give `board` its own 90s entry in _PLUGIN_TIMEOUT_DEFAULTS_S
+  (mirroring the existing `ai_image` precedent) as headroom against its two-sequential-fetch shape,
+  independent of the timeout tuning above.
+
+Verified live: timed a real fetch_checklist() call against a non-routable host (19s, down from 43s
+  before the fix), then a full generate_image() call against the same host completing in 39.6s and
+  rendering the correct "No data available" empty state instead of crashing.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01LGjc833bmpkiSBvwrkHiMK
+
+
 ## v1.10.0 (2026-09-06)
 
 ### Features
