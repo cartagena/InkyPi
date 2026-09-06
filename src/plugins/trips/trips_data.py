@@ -28,12 +28,6 @@ IDEA_PITCH_EM = 2.2
 BOOKED_LABEL_BAND_EM = 0.8
 SECTION_GAP_EM = 2.3
 
-_TRUTHY = {"true", "1", "yes", "y"}
-
-
-def parse_bool(raw: object) -> bool:
-    return str(raw).strip().lower() in _TRUTHY
-
 
 def parse_date(raw: object) -> date | None:
     if raw in (None, ""):
@@ -56,14 +50,22 @@ class TripRow:
 
 
 def parse_trip_row(raw: dict[str, str]) -> TripRow:
+    next_action = str(raw.get("next_action", "")).strip()
     return TripRow(
         name=str(raw.get("name", "")).strip(),
         status=str(raw.get("status", "")).strip().lower(),
         start=parse_date(raw.get("start")),
         end=parse_date(raw.get("end")),
         target_window=str(raw.get("target_window", "")).strip(),
-        next_action=str(raw.get("next_action", "")).strip(),
-        blocking=parse_bool(raw.get("blocking")),
+        next_action=next_action,
+        # BoardBot's `/trips` schema never sends a `blocking` field (SPEC
+        # §8.1: "Not part of BoardBot's schema; always absent"), so waiting
+        # on one renders every next-action line permanently plain. SPEC
+        # also says a booked trip's next-action line is "the only
+        # actionable thing on the screen" — i.e. having one *is* what
+        # blocking means here, so derive it instead of trusting a field
+        # that will never arrive.
+        blocking=bool(next_action),
     )
 
 

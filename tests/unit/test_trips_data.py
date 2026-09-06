@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from datetime import date
 
-import pytest
-
 from homeboard import layout
 from plugins.trips.trips_data import (
     IDEA_PITCH_EM,
@@ -13,7 +11,6 @@ from plugins.trips.trips_data import (
     fits_screen,
     idea_label_top_em,
     idea_start_em,
-    parse_bool,
     parse_date,
     parse_trip_row,
     screen_fits,
@@ -21,16 +18,6 @@ from plugins.trips.trips_data import (
     select_ideas,
     visible_counts,
 )
-
-
-class TestParseBool:
-    @pytest.mark.parametrize("raw", ["true", "True", "TRUE", "1", "yes", "y"])
-    def test_truthy_values(self, raw: str) -> None:
-        assert parse_bool(raw) is True
-
-    @pytest.mark.parametrize("raw", ["false", "0", "no", "", None])
-    def test_falsy_values(self, raw: object) -> None:
-        assert parse_bool(raw) is False
 
 
 class TestParseDate:
@@ -54,7 +41,6 @@ class TestParseTripRow:
                 "start": "2026-10-03",
                 "end": "2026-10-05",
                 "next_action": "Cabin not confirmed yet",
-                "blocking": "true",
             }
         )
         assert row.name == "Tahoe with the Silvas"
@@ -62,6 +48,35 @@ class TestParseTripRow:
         assert row.start == date(2026, 10, 3)
         assert row.end == date(2026, 10, 5)
         assert row.blocking is True
+
+    def test_blocking_is_derived_from_next_action_not_a_source_field(self) -> None:
+        # BoardBot's /trips schema never sends a `blocking` field (SPEC
+        # §8.1) — it's derived from whether there's an open next-action,
+        # not read off the (always-absent) raw field. A raw "blocking":
+        # "false" must not override that derivation.
+        row = parse_trip_row(
+            {
+                "name": "Tahoe with the Silvas",
+                "status": "booked",
+                "start": "2026-10-03",
+                "end": "2026-10-05",
+                "next_action": "Cabin not confirmed yet",
+                "blocking": "false",
+            }
+        )
+        assert row.blocking is True
+
+    def test_no_next_action_is_not_blocking(self) -> None:
+        row = parse_trip_row(
+            {
+                "name": "Joshua Tree",
+                "status": "booked",
+                "start": "2026-11-26",
+                "end": "2026-11-28",
+            }
+        )
+        assert row.next_action == ""
+        assert row.blocking is False
 
     def test_parses_idea_row(self) -> None:
         row = parse_trip_row(
