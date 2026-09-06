@@ -210,3 +210,108 @@ class TestFetchChecklistParsing:
         self._patch_session(monkeypatch, _FakeResponse([{"text": "No checked field"}]))
         result = boardbot.fetch_checklist("todo", "http://piserver.local:8765", "token")
         assert result == [_item("No checked field")]
+
+
+class TestFetchTrips:
+    def _patch_session(
+        self, monkeypatch: pytest.MonkeyPatch, response: _FakeResponse
+    ) -> MagicMock:
+        session = MagicMock()
+        session.get.return_value = response
+        monkeypatch.setattr(boardbot, "get_http_session", lambda: session)
+        return session
+
+    def test_missing_base_url_raises(self) -> None:
+        with pytest.raises(RuntimeError, match="URL"):
+            boardbot.fetch_trips("", "token")
+
+    def test_missing_token_raises(self) -> None:
+        with pytest.raises(RuntimeError, match="API token"):
+            boardbot.fetch_trips("http://piserver.local:8765", "")
+
+    def test_passes_through_items_unmodified(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rows = [
+            {
+                "name": "Lisbon with the Ortegas",
+                "status": "booked",
+                "start": "2026-10-03",
+                "end": "2026-10-11",
+                "next_action": "Book airport transfer",
+            },
+            {"name": "Japan - cherry blossom", "status": "idea"},
+        ]
+        self._patch_session(monkeypatch, _FakeResponse(rows))
+        result = boardbot.fetch_trips("http://piserver.local:8765", "token")
+        assert result == rows
+
+    def test_calls_the_trips_endpoint(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        session = self._patch_session(monkeypatch, _FakeResponse([]))
+        boardbot.fetch_trips("http://piserver.local:8765", "secret-tok")
+
+        args, kwargs = session.get.call_args
+        assert args[0] == "http://piserver.local:8765/trips"
+        assert kwargs["headers"]["Authorization"] == "Bearer secret-tok"
+
+    def test_http_error_propagates_for_fail_soft_handling(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._patch_session(monkeypatch, _FakeResponse([], status_ok=False))
+        with pytest.raises(requests.exceptions.HTTPError):
+            boardbot.fetch_trips("http://piserver.local:8765", "token")
+
+
+class TestFetchMaintenance:
+    def _patch_session(
+        self, monkeypatch: pytest.MonkeyPatch, response: _FakeResponse
+    ) -> MagicMock:
+        session = MagicMock()
+        session.get.return_value = response
+        monkeypatch.setattr(boardbot, "get_http_session", lambda: session)
+        return session
+
+    def test_missing_base_url_raises(self) -> None:
+        with pytest.raises(RuntimeError, match="URL"):
+            boardbot.fetch_maintenance("", "token")
+
+    def test_missing_token_raises(self) -> None:
+        with pytest.raises(RuntimeError, match="API token"):
+            boardbot.fetch_maintenance("http://piserver.local:8765", "")
+
+    def test_passes_through_items_unmodified(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        rows = [
+            {
+                "task": "Gutter clean-out",
+                "interval_unit": "seasonal",
+                "next_due_override": "2026-10-25",
+            },
+            {
+                "task": "Test smoke alarms",
+                "interval_unit": "months",
+                "interval_value": 6,
+                "last_done": "2026-08-28",
+            },
+        ]
+        self._patch_session(monkeypatch, _FakeResponse(rows))
+        result = boardbot.fetch_maintenance("http://piserver.local:8765", "token")
+        assert result == rows
+
+    def test_calls_the_maintenance_endpoint(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        session = self._patch_session(monkeypatch, _FakeResponse([]))
+        boardbot.fetch_maintenance("http://piserver.local:8765", "secret-tok")
+
+        args, kwargs = session.get.call_args
+        assert args[0] == "http://piserver.local:8765/maintenance"
+        assert kwargs["headers"]["Authorization"] == "Bearer secret-tok"
+
+    def test_http_error_propagates_for_fail_soft_handling(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._patch_session(monkeypatch, _FakeResponse([], status_ok=False))
+        with pytest.raises(requests.exceptions.HTTPError):
+            boardbot.fetch_maintenance("http://piserver.local:8765", "token")

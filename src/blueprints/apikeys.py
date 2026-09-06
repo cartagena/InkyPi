@@ -189,7 +189,7 @@ def apikeys_page() -> Response | str:
         "NASA_SECRET": ["NASA APOD"],
         "UNSPLASH_ACCESS_KEY": ["Unsplash Background"],
         "GITHUB_SECRET": ["GitHub"],
-        "BOARDBOT_API_TOKEN": ["Board"],
+        "BOARDBOT_API_TOKEN": ["Board", "Trips", "Home"],
     }
     return render_template(
         "api_keys.html",

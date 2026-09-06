@@ -93,6 +93,46 @@ class TestSelectBooked:
         rows = [TripRow("Yosemite", "idea", None, None, "Feb", "", False)]
         assert select_booked(rows, today=date(2026, 1, 1)) == []
 
+    def test_past_rows_are_excluded(self) -> None:
+        rows = [
+            TripRow(
+                "Old trip", "past", date(2025, 1, 1), date(2025, 1, 5), "", "", False
+            )
+        ]
+        assert select_booked(rows, today=date(2026, 1, 1)) == []
+
+    def test_planned_rows_render_like_booked(self) -> None:
+        # boardbot's real status enum (docs/api.md) is idea/planned/booked/
+        # past, not the two-value idea/booked this screen originally
+        # assumed against Google Sheets — planned trips have real dates and
+        # belong in the same countdown-card bucket as booked ones.
+        rows = [
+            TripRow(
+                "Tahoe with the Silvas",
+                "planned",
+                date(2026, 10, 3),
+                date(2026, 10, 5),
+                "",
+                "confirm the cabin",
+                False,
+            )
+        ]
+        out = select_booked(rows, today=date(2026, 9, 1))
+        assert [t.name for t in out] == ["Tahoe with the Silvas"]
+        assert out[0].next_action == "confirm the cabin"
+
+    def test_planned_and_booked_sort_together_by_start(self) -> None:
+        rows = [
+            TripRow(
+                "Brazil", "planned", date(2026, 12, 20), date(2027, 1, 5), "", "", False
+            ),
+            TripRow(
+                "Tahoe", "booked", date(2026, 10, 3), date(2026, 10, 5), "", "", False
+            ),
+        ]
+        out = select_booked(rows, today=date(2026, 9, 1))
+        assert [t.name for t in out] == ["Tahoe", "Brazil"]
+
     def test_trip_ending_today_is_kept(self) -> None:
         rows = [
             TripRow(

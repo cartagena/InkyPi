@@ -1,11 +1,12 @@
 """Read-only adapter for a self-hosted ``boardbot`` deployment.
 
 ``boardbot`` (github.com/cartagena/boardbot) is a small self-hosted service
-that replaces Google Keep as the ``board`` plugin's data source: a WhatsApp
-bridge lets items be added/completed from a phone, a Python service stores
-them in SQLite and exposes ``GET /todo`` / ``GET /projects`` over HTTP. This
-module is the InkyPi-side client for that HTTP API — it never sees WhatsApp
-or SQLite directly.
+that backs four InkyPi screens — ``board`` (to-dos + projects), ``trips``
+and ``home_maintenance`` — over one HTTP API: a WhatsApp bridge lets items
+be added/completed from a phone, a Python service stores them in SQLite and
+exposes ``GET /todo``, ``GET /projects``, ``GET /trips`` and
+``GET /maintenance``. This module is the InkyPi-side client for that HTTP
+API — it never sees WhatsApp or SQLite directly.
 
 Uses the shared pooled ``requests.Session`` (``utils.http_client``), not
 ``utils.http_utils.safe_http_get`` — that helper rejects URLs resolving to
@@ -25,6 +26,7 @@ from urllib.parse import urlsplit
 from utils.http_client import get_http_session
 
 ListName = Literal["todo", "projects"]
+ResourceName = Literal["todo", "projects", "trips", "maintenance"]
 
 # Env key the plugin reads its bearer token from (via
 # device_config.load_env_key). Matches the env var name boardbot's own
@@ -67,25 +69,21 @@ def validate_board_settings(settings: Mapping[str, Any]) -> str | None:
     return None
 
 
-def cache_key(base_url: str, list_name: ListName) -> str:
+def cache_key(base_url: str, resource: ResourceName) -> str:
     """Cache key for ``BasePlugin.cached_fetch`` / the board ledger —
-    identifies *which* boardbot deployment and list, not which plugin
+    identifies *which* boardbot deployment and resource, not which plugin
     instance."""
-    return f"{base_url}:{list_name}"
+    return f"{base_url}:{resource}"
 
 
-def fetch_checklist(
-    list_name: ListName, base_url: str, token: str
+def _get_resource(
+    resource: ResourceName, base_url: str, token: str
 ) -> list[dict[str, Any]]:
-    """Fetch every item (open and checked) from *list_name* on the
-    ``boardbot`` deployment at *base_url*.
-
-    Returns one dict per item: ``{"text": ..., "checked": ..., "due_date":
-    ... | None, "priority": ... | None, "effort_days": ... | None}`` —
-    ``text``/``checked`` match the shape ``homeboard.adapters.gkeep.
-    fetch_checklist`` used to return, so ``board_data.py``'s existing
-    parsing is unaffected; the three extra fields are new (see SPEC §4.3's
-    effort/priority/due tags).
+    """Shared GET for every boardbot read endpoint — auth, config
+    validation and the bare-JSON-array response convention (SPEC/docs/api.md
+    §"Response conventions") are identical across ``/todo``, ``/projects``,
+    ``/trips`` and ``/maintenance``; only the field shape per item differs,
+    which callers handle themselves.
 
     Raises ``RuntimeError`` for configuration problems (missing/blank
     settings) — callers should already have rejected these via
@@ -106,13 +104,29 @@ def fetch_checklist(
 
     session = get_http_session()
     response = session.get(
-        f"{base_url.rstrip('/')}/{list_name}",
+        f"{base_url.rstrip('/')}/{resource}",
         headers={"Authorization": f"Bearer {token}"},
         timeout=_REQUEST_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
-    items = response.json()
+    items: list[dict[str, Any]] = response.json()
+    return items
 
+
+def fetch_checklist(
+    list_name: ListName, base_url: str, token: str
+) -> list[dict[str, Any]]:
+    """Fetch every item (open and checked) from *list_name* (``todo`` or
+    ``projects``) on the ``boardbot`` deployment at *base_url*.
+
+    Returns one dict per item: ``{"text": ..., "checked": ..., "due_date":
+    ... | None, "priority": ... | None, "effort_days": ... | None}`` —
+    ``text``/``checked`` match the shape ``homeboard.adapters.gkeep.
+    fetch_checklist`` used to return, so ``board_data.py``'s existing
+    parsing is unaffected; the three extra fields are new (see SPEC §4.3's
+    effort/priority/due tags).
+    """
+    items = _get_resource(list_name, base_url, token)
     return [
         {
             "text": str(item.get("text", "")),
@@ -123,3 +137,34 @@ def fetch_checklist(
         }
         for item in items
     ]
+
+
+def fetch_trips(base_url: str, token: str) -> list[dict[str, Any]]:
+    """Fetch every trip from ``GET /trips`` on the ``boardbot`` deployment
+    at *base_url*, ordered by ``start`` ascending (trips with no ``start``
+    sort last) per boardbot's own contract.
+
+    Returned dicts carry whichever of ``name``, ``status``, ``start``,
+    ``end``, ``target_window``, ``next_action`` boardbot included for that
+    row — a missing key means absent, never ``null`` (boardbot never emits
+    ``null``). Passed through as-is; ``plugins.trips.trips_data.
+    parse_trip_row`` does the field-level parsing/coercion, same as it
+    already does for a Google Sheets row.
+    """
+    return _get_resource("trips", base_url, token)
+
+
+def fetch_maintenance(base_url: str, token: str) -> list[dict[str, Any]]:
+    """Fetch every task from ``GET /maintenance`` on the ``boardbot``
+    deployment at *base_url*, oldest-created first per boardbot's own
+    contract.
+
+    Returned dicts carry whichever of ``task``, ``interval_unit``,
+    ``interval_value``, ``next_due_override``, ``last_done`` boardbot
+    included for that row. Passed through as-is;
+    ``plugins.home_maintenance.home_maintenance._parse_row`` does the
+    field-level parsing/coercion, same as it already does for a Google
+    Sheets row. boardbot computes no ``next_due`` itself (by design, per
+    its docs) — that stays this repo's ``due_dates.compute_next_due``.
+    """
+    return _get_resource("maintenance", base_url, token)

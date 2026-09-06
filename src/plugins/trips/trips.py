@@ -1,8 +1,8 @@
 """Trips — booked trips with countdowns + trip ideas (SPEC §8.1).
 
-Same adapter as home_maintenance (read-only Google Sheets, service
-account), richer layout: a countdown block per booked trip plus a
-target-window idea list below a section rule.
+Same adapter as home_maintenance (read-only ``boardbot`` HTTP API, see
+``homeboard.adapters.boardbot``), richer layout: a countdown block per
+booked trip plus a target-window idea list below a section rule.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from homeboard import chrome, layout, palette
-from homeboard.adapters import gsheets
+from homeboard.adapters import boardbot
 from plugins.base_plugin.base_plugin import BasePlugin, DeviceConfigLike
 from plugins.base_plugin.settings_schema import field, row, schema, section
 from plugins.trips.trips_data import (
@@ -32,8 +32,6 @@ from utils.time_utils import get_timezone, now_in_timezone
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_WORKSHEET = "Trips"
-
 # Rendering-only layout constants (em/pct of `base`/width) not needed by
 # trips_data's row-count math. Card/idea pitch and the section-label
 # spacing live in trips_data, imported above, since the row-count formulas
@@ -52,19 +50,18 @@ _IDEA_WINDOW_PCT = 40.0
 
 class Trips(BasePlugin):
     def validate_settings(self, settings: Mapping[str, Any]) -> str | None:
-        return gsheets.validate_sheet_settings(settings)
+        return boardbot.validate_board_settings(settings)
 
     def build_settings_schema(self) -> dict[str, object]:
         return schema(
             section(
                 "Source",
                 row(
-                    field("sheet_id", label="Google Sheet ID", required=True),
                     field(
-                        "worksheet_name",
-                        label="Worksheet Name",
-                        default=_DEFAULT_WORKSHEET,
-                        placeholder=_DEFAULT_WORKSHEET,
+                        "base_url",
+                        label="BoardBot URL",
+                        required=True,
+                        hint="Base URL of your boardbot deployment, e.g. http://piserver.local:8765",
                     ),
                 ),
             ),
@@ -74,30 +71,31 @@ class Trips(BasePlugin):
         template_params = super().generate_settings_template()
         template_params["api_key"] = {
             "required": True,
-            "service": "Google Sheets (service account)",
-            "expected_key": gsheets.SERVICE_ACCOUNT_ENV_KEY,
+            "service": "BoardBot",
+            "expected_key": boardbot.BOARDBOT_API_TOKEN_ENV_KEY,
         }
         return template_params
 
     def generate_image(
         self, settings: Mapping[str, Any], device_config: DeviceConfigLike
     ) -> Any:
-        sheet_id, worksheet_name = gsheets.resolve_sheet_settings(
-            settings, _DEFAULT_WORKSHEET
-        )
+        error = boardbot.validate_board_settings(settings)
+        if error:
+            raise RuntimeError(error)
+        base_url = str(settings["base_url"]).strip()
 
         dimensions = self.get_oriented_dimensions(device_config)
         t = layout.tokens(*dimensions)
         roles = palette.resolve(device_config)
 
-        credentials_path = (
-            device_config.load_env_key(gsheets.SERVICE_ACCOUNT_ENV_KEY) or ""
+        api_token = (
+            device_config.load_env_key(boardbot.BOARDBOT_API_TOKEN_ENV_KEY) or ""
         )
 
-        def _fetch() -> list[dict[str, str]]:
-            return gsheets.read_worksheet(sheet_id, worksheet_name, credentials_path)
+        def _fetch() -> list[dict[str, Any]]:
+            return boardbot.fetch_trips(base_url, api_token)
 
-        cache_key = gsheets.cache_key(sheet_id, worksheet_name)
+        cache_key = boardbot.cache_key(base_url, "trips")
         result = self.cached_fetch(device_config, cache_key, _fetch)
 
         timezone_raw = device_config.get_config("timezone", default="UTC")
@@ -105,7 +103,7 @@ class Trips(BasePlugin):
         tz = get_timezone(timezone_name)
         today = now_in_timezone(timezone_name).date()
 
-        source_text = f"Sheet · {worksheet_name}"
+        source_text = "BoardBot"
         sync_text = chrome.sync_text(result, tz)
 
         base_params: dict[str, Any] = {

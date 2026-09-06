@@ -1,8 +1,11 @@
 """Home — recurring household maintenance due dates (SPEC §8.2).
 
-Simplest of the four bedroom-dashboard screens: one Google Sheet, no auth
-exotica, fully deterministic given `now`. First end-to-end plugin built on
-the homeboard shared module (SPEC §9 build order step 4).
+Simplest of the four bedroom-dashboard screens: one ``boardbot`` deployment
+(see ``homeboard.adapters.boardbot``), no auth exotica, fully deterministic
+given `now`. boardbot supplies the raw interval/last-done/override inputs;
+``next_due`` is still computed here (``due_dates.compute_next_due``) since
+boardbot deliberately doesn't derive it itself (docs/api.md: "There is no
+`next_due` field, by design").
 """
 
 from __future__ import annotations
@@ -13,7 +16,7 @@ from datetime import date
 from typing import Any
 
 from homeboard import chrome, layout, palette
-from homeboard.adapters import gsheets
+from homeboard.adapters import boardbot
 from plugins.base_plugin.base_plugin import BasePlugin, DeviceConfigLike
 from plugins.base_plugin.settings_schema import field, row, schema, section
 from plugins.home_maintenance.due_dates import (
@@ -35,7 +38,6 @@ _MAX_ROWS = 10
 _ROW_PITCH_EM = 2.50
 _ROW_HEIGHT_EM = _ROW_PITCH_EM
 
-_DEFAULT_WORKSHEET = "Maintenance"
 _DEFAULT_DUE_SOON_DAYS = 14
 
 # SPEC §8.2: interval column starts at 48.5% of width, so the task-name
@@ -46,7 +48,7 @@ _TASK_COL_END_PCT = 48.5
 
 class HomeMaintenance(BasePlugin):
     def validate_settings(self, settings: Mapping[str, Any]) -> str | None:
-        error = gsheets.validate_sheet_settings(settings)
+        error = boardbot.validate_board_settings(settings)
         if error:
             return error
         due_soon_raw = settings.get("due_soon_days")
@@ -63,12 +65,11 @@ class HomeMaintenance(BasePlugin):
             section(
                 "Source",
                 row(
-                    field("sheet_id", label="Google Sheet ID", required=True),
                     field(
-                        "worksheet_name",
-                        label="Worksheet Name",
-                        default=_DEFAULT_WORKSHEET,
-                        placeholder=_DEFAULT_WORKSHEET,
+                        "base_url",
+                        label="BoardBot URL",
+                        required=True,
+                        hint="Base URL of your boardbot deployment, e.g. http://piserver.local:8765",
                     ),
                 ),
             ),
@@ -91,31 +92,32 @@ class HomeMaintenance(BasePlugin):
         template_params = super().generate_settings_template()
         template_params["api_key"] = {
             "required": True,
-            "service": "Google Sheets (service account)",
-            "expected_key": gsheets.SERVICE_ACCOUNT_ENV_KEY,
+            "service": "BoardBot",
+            "expected_key": boardbot.BOARDBOT_API_TOKEN_ENV_KEY,
         }
         return template_params
 
     def generate_image(
         self, settings: Mapping[str, Any], device_config: DeviceConfigLike
     ) -> Any:
-        sheet_id, worksheet_name = gsheets.resolve_sheet_settings(
-            settings, _DEFAULT_WORKSHEET
-        )
+        error = boardbot.validate_board_settings(settings)
+        if error:
+            raise RuntimeError(error)
+        base_url = str(settings["base_url"]).strip()
         due_soon_days = self._parse_due_soon_days(settings.get("due_soon_days"))
 
         dimensions = self.get_oriented_dimensions(device_config)
         t = layout.tokens(*dimensions)
         roles = palette.resolve(device_config)
 
-        credentials_path = (
-            device_config.load_env_key(gsheets.SERVICE_ACCOUNT_ENV_KEY) or ""
+        api_token = (
+            device_config.load_env_key(boardbot.BOARDBOT_API_TOKEN_ENV_KEY) or ""
         )
 
-        def _fetch() -> list[dict[str, str]]:
-            return gsheets.read_worksheet(sheet_id, worksheet_name, credentials_path)
+        def _fetch() -> list[dict[str, Any]]:
+            return boardbot.fetch_maintenance(base_url, api_token)
 
-        cache_key = gsheets.cache_key(sheet_id, worksheet_name)
+        cache_key = boardbot.cache_key(base_url, "maintenance")
         result = self.cached_fetch(device_config, cache_key, _fetch)
 
         timezone_raw = device_config.get_config("timezone", default="UTC")
@@ -140,7 +142,7 @@ class HomeMaintenance(BasePlugin):
 
         if result.empty:
             chrome_html = chrome.build_chrome(
-                t, roles, "Home", "", "Google Sheets", sync_text
+                t, roles, "Home", "", "BoardBot", sync_text
             )
             template_params.update(chrome_html)
             template_params["empty_html"] = chrome.empty_state_html(
@@ -167,9 +169,7 @@ class HomeMaintenance(BasePlugin):
         visible = items[:max_rows]
 
         meta = f"{len(items)} tasks" if len(items) != max_rows else ""
-        chrome_html = chrome.build_chrome(
-            t, roles, "Home", meta, "Google Sheets", sync_text
-        )
+        chrome_html = chrome.build_chrome(t, roles, "Home", meta, "BoardBot", sync_text)
         template_params.update(chrome_html)
         template_params["total_count"] = len(items)
         template_params["rows"] = [
@@ -194,7 +194,7 @@ class HomeMaintenance(BasePlugin):
             return _DEFAULT_DUE_SOON_DAYS
 
     @staticmethod
-    def _parse_row(raw: Mapping[str, str], today: date, due_soon_days: int) -> Any:
+    def _parse_row(raw: Mapping[str, Any], today: date, due_soon_days: int) -> Any:
         task = str(raw.get("task", "")).strip()
         unit_raw = str(raw.get("interval_unit", "")).strip().lower()
         try:
