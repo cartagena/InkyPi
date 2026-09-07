@@ -16,11 +16,11 @@ pytest-benchmark>=4.0,<5
 # Flakiness retry + reporting for integration tests (JTN-705). Scoped to
 # tests/integration/ via tests/integration/conftest.py — unit tests must NOT
 # retry. 16.x is the first release with pytest 9 support.
-pytest-rerunfailures>=16.6,<17
+pytest-rerunfailures>=16.6.1,<17
 requests-mock>=1.12,<2
 freezegun>=1.5,<2
 pytest-flask>=1.3,<2
-hypothesis>=6.167.0,<7
+hypothesis>=6.167.1,<7
 
 # Type checking
 mypy>=2.3.1,<3
@@ -34,7 +34,7 @@ types-requests==2.33.0.20260712
 
 # Linting / formatting
 black>=26.5.1,<27
-ruff>=0.16.5,<1
+ruff>=0.16.6,<1
 
 # Dev watch-mode rebuilds (JTN-713) — provides the `watchmedo` CLI used by
 # scripts/dev_watch.sh to auto-rebuild CSS/JS bundles on file changes.
