@@ -146,6 +146,69 @@ class TestDetectCapability:
         assert palette._detect_capability(_FakeDeviceConfig("inky")) is False
 
 
+class TestMissingDisplayTypeDefault:
+    """display_type is absent from device.json on every Inky install.
+
+    install.sh's update_config() only writes the key when WS_TYPE is set
+    (i.e. for Waveshare), and install/config_base/device.json does not carry
+    it. So the default this module picks is what a real Inky Impression
+    actually gets, and it has to agree with DisplayManager's.
+    """
+
+    class _NoDisplayType:
+        config_file = "/tmp/does-not-matter/device.json"
+
+        def get_config(self, key: str, default: object = None) -> object:
+            return default  # key genuinely absent, as in production
+
+        def get_resolution(self) -> tuple[int, int]:
+            return (800, 480)
+
+        def load_env_key(self, key: str) -> str | None:
+            return None
+
+    def test_default_matches_display_manager(self) -> None:
+        # Regression: palette defaulted to "mock" while DisplayManager
+        # defaulted to "inky", so a real panel drove correctly *and*
+        # resolved to the bw palette — every screen rendered monochrome
+        # however the hardware probe answered.
+        import inspect
+
+        from display.display_manager import DisplayManager
+
+        src = inspect.getsource(DisplayManager.__init__)
+        assert 'get_config("display_type", default="inky")' in src, (
+            "DisplayManager's display_type default changed; palette's "
+            "_detect_capability default must be changed to match."
+        )
+
+    def test_absent_display_type_probes_the_inky_hardware(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_driver = types.SimpleNamespace(colour="multi")
+        fake_auto_module = types.SimpleNamespace(auto=lambda: fake_driver)
+        fake_inky_pkg = types.ModuleType("inky")
+        fake_inky_pkg.auto = fake_auto_module  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "inky", fake_inky_pkg)
+        monkeypatch.setitem(sys.modules, "inky.auto", fake_auto_module)
+
+        assert palette._detect_capability(self._NoDisplayType()) is True
+
+    def test_absent_display_type_resolves_colour_roles(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_driver = types.SimpleNamespace(colour="multi")
+        fake_auto_module = types.SimpleNamespace(auto=lambda: fake_driver)
+        fake_inky_pkg = types.ModuleType("inky")
+        fake_inky_pkg.auto = fake_auto_module  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "inky", fake_inky_pkg)
+        monkeypatch.setitem(sys.modules, "inky.auto", fake_auto_module)
+
+        roles = palette.resolve(self._NoDisplayType())
+        assert roles.six_colour is True
+        assert roles.colors[palette.Role.ALERT] != (0, 0, 0)
+
+
 class TestResolve:
     def test_mock_resolves_to_bw_role_map(self) -> None:
         roles = palette.resolve(_FakeDeviceConfig("mock"))

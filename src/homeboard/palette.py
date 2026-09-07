@@ -261,8 +261,20 @@ def _detect_inky_six_colour() -> bool:
 
 
 def _detect_capability(device_config: DeviceConfigLike) -> bool:
-    """Return True for a detected six-colour panel, False for bw/unknown."""
-    display_type = device_config.get_config("display_type", default="mock")
+    """Return True for a detected six-colour panel, False for bw/unknown.
+
+    The ``"inky"`` default is not arbitrary: it must match
+    ``DisplayManager.__init__``'s default for the same key
+    (``display/display_manager.py``), because ``display_type`` is *absent*
+    from device.json on every Inky install. ``install.sh``'s
+    ``update_config()`` only writes the key when ``WS_TYPE`` is set — i.e.
+    for Waveshare panels — and ``install/config_base/device.json`` does not
+    carry it. Defaulting to ``"mock"`` here while DisplayManager defaulted
+    to ``"inky"`` meant a real Inky Impression drove the panel correctly and
+    simultaneously resolved to the black-and-white palette, so every screen
+    rendered monochrome no matter what the hardware probe returned.
+    """
+    display_type = device_config.get_config("display_type", default="inky")
     if not isinstance(display_type, str):
         return False
 
