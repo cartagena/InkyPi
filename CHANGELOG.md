@@ -1,6 +1,60 @@
 # CHANGELOG
 
 
+## v1.12.2 (2026-09-07)
+
+### Bug Fixes
+
+- **homeboard**: Restore panel colour and crisp text on Inky Impression
+  ([`19ca252`](https://github.com/cartagena/InkyPi/commit/19ca252e7012d034184adb858ce1e8aabb96e99a))
+
+The homeboard screens rendered monochrome and visibly soft on a real Inky Impression. Two
+  independent root causes, both verified against the installed `inky` 2.4.0 and by measuring real
+  Chromium renders.
+
+Colour: `palette.py` gated the six-colour palette on `driver.colour == "seven_colour"`, a value no
+  release of `inky` has ever emitted. Every full-colour driver defaults to `colour="multi"`, and
+  `inky/auto.py` never forwards the EEPROM colour string, so detection always failed and
+  `palette_css()` emitted every role as rgb(0,0,0) — the image was already black-and-white before it
+  reached the driver. The unit test mocked the same invented value, so the suite stayed green.
+
+Text: headless Chromium was emitting LCD subpixel antialiasing, and the driver's unconditional
+  Floyd-Steinberg pass dithered those RGB fringes into the panel palette as speckle. The existing
+  mitigation (`-webkit-font-smoothing: none`) is macOS-only in Blink and had never had any effect on
+  the Pi. Measured on a full 800x480 render: chroma-fringed pixels 3459 -> 0, and stray coloured
+  pixels after quantization 915 -> 0.
+
+Also wires in `palette.quantize()`, which SPEC 2.3 requires but nothing called. Feeding the driver
+  palette-exact pixels leaves zero error to diffuse, making its dither a no-op. Two guards were
+  needed to make that an improvement rather than a regression: neutral antialias greys snap to
+  ink/paper by luma (a plain nearest-colour match sent grey 72..136 to green and 144..160 to
+  yellow), and saturated pixels take a nearest- *segment* match so a blend of two inks resolves to
+  one of those two — without it a white-on-red glyph edge (240,145,140) landed on yellow, an ink
+  none of the screens use. Off-palette pixels per screen now 0 (was 11685-16588).
+
+Typography, since DejaVu Sans ships only 400/700: font-weight 500 was byte-identical to 400, so the
+  intended medium tier did not exist. Small type tokens were also too small to survive dithering at
+  14.4px.
+
+- image_utils: --disable-lcd-text, --disable-font-subpixel-positioning, --force-color-profile=srgb
+  on both the subprocess and Playwright paths - palette: detect "multi"; memoise only completed
+  probes, never failures (generate_image also runs in the long-lived Flask process, where a cached
+  transient I2C error would pin previews to bw until restart) - layout: --fs-small 0.75 -> 0.85,
+  --fs-label 0.78 -> 0.88 - css: font-weight 500 -> 600; .hb-chip border-radius 0.55em -> 2px -
+  home_maintenance: .hm-chip re-selectored and content-sized so a chip no longer wraps into the row
+  below; weekends: .wk-legend clears the last row - regenerate the 4 Chromium-rendered pixel
+  snapshots
+
+Two pre-existing test-isolation bugs are fixed here because they made this branch's own runs
+  untrustworthy: test_smoke_render.py's registry stub escaped the file (restore loop keyed on an
+  attribute nothing sets), and a saved device timezone leaked into JsonFormatter for the rest of the
+  worker.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01NzvqQkcfAbTL53oLoKrbCH
+
+
 ## v1.12.1 (2026-09-07)
 
 ### Bug Fixes
