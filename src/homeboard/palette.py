@@ -94,13 +94,22 @@ _INKY_SIX_COLOUR_COLOUR_VALUES = frozenset({"multi", "seven_colour", "seven-colo
 # simulating at the cost of every other screen looking dingy. Still
 # pending SPEC §9 step 2's physical-panel legibility check (warn_is_solid
 # below), but the ink colour values themselves are no longer a placeholder.
+#
+# CONFIRMED on the deployed panel: `inky.eeprom.read_eeprom()` reports
+# display_variant 22, "Spectra 6 7.3 800 x 480 (E673)", and `auto()`
+# returns `inky.inky_e673` — the exact driver these values come from. The
+# five ink values below are now byte-identical to that driver's own 0.5
+# blend, so quantize() leaves its Floyd-Steinberg pass literally nothing
+# to diffuse. `paper` remains the one deliberate divergence (the driver's
+# substrate is (208, 210, 210)); it always resolves to the panel's single
+# near-white ink regardless, since nothing else in the palette is close.
 _SIX_COLOUR_RGB: dict[Role, RGB] = {
     Role.INK: (0, 0, 0),
     Role.PAPER: (255, 255, 255),
     Role.AVAILABLE: (29, 173, 35),
-    Role.WARN: (231, 222, 35),
-    Role.ALERT: (205, 36, 37),
-    Role.EMPHASIS: (30, 29, 174),
+    Role.WARN: (232, 222, 36),
+    Role.ALERT: (206, 36, 38),
+    Role.EMPHASIS: (30, 30, 174),
 }
 
 _BW_RGB: dict[Role, RGB] = {
