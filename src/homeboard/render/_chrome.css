@@ -29,7 +29,7 @@ body {
   justify-content: space-between;
   align-items: baseline;
   font-size: var(--fs-title);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .hb-header .hb-meta {
@@ -71,7 +71,7 @@ body {
 }
 
 .hb-empty-title {
-  font-weight: 500;
+  font-weight: 600;
   margin-bottom: 0.4em;
 }
 
@@ -85,10 +85,15 @@ body {
 
 .hb-chip {
   display: inline-block;
-  font-size: var(--fs-small);
+  /* --fs-label, not --fs-small: a chip's text is the densest small type on
+     these screens and it has a border competing with it. */
+  font-size: var(--fs-label);
   line-height: 1.1em;
   padding: 0 0.5em;
-  border-radius: 0.55em;
+  /* Near-square, not a pill. A hairline antialiased rounded corner is the
+     densest source of grey pixels per unit area on these screens, and grey
+     is exactly what the panel's Floyd-Steinberg pass turns into speckle. */
+  border-radius: 2px;
   border: 1px solid var(--color-ink);
   color: var(--color-ink);
   background: transparent;

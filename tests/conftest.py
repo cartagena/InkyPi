@@ -187,6 +187,39 @@ def clear_managed_api_key_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def reset_log_timezone() -> Iterator[None]:
+    """Pin ``utils.logging_utils._LOG_TIMEZONE`` back to UTC around each test.
+
+    That module global is what ``JsonFormatter`` formats ``ts`` with, and it
+    is written by ``app_setup.logging_setup.setup_logging()`` and by the
+    settings save handler.  So a test that saves a device timezone — e.g.
+    ``tests/integration/test_settings_save_errors.py``'s
+    ``test_save_settings_accepts_valid_iana_timezone`` saving
+    ``America/New_York`` — leaves every later test in the same worker
+    emitting non-UTC log timestamps.  Under ``--dist=loadfile`` whether that
+    file lands ahead of ``tests/unit/test_json_formatter.py`` is pure
+    scheduling luck, which is why ``test_ts_is_iso8601_utc`` failed on some
+    shards and passed on others.
+
+    Deliberately not wrapped in a try/except: ``set_log_timezone`` is an
+    in-repo symbol that is always importable under the test PYTHONPATH, and
+    swallowing an ImportError/AttributeError here would silently downgrade
+    this fixture to a no-op if it were ever renamed — bringing back exactly
+    the scheduling-dependent flake described above, with nothing failing to
+    point at it.
+    """
+
+    def _pin_utc() -> None:
+        from utils.logging_utils import set_log_timezone
+
+        set_log_timezone("UTC")
+
+    _pin_utc()
+    yield
+    _pin_utc()
+
+
+@pytest.fixture(autouse=True)
 def reset_plugin_registry_state() -> Iterator[Any]:
     """Prevent plugin registry globals from leaking between tests."""
     from plugins.plugin_registry import reset_plugin_registry

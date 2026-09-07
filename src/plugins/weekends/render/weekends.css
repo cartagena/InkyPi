@@ -11,7 +11,7 @@
   position: absolute;
   top: 0;
   font-size: var(--fs-label);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .wk-body {
@@ -44,7 +44,7 @@
 
 .wk-date-emphasis {
   color: var(--color-emphasis);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .wk-cell {
@@ -96,7 +96,7 @@
 .wk-cell-label,
 .wk-cell-single {
   font-size: var(--fs-body);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .wk-cell-note {
@@ -106,7 +106,15 @@
 .wk-legend {
   position: absolute;
   left: var(--margin-x);
-  bottom: calc(var(--footer-rule) + 1.2em);
+  /* Sits in the gap between the last row's bottom edge and the footer
+     rule. The previous `+ 1.2em` offset pushed it up *into* the last row
+     (the legend's own strikethrough-looking overlap with that row's cell
+     border was visible at 800x480, where the six rows fill the body region
+     exactly), and being em-based it drifted further up as --fs-small grew.
+     line-height: 1 keeps the box no taller than the ~17px of clearance
+     that gap actually has. */
+  bottom: calc(var(--footer-rule) + 0.15em);
+  line-height: 1;
   font-size: var(--fs-small);
   color: var(--color-ink);
 }

@@ -130,7 +130,7 @@ class Trips(BasePlugin):
             base_params["empty_html"] = chrome.empty_state_html(
                 "Trips", "No data available"
             )
-            return self._render(dimensions, base_params)
+            return self._render(dimensions, base_params, roles)
 
         if not fits_screen(t):
             chrome_html = chrome.build_chrome(
@@ -138,7 +138,7 @@ class Trips(BasePlugin):
             )
             base_params.update(chrome_html)
             base_params["too_small"] = True
-            return self._render(dimensions, base_params)
+            return self._render(dimensions, base_params, roles)
 
         raw_rows = result.payload or []
         parsed = [parse_trip_row(raw) for raw in raw_rows]
@@ -158,7 +158,7 @@ class Trips(BasePlugin):
             )
             base_params.update(chrome_html)
             base_params["too_small"] = True
-            return self._render(dimensions, base_params)
+            return self._render(dimensions, base_params, roles)
 
         visible_booked = booked[:visible_booked_count]
         visible_ideas = ideas[:visible_ideas_count]
@@ -211,17 +211,24 @@ class Trips(BasePlugin):
         )
         base_params["idea_start_px"] = idea_start_em(visible_booked_count) * t.base
 
-        return self._render(dimensions, base_params)
+        return self._render(dimensions, base_params, roles)
 
     def _render(
-        self, dimensions: tuple[int, int], template_params: dict[str, Any]
+        self,
+        dimensions: tuple[int, int],
+        template_params: dict[str, Any],
+        roles: palette.RoleMap,
     ) -> Any:
         image = self.render_image(
             dimensions, "trips.html", "trips.css", template_params
         )
         if not image:
             raise RuntimeError("Failed to take screenshot, please check logs.")
-        return image
+        # Snap the screenshot onto the resolved palette on the way out
+        # (SPEC §2.3): the inky drivers Floyd-Steinberg every non-"P" image
+        # they are handed, and palette-exact pixels leave that dither
+        # nothing to diffuse — see homeboard.palette.quantize.
+        return palette.quantize(image, roles)
 
     @staticmethod
     def _format_date_range(start: Any, end: Any) -> str:

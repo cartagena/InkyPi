@@ -3,6 +3,10 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    /* These only bite when rendering on macOS: `font-smooth` is a dead
+       non-standard property, and Blink honours `-webkit-font-smoothing` on
+       macOS only. On the Pi the fix is the --disable-lcd-text browser flag
+       in utils/image_utils.py — don't rely on these for e-ink sharpness. */
     font-smooth: never;
     -webkit-font-smoothing: none;
     -moz-osx-font-smoothing: grayscale; /* Alternative for macOS */

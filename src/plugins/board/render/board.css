@@ -22,7 +22,7 @@
      wraps/collides with its meta count, especially in the narrower
      stacked/portrait layout (SPEC §3.5). */
   font-size: var(--fs-item);
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .board-header-title {
@@ -103,7 +103,7 @@
 
 .board-inflight-title {
   font-size: var(--fs-item);
-  font-weight: 500;
+  font-weight: 600;
   padding-left: 0.8em;
   /* max-width is set inline per-row (board.py's title_w_px) — the exact
      same pixel budget layout.truncate() used, so this can never overflow

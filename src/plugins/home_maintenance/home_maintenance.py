@@ -156,7 +156,8 @@ class HomeMaintenance(BasePlugin):
             )
             if not image:
                 raise RuntimeError("Failed to take screenshot, please check logs.")
-            return image
+            # Same palette snap as the populated path below, same reason.
+            return palette.quantize(image, roles)
 
         raw_rows = result.payload or []
         items = sort_items(
@@ -184,7 +185,11 @@ class HomeMaintenance(BasePlugin):
         )
         if not image:
             raise RuntimeError("Failed to take screenshot, please check logs.")
-        return image
+        # Snap the screenshot onto the resolved palette on the way out
+        # (SPEC §2.3): the inky drivers Floyd-Steinberg every non-"P" image
+        # they are handed, and palette-exact pixels leave that dither
+        # nothing to diffuse — see homeboard.palette.quantize.
+        return palette.quantize(image, roles)
 
     @staticmethod
     def _status_meta(items: list[Any]) -> str:
