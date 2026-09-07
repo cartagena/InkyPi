@@ -183,6 +183,7 @@ class Trips(BasePlugin):
                     b.next_action, text_col_w_px, t.fs["label"]
                 ),
                 "blocking": b.blocking,
+                "text_w_px": text_col_w_px,
             }
             for b in visible_booked
         ]
@@ -192,6 +193,8 @@ class Trips(BasePlugin):
                 "target_window": layout.truncate(
                     i.target_window, idea_window_w_px, t.fs["cell"]
                 ),
+                "title_w_px": idea_title_w_px,
+                "window_w_px": idea_window_w_px,
             }
             for i in visible_ideas
         ]

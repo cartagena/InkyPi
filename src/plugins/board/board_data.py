@@ -16,7 +16,7 @@ from plugins.board import sampling
 
 # --- §7.3 layout constants (em of `base`) -------------------------------
 
-IN_FLIGHT_LABEL_BAND_EM = 0.8
+IN_FLIGHT_LABEL_BAND_EM = 0.9
 IN_FLIGHT_PITCH_EM = 3.4
 MIN_IN_FLIGHT = 0
 MAX_IN_FLIGHT = 2
@@ -31,6 +31,12 @@ BACKLOG_PITCH_EM = 3.1
 MIN_BACKLOG = 2
 MAX_BACKLOG = 4
 
+# SPEC §7.3's original single-line design: title + one right-aligned age
+# tag, nothing else. A later boardbot integration added priority_tag/
+# due_tag to this row too, which needed a two-line layout to avoid
+# overlapping the title — reverted per user request ("just an item with
+# how many days it's been open, nothing else") back to the single line
+# SPEC always specified, so the pitch goes back to its original 2.6em too.
 TODO_PITCH_EM = 2.6
 MIN_TODO = 4
 MAX_TODO = 9

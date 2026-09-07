@@ -66,6 +66,13 @@
 .trips-title {
   font-size: calc(var(--fs-title) * 0.9);
   font-weight: 500;
+  /* max-width is set inline per-card (trips.py's text_w_px) — the same
+     pixel budget layout.truncate() used, so this can't overflow into the
+     countdown block even if the truncation estimate runs a little hot on
+     a particular string (see homeboard/layout.py's ADVANCE_RATIO comment). */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .trips-dates {
@@ -75,6 +82,9 @@
 .trips-next-action {
   font-size: var(--fs-label);
   color: var(--color-ink);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .trips-next-action-blocking {
@@ -96,9 +106,21 @@
 
 .trips-idea-title {
   font-size: var(--fs-item);
+  /* Flex items default to min-width: auto, which would ignore max-width
+     as a shrink target — min-width: 0 lets overflow/ellipsis actually
+     bind (same fix board.css's .board-todo-title needed). max-width is
+     set inline per-row (trips.py's idea_title_w_px). */
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .trips-idea-window {
   font-size: var(--fs-cell);
   text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }

@@ -9,7 +9,9 @@ from typing import Any
 import pytest
 from PIL import Image
 
+from homeboard import layout, palette, tags
 from homeboard.adapters import boardbot
+from plugins.board import board_data
 from plugins.board.board import Board
 
 _SETTINGS = {
@@ -406,3 +408,110 @@ class TestBacklogSeedKey:
 
         assert len(seen_seed_keys) == 2
         assert seen_seed_keys[0] != seen_seed_keys[1]
+
+
+class TestChipParamsWarnIsSolidGate:
+    """warn_is_solid can only ESCALATE a chip already authored wanting
+    solid (chip.solid is True) — it can never force solid onto one
+    deliberately authored outline-only (chip.solid is False). Covers both
+    PriorityTag's Medium (a permanent design choice, tags.priority_tag's
+    docstring) and DueTag's "approaching" tier (deliberately calmer than
+    the "Today"/"Tomorrow" tier it sits below, tags.due_tag's docstring) —
+    neither should become indistinguishable from a genuinely escalated
+    chip just because the physical-panel legibility flag flipped."""
+
+    @staticmethod
+    def _role_map(*, warn_is_solid: bool) -> palette.RoleMap:
+        return palette.RoleMap(
+            colors=dict.fromkeys(palette.Role, (0, 0, 0)),
+            six_colour=True,
+            warn_is_solid=warn_is_solid,
+        )
+
+    def test_medium_priority_stays_outline_when_warn_is_solid_true(self) -> None:
+        from plugins.board.board import _chip_params
+
+        priority = tags.priority_tag("medium")
+        params = _chip_params(priority, self._role_map(warn_is_solid=True))
+        assert params is not None
+        assert params["solid"] is False
+
+    def test_age_tag_warn_tier_still_follows_warn_is_solid(self) -> None:
+        from plugins.board.board import _chip_params
+
+        age = tags.age_tag(
+            days=10, age_show_days=0, age_warn_days=5, age_alert_days=100
+        )
+        assert age is not None
+        assert age.role == palette.Role.WARN
+
+        params_off = _chip_params(age, self._role_map(warn_is_solid=False))
+        params_on = _chip_params(age, self._role_map(warn_is_solid=True))
+        assert params_off is not None and params_on is not None
+        assert params_off["solid"] is False
+        assert params_on["solid"] is True
+
+    def test_due_tag_approaching_tier_stays_outline_when_warn_is_solid_true(
+        self,
+    ) -> None:
+        from plugins.board.board import _chip_params
+
+        due = tags.due_tag(date(2026, 9, 9), today=date(2026, 9, 4))
+        assert due is not None
+        assert due.role == palette.Role.WARN
+        assert due.solid is False  # the "approaching" tier, not "Today"/"Tomorrow"
+
+        params = _chip_params(due, self._role_map(warn_is_solid=True))
+        assert params is not None
+        assert params["solid"] is False
+
+    def test_due_tag_imminent_tier_still_follows_warn_is_solid(self) -> None:
+        from plugins.board.board import _chip_params
+
+        due = tags.due_tag(date(2026, 9, 4), today=date(2026, 9, 4))
+        assert due is not None
+        assert due.label == "Today"
+        assert due.solid is True
+
+        params_off = _chip_params(due, self._role_map(warn_is_solid=False))
+        params_on = _chip_params(due, self._role_map(warn_is_solid=True))
+        assert params_off is not None and params_on is not None
+        assert params_off["solid"] is False
+        assert params_on["solid"] is True
+
+
+class TestTodoParamsTitleWidth:
+    """A row with no age chip (most rows, by SPEC §7.6 design — "most
+    errands carry no tag at all") must not have its title truncated as if
+    one were about to render alongside it."""
+
+    @staticmethod
+    def _role_map() -> palette.RoleMap:
+        return palette.RoleMap(
+            colors=dict.fromkeys(palette.Role, (0, 0, 0)),
+            six_colour=True,
+            warn_is_solid=False,
+        )
+
+    def test_title_gets_full_width_when_no_age_chip_renders(self) -> None:
+        t = layout.tokens(800, 480)
+        today = date(2026, 9, 6)
+        long_title = "a fairly long to-do item title that would otherwise get truncated"
+
+        fresh_item = board_data.TodoItem(key="k1", title=long_title, first_seen=today)
+        stale_item = board_data.TodoItem(
+            key="k2", title=long_title, first_seen=date(2020, 1, 1)
+        )
+
+        fresh_params = Board._todo_params(
+            fresh_item, t, layout.COL_W_PCT, today, 14, 30, self._role_map()
+        )
+        stale_params = Board._todo_params(
+            stale_item, t, layout.COL_W_PCT, today, 14, 30, self._role_map()
+        )
+
+        assert fresh_params["age_tag"] is None
+        assert stale_params["age_tag"] is not None
+        # No chip competing for width -> at least as much of the title
+        # survives truncation as when a chip is actually reserving room.
+        assert len(fresh_params["title"]) >= len(stale_params["title"])

@@ -188,10 +188,10 @@ class TestTruncate:
 
     def test_truncates_at_word_boundary_when_possible(self) -> None:
         text = "Insulate the garage door completely this weekend"
-        # budget = floor(200/(20*0.52)) = 19 -> target = 18 -> last space at
-        # index 12 within text[:18] is kept since 12 >= 18//2.
+        # budget = floor(200/(20*0.46)) = 21 -> target = 20 -> last space at
+        # index 19 within text[:20] is kept since 19 >= 20//2.
         out = layout.truncate(text, region_width_px=200, font_size_px=20)
-        assert out == "Insulate the…"
+        assert out == "Insulate the garage…"
 
     def test_zero_width_returns_empty(self) -> None:
         assert layout.truncate("anything", 0, 20) == ""
@@ -200,13 +200,13 @@ class TestTruncate:
         assert layout.truncate("anything", 200, 0) == ""
 
     def test_single_character_budget_returns_ellipsis_only(self) -> None:
-        # budget = floor(15/(20*0.52)) = 1
+        # budget = floor(15/(20*0.46)) = 1
         out = layout.truncate("Something long", region_width_px=15, font_size_px=20)
         assert out == "…"
 
     def test_zero_budget_returns_empty(self) -> None:
-        # budget = floor(10/(20*0.52)) = 0 -> no room even for an ellipsis
-        out = layout.truncate("Something long", region_width_px=10, font_size_px=20)
+        # budget = floor(5/(20*0.46)) = 0 -> no room even for an ellipsis
+        out = layout.truncate("Something long", region_width_px=5, font_size_px=20)
         assert out == ""
 
 

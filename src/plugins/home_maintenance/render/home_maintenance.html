@@ -14,7 +14,7 @@
 <div class="hm-rows">
   {% for r in rows %}
   <div class="hm-row" style="top: {{ loop.index0 * row_pitch_px }}px; height: {{ row_pitch_px }}px;">
-    <div class="hm-task">{{ r.task }}</div>
+    <div class="hm-task" style="max-width: {{ r.task_w_px }}px;">{{ r.task }}</div>
     <div class="hm-interval">{{ r.interval_text }}</div>
     {% if r.chip %}
     <div class="hb-chip hm-chip" data-role="{{ r.chip.role }}" data-solid="{{ 1 if r.chip.solid else 0 }}">{{ r.chip.label }}</div>

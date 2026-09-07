@@ -52,12 +52,15 @@ class TestPriorityTag:
         assert tag.role == Role.ALERT
         assert tag.solid is True
 
-    def test_medium_is_warn_solid(self) -> None:
+    def test_medium_is_warn_outline(self) -> None:
+        # Deliberately outline, not solid — a stable, permanent design
+        # choice (high shouts, medium notices), not gated by
+        # RoleMap.warn_is_solid the way AgeTag/DueTag's warn tiers are.
         tag = tags.priority_tag("medium")
         assert tag is not None
         assert tag.label == "Medium"
         assert tag.role == Role.WARN
-        assert tag.solid is True
+        assert tag.solid is False
 
     def test_low_renders_no_chip(self) -> None:
         assert tags.priority_tag("low") is None
@@ -104,6 +107,13 @@ class TestDueTag:
         assert tag.role == Role.WARN
         assert tag.solid is True
 
+    def test_approaching_is_warn_outline(self) -> None:
+        tag = tags.due_tag(date(2026, 9, 9), today=date(2026, 9, 4))
+        assert tag is not None
+        assert tag.label == "Due 5d"
+        assert tag.role == Role.WARN
+        assert tag.solid is False
+
     def test_further_out_is_ink_outline(self) -> None:
         tag = tags.due_tag(date(2026, 9, 10), today=date(2026, 9, 4))
         assert tag is not None
@@ -124,18 +134,21 @@ class TestAgeTag:
         assert tag is not None
         assert tag.role == Role.INK
         assert tag.solid is False
+        assert tag.label == "New"
 
     def test_at_warn_days_boundary_is_warn_solid(self) -> None:
         tag = tags.age_tag(30, age_show_days=14, age_warn_days=30, age_alert_days=90)
         assert tag is not None
         assert tag.role == Role.WARN
         assert tag.solid is True
+        assert tag.label == "Aging"
 
     def test_at_alert_days_boundary_is_alert_solid(self) -> None:
         tag = tags.age_tag(90, age_show_days=14, age_warn_days=30, age_alert_days=90)
         assert tag is not None
         assert tag.role == Role.ALERT
         assert tag.solid is True
+        assert tag.label == "Stale"
 
     def test_well_past_alert_days_is_still_alert_solid(self) -> None:
         tag = tags.age_tag(400, age_show_days=14, age_warn_days=30, age_alert_days=90)

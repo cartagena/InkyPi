@@ -52,7 +52,11 @@ body {
 .hb-footer {
   bottom: 0;
   display: flex;
-  justify-content: space-between;
+  /* Only .hb-sync remains (the .hb-source data-source label was dropped —
+     every screen's source was always "BoardBot", no signal) — flex-end
+     keeps it right-aligned same as before, where space-between relied on
+     a second child to push this one to the far side. */
+  justify-content: flex-end;
   font-size: var(--fs-small);
 }
 
@@ -103,7 +107,12 @@ body {
 }
 
 .hb-chip[data-role="warn"][data-solid="0"] {
-  border-color: var(--color-ink);
+  /* Border tinted warn, text kept ink — a colored outline reads as
+     urgency without the dark-text-on-solid-yellow legibility risk that
+     RoleMap.warn_is_solid is still gating (SPEC §2.2). Previously this
+     used --color-ink for both, which made a "warn, not solid" chip
+     visually identical to a plain untagged chip — no color at all. */
+  border-color: var(--color-warn);
   color: var(--color-ink);
   font-weight: 700;
 }

@@ -72,12 +72,20 @@ def priority_tag(priority: str | None) -> PriorityTag | None:
     can carry this chip alongside size/age/due chips too, and the ALERT/
     WARN color already reads as urgency in that context; the word
     "priority" would be the single biggest consumer of a crowded row's
-    limited width for no added clarity."""
+    limited width for no added clarity.
+
+    Medium's ``solid=False`` is a deliberate, permanent design choice
+    (high shouts, medium notices) — NOT gated by ``RoleMap.warn_is_solid``
+    the way ``AgeTag``/``DueTag``'s warn-tier solid fills are (see
+    ``board.py``'s ``_chip_params``). Priority is a stable, sender-declared
+    two-value category, not an escalating ladder, so its visual treatment
+    shouldn't jump to solid the moment an unrelated hardware-legibility
+    question about the due/age ladders gets resolved."""
     normalized = priority.strip().lower() if isinstance(priority, str) else priority
     if normalized == "high":
         return PriorityTag(label="High", role=Role.ALERT, solid=True)
     if normalized == "medium":
-        return PriorityTag(label="Medium", role=Role.WARN, solid=True)
+        return PriorityTag(label="Medium", role=Role.WARN, solid=False)
     return None
 
 
@@ -93,10 +101,21 @@ class DueTag:
 
 
 # UNVERIFIED — no explicit "how many days counts as due soon" spec exists
-# for this new field (SPEC predates due_date entirely); picked to mirror
-# age_tag's three-tier shape rather than invent a fourth. Adjust once this
-# has been seen on a real board for a few weeks.
-_DUE_SOON_DAYS = 1
+# for this new field (SPEC predates due_date entirely). Previously a single
+# threshold (1 day) collapsed everything from "due in 2 days" to "due in 3
+# months" into the same plain ink-outline bucket, so a task closing in on
+# its due date carried zero visual urgency until the literal day it was
+# due — reported as "hard to tell an approaching due date apart from a
+# distant one." Split into two thresholds instead: a wider "approaching"
+# window (warn outline — some colour, not yet alarming) before the
+# existing "imminent" tier (solid warn) takes over. 5 days picked as a
+# rough "this week" window for board's todo/project items (shorter-lived
+# than home_maintenance's 14-day due_soon_days, which governs recurring
+# household chores on a much longer cadence) — adjust once seen on a real
+# board for a few weeks, same as the original single threshold was meant
+# to be revisited.
+_DUE_IMMINENT_DAYS = 1
+_DUE_SOON_DAYS = 5
 
 
 def due_tag(due_date: date | None, today: date) -> DueTag | None:
@@ -105,6 +124,7 @@ def due_tag(due_date: date | None, today: date) -> DueTag | None:
     - no ``due_date`` — omitted entirely (``None``)
     - overdue — `alert` solid, "Overdue Nd"
     - due today/tomorrow — `warn` solid, "Today"/"Tomorrow"
+    - approaching (within ``_DUE_SOON_DAYS``) — `warn` outline, "Due Nd"
     - further out — `ink` outline, "Due Nd"
 
     "Overdue"/"Due" prefixes stay on the numeric-day forms — a row can
@@ -121,8 +141,10 @@ def due_tag(due_date: date | None, today: date) -> DueTag | None:
         return DueTag(label=f"Overdue {abs(days_until)}d", role=Role.ALERT, solid=True)
     if days_until == 0:
         return DueTag(label="Today", role=Role.WARN, solid=True)
-    if days_until <= _DUE_SOON_DAYS:
+    if days_until <= _DUE_IMMINENT_DAYS:
         return DueTag(label="Tomorrow", role=Role.WARN, solid=True)
+    if days_until <= _DUE_SOON_DAYS:
+        return DueTag(label=f"Due {days_until}d", role=Role.WARN, solid=False)
     return DueTag(label=f"Due {days_until}d", role=Role.INK, solid=False)
 
 
@@ -142,17 +164,29 @@ def age_tag(
     """Compute the age chip for an item *days* old, per the shared ladder:
 
     - below ``age_show_days`` — omitted entirely (``None``)
-    - up to ``age_warn_days`` — `ink` outline
-    - up to ``age_alert_days`` — `warn` solid
-    - beyond — `alert` solid
+    - up to ``age_warn_days`` — `ink` outline, "New"
+    - up to ``age_alert_days`` — `warn` solid, "Aging"
+    - beyond — `alert` solid, "Stale"
+
+    Word buckets, not a bare day count — the previous "Nd" label sat right
+    next to ``DueTag``'s own numeric "Due Nd"/"Overdue Nd" labels with
+    nothing to tell a reader which one was counting *up* (time since this
+    fork's local ledger first saw the item — not the task's real age) and
+    which was counting *down* (time until a deadline). A bare "0d" was
+    also actively misleading on a fresh install: every pre-existing item
+    gets ``first_seen = today`` the first time it's tracked, so every row
+    read "0d" regardless of how old the task actually was. Word buckets
+    (matching ``effort_tag``'s style) sidestep both problems at the cost
+    of exact-day precision, which this chip's purpose — a coarse "does
+    this need attention" signal, not a precise timestamp — doesn't need.
     """
     if days < age_show_days:
         return None
     if days < age_warn_days:
-        return AgeTag(label=f"{days}d", role=Role.INK, solid=False)
+        return AgeTag(label="New", role=Role.INK, solid=False)
     if days < age_alert_days:
-        return AgeTag(label=f"{days}d", role=Role.WARN, solid=True)
-    return AgeTag(label=f"{days}d", role=Role.ALERT, solid=True)
+        return AgeTag(label="Aging", role=Role.WARN, solid=True)
+    return AgeTag(label="Stale", role=Role.ALERT, solid=True)
 
 
 def item_key(text: str) -> str:

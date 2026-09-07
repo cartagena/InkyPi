@@ -105,10 +105,21 @@
   font-size: var(--fs-item);
   font-weight: 500;
   padding-left: 0.8em;
+  /* max-width is set inline per-row (board.py's title_w_px) — the exact
+     same pixel budget layout.truncate() used, so this can never overflow
+     even if ADVANCE_RATIO's character-count estimate runs a little hot on
+     a particular string (see layout.py's comment on that constant). */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .board-backlog-title {
   font-size: var(--fs-cell);
+  /* Same backstop as .board-inflight-title above, same reason. */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .board-chip-row {
@@ -142,21 +153,19 @@
 }
 
 .board-todo-row {
+  /* SPEC §7.3's original single-line design: checkbox + title + one
+     right-aligned age tag, nothing else — reverted from a two-line
+     chips-below-title layout added for priority_tag/due_tag, which the
+     user asked to drop entirely from this list. */
   position: absolute;
   left: 0;
-  /* Less than 100%: a to-do row can now carry up to 3 trailing chips
-     (age/priority/due) plus the checkbox and title on one flex line, and
-     even with the title free to shrink (see .board-todo-title below) a
-     short title + 2-3 chips can still claim more width than looks
-     comfortable right at the column edge. UNVERIFIED exact percentage —
-     picked empirically against a real render (including a long-title +
-     all-three-chips stress case), not derived from a physical-panel
-     measurement. (--col-w itself no longer overflows the panel — that
-     was a separate bug, fixed in homeboard/layout.py.) */
-  width: 90%;
-  height: 2.6em;
+  width: 100%;
   display: flex;
   align-items: center;
+  /* height set inline per-row (board.py's todo_pitch_px), same reasoning
+     as .hm-row in home_maintenance.css: an em value here would resolve
+     against this rule's own font-size rather than `base`, drifting the
+     row pitch. */
 }
 
 .board-todo-checkbox {
@@ -171,22 +180,18 @@
   padding-left: 1.4em;
   flex: 1;
   /* Flex items default to min-width: auto, so `flex: 1` alone never
-     shrinks this below its own text's intrinsic width -- with the
-     priority/due chips added alongside age_tag, that let a row's total
-     content (checkbox + title + up to 3 chips) exceed the column width
-     and spill past the panel edge instead of the title yielding space to
-     its siblings. overflow:hidden is the safety net for whatever
-     layout.truncate()'s pixel-width estimate (board.py's _todo_params)
-     doesn't already catch. */
+     shrinks this below its own text's intrinsic width. overflow:hidden is
+     the safety net for whatever layout.truncate()'s pixel-width estimate
+     (board.py's _todo_params) doesn't already catch. */
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.board-todo-priority,
-.board-todo-due,
 .board-todo-age {
+  /* Right-aligned per SPEC §7.3 — flex-shrink:0 after a flex:1 title
+     naturally pushes it to the row's right edge. */
   flex-shrink: 0;
   margin-left: 0.4em;
 }
@@ -197,6 +202,21 @@
   top: 0;
   font-size: var(--fs-body);
   color: var(--color-ink);
+}
+
+.board-row-sep {
+  /* Same fix as home_maintenance.css's .hm-row-sep: `bottom: 0`, not a
+     negative em offset. Rows are packed edge-to-edge at their own pitch
+     (each row's inline height == that list's pitch constant), so the
+     natural boundary between row N and row N+1 is row N's own bottom
+     edge — a negative `bottom` would push the line past that edge and
+     into the following row's text instead of sitting between the two. */
+  position: absolute;
+  left: 0;
+  width: 100%;
+  bottom: 0;
+  height: 1px;
+  background: var(--color-ink);
 }
 
 .board-cleared-line {

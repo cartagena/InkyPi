@@ -542,6 +542,7 @@ class Board(BasePlugin):
         title_w_px = t.width * column_w_pct / 100 * 0.8
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["item"]),
+            "title_w_px": title_w_px,
             "size_tag": _size_tag_params(item.size_tag),
             "priority_tag": _chip_params(tags.priority_tag(item.priority), roles),
             "due_tag": _chip_params(tags.due_tag(item.due_date, today), roles),
@@ -565,6 +566,7 @@ class Board(BasePlugin):
         )
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["cell"]),
+            "title_w_px": title_w_px,
             "size_tag": _size_tag_params(item.size_tag),
             "age_tag": _chip_params(age, roles),
             "priority_tag": _chip_params(tags.priority_tag(item.priority), roles),
@@ -581,31 +583,32 @@ class Board(BasePlugin):
         age_warn: int,
         roles: palette.RoleMap,
     ) -> dict[str, Any]:
-        priority = tags.priority_tag(item.priority)
-        due = tags.due_tag(item.due_date, today)
         age = tags.age_tag(
             board_data.days_since(item.first_seen, today),
             age_show,
             age_warn,
             _TODO_AGE_ALERT_DAYS,
         )
-        # A to-do row lays title and chips out on one flex line (unlike
-        # in-flight/backlog project rows, which put chips on their own
-        # line below the title), so an untrimmed 0.75 title budget can
-        # claim more width than the row has left once priority/due chips
-        # (new — age_tag alone never needed this) actually render,
-        # overflowing the column. This is a backstop against a pathologically
-        # long title specifically — board.css's .board-todo-row width is
-        # what actually keeps a short title + several chips from
-        # overflowing (see that file's comment for why). UNVERIFIED
-        # per-chip discount — no physical-panel measurement backs 0.08.
-        chip_discount = sum(0.08 for tag in (priority, due) if tag is not None)
-        title_w_px = t.width * (column_w_pct / 100 * 0.75 - chip_discount)
+        # SPEC §7.3's original single-line design: checkbox + title + one
+        # right-aligned age tag, nothing else — priority_tag/due_tag were a
+        # later boardbot-integration addition that needed a two-line row to
+        # avoid overlapping the title (see board_data.py's TODO_PITCH_EM
+        # comment); reverted per user request back to just the age signal.
+        # Reserve room for the checkbox + its padding (line-left) and, only
+        # when an age chip will actually render, a conservative budget for
+        # it (line-right) — most rows carry no age chip at all by design
+        # (SPEC §7.6: "most errands carry no tag at all"), and reserving
+        # space for one anyway would needlessly truncate every such title
+        # tighter than the row actually requires. CSS's overflow:hidden/
+        # ellipsis on .board-todo-title is the backstop if this estimate
+        # runs short regardless.
+        row_w_px = t.width * column_w_pct / 100
+        checkbox_and_padding_px = (0.83 + 1.4) * t.fs["body"]
+        age_tag_reserve_px = 0.15 * row_w_px if age is not None else 0.0
+        title_w_px = row_w_px - checkbox_and_padding_px - age_tag_reserve_px
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["body"]),
             "age_tag": _chip_params(age, roles),
-            "priority_tag": _chip_params(priority, roles),
-            "due_tag": _chip_params(due, roles),
         }
 
 
@@ -624,12 +627,27 @@ _Chip = tags.AgeTag | tags.PriorityTag | tags.DueTag
 
 def _chip_params(chip: _Chip | None, roles: palette.RoleMap) -> dict[str, Any] | None:
     """Shared rendering for AgeTag/PriorityTag/DueTag — all three are the
-    same (label, role, solid) shape. The warn bucket's solid fill needs
+    same (label, role, solid) shape. A warn-role chip's solid fill needs
     RoleMap.warn_is_solid, same as home_maintenance's due-soon chip and
     weekends' partly cell — an unconditional solid=True renders as
     invisible ink-on-ink text on the bw/mock palette (every non-ink/paper
-    role collapses to black there)."""
+    role collapses to black there).
+
+    The flag can only ESCALATE a chip already authored wanting solid
+    (``chip.solid is True``) — it can never force solid onto one
+    deliberately authored outline-only (``chip.solid is False``). That one
+    rule covers every case correctly without a per-tag special case:
+    AgeTag's "Aging" tier and DueTag's "Today"/"Tomorrow" tier are both
+    authored solid=True (conservatively outline until physical-panel
+    legibility is confirmed, then escalate); PriorityTag's Medium and
+    DueTag's "approaching" tier are both authored solid=False as a
+    permanent design choice (Medium notices without shouting; approaching
+    is calmer than imminent) and must stay outline even after that flag
+    flips, or they'd become visually indistinguishable from the tier
+    meant to look more urgent than them."""
     if chip is None:
         return None
-    solid = roles.warn_is_solid if chip.role == Role.WARN else chip.solid
+    solid = (
+        (roles.warn_is_solid and chip.solid) if chip.role == Role.WARN else chip.solid
+    )
     return {"label": chip.label, "role": chip.role.value, "solid": solid}
