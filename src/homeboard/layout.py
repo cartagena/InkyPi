@@ -19,9 +19,20 @@ _BASE_MAX_PX = 28.0
 _BASE_HEIGHT_RATIO = 0.040
 
 # Token name -> multiple of `base`, from the §3.1 type scale table.
+#
+# `small`/`label` sit above the table's original 0.75/0.78. Those resolved
+# to 14.4px/14.98px on the 800x480 panel, which is below the size at which
+# DejaVu's stems survive a 1-bit-ish e-ink render — the affected elements
+# (.hm-interval, .hb-footer, .hb-chip, .board-note, .hm-chip,
+# .board-cleared-line) read as soft and speckled on the physical panel
+# rather than as text. 0.85/0.88 puts them at 16.3px/16.9px. Re-rendered at
+# 800x480, 640x400, 1600x1200 and 480x800 (portrait) to confirm nothing
+# overflows; two rules needed widening to absorb it and say so in their own
+# comments (.hb-chip.hm-chip in home_maintenance.css, .wk-legend in
+# weekends.css).
 _FONT_SCALE = {
-    "small": 0.75,
-    "label": 0.78,
+    "small": 0.85,
+    "label": 0.88,
     "body": 1.00,
     "cell": 1.05,
     "item": 1.10,

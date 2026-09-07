@@ -258,7 +258,7 @@ class Board(BasePlugin):
             base_params["empty_html"] = chrome.empty_state_html(
                 "Board", "No data available"
             )
-            return self._render(dimensions, base_params)
+            return self._render(dimensions, base_params, roles)
 
         # Two independent ledger files, keyed the same way as the two
         # payload caches (base_url + that list's own name) — a combined key
@@ -362,7 +362,7 @@ class Board(BasePlugin):
             )
             base_params.update(chrome_html)
             base_params["too_small"] = True
-            return self._render(dimensions, base_params)
+            return self._render(dimensions, base_params, roles)
 
         visible_in_flight, overflow = board_data.select_in_flight(
             in_flight_items, visible_in_flight_count
@@ -442,17 +442,24 @@ class Board(BasePlugin):
         else:
             base_params["todo_top_css"] = "var(--body-top)"
 
-        return self._render(dimensions, base_params)
+        return self._render(dimensions, base_params, roles)
 
     def _render(
-        self, dimensions: tuple[int, int], template_params: dict[str, Any]
+        self,
+        dimensions: tuple[int, int],
+        template_params: dict[str, Any],
+        roles: palette.RoleMap,
     ) -> Any:
         image = self.render_image(
             dimensions, "board.html", "board.css", template_params
         )
         if not image:
             raise RuntimeError("Failed to take screenshot, please check logs.")
-        return image
+        # Snap the screenshot onto the resolved palette on the way out
+        # (SPEC §2.3): the inky drivers Floyd-Steinberg every non-"P" image
+        # they are handed, and palette-exact pixels leave that dither
+        # nothing to diffuse — see homeboard.palette.quantize.
+        return palette.quantize(image, roles)
 
     @staticmethod
     def _ledger_path(

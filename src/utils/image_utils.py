@@ -439,6 +439,13 @@ def _playwright_screenshot_html(
                         "--allow-file-access-from-files",
                         "--enable-local-file-accesses",
                         "--disable-web-security",
+                        # Mirror the subprocess path's greyscale-antialiasing
+                        # flags (see _find_browser_command) so dev renders and
+                        # pixel snapshots match what the Pi actually produces.
+                        # Playwright already passes --force-color-profile=srgb
+                        # by default, so only these two need adding.
+                        "--disable-lcd-text",
+                        "--disable-font-subpixel-positioning",
                     ]
                 )
             except Exception:
@@ -578,6 +585,20 @@ def _find_browser_command(
                 "--enable-local-file-accesses",
                 # Relax same-origin so file:// linked assets load predictably
                 "--disable-web-security",
+                # E-ink text sharpness: Chromium defaults to LCD subpixel
+                # antialiasing, which paints RGB-coloured fringes along every
+                # glyph edge.  The display drivers then Floyd-Steinberg dither
+                # those fringes into the 6/7-colour palette, so text arrives on
+                # the panel soft and speckled.  Forcing greyscale AA, integral
+                # glyph positioning and a plain sRGB profile keeps glyph edges
+                # neutral so dithering has nothing coloured to spread around.
+                # (plugin.css's -webkit-font-smoothing is macOS-only and does
+                # nothing here — these flags are the fix that actually runs on
+                # the Pi.)  --font-render-hinting was measured to make no
+                # difference and is deliberately omitted.
+                "--disable-lcd-text",
+                "--disable-font-subpixel-positioning",
+                "--force-color-profile=srgb",
                 target,
             ]
             if timeout_ms:

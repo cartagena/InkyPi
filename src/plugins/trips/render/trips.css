@@ -47,7 +47,7 @@
 
 .trips-countdown-num {
   font-size: var(--fs-display);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-paper);
   line-height: 1;
 }
@@ -65,7 +65,7 @@
 
 .trips-title {
   font-size: calc(var(--fs-title) * 0.9);
-  font-weight: 500;
+  font-weight: 600;
   /* max-width is set inline per-card (trips.py's text_w_px) — the same
      pixel budget layout.truncate() used, so this can't overflow into the
      countdown block even if the truncation estimate runs a little hot on

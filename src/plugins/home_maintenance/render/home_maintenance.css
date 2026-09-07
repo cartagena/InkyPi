@@ -46,16 +46,51 @@
   text-align: right;
 }
 
-.hm-chip {
+/* `.hb-chip.hm-chip`, not just `.hm-chip`: BasePlugin._build_css_files
+   appends `extra_css_files` (which is where homeboard's shared _chrome.css
+   arrives) *after* the screen's own stylesheet, so a bare `.hm-chip` rule
+   loses every tie against `.hb-chip` — including the `background` and
+   `padding` this rule needs to win. */
+.hb-chip.hm-chip {
   position: absolute;
   right: 0;
   top: 0.1em;
-  width: 16.9%;
+  /* Content-sized with a 20% floor, replacing a flat 16.9% width. The
+     widest label this chip carries is "Due in 14 days" (bold, per
+     .hb-chip[data-role="warn"]); at the current --fs-label that no longer
+     fits 16.9% of --content-w, and the chip wrapped onto a second line and
+     spilled into the row below. The floor keeps every chip the same width
+     on a normal landscape panel (the labels all sit under 20% there, so
+     max-content never wins) while letting the chip grow leftwards instead
+     of off the panel edge on a narrow portrait one. nowrap because a
+     wrapped chip breaks the row pitch, which is the failure mode this is
+     fixing. */
+  width: max-content;
+  min-width: 20%;
+  max-width: 100%;
   height: 1.3em;
   line-height: 1.3em;
   text-align: center;
+  white-space: nowrap;
   font-size: var(--fs-label);
-  padding: 0;
+  padding: 0 0.3em;
+}
+
+/* Opaque rather than .hb-chip's transparent default: on a narrow portrait
+   panel the chip is wide enough to reach back over the interval column, and
+   an outline chip there interleaved its text with "Every 6 months" into an
+   unreadable smear.
+   The :not() is load-bearing, not decoration. .hb-chip[data-role="alert"]
+   is (0,2,0), exactly the same specificity as a plain .hb-chip.hm-chip, so
+   the two would tie and be resolved only by _build_css_files appending
+   _chrome.css last. Since the alert variant also sets
+   color: var(--color-paper), losing that coin-flip paints an overdue chip
+   white-on-white — it disappears rather than degrading visibly. Excluding
+   the one role that sets its own background makes this (0,3,0) and removes
+   the ordering dependency entirely. warn[data-solid="1"], the other
+   background-setting variant, is already (0,3,0) and was never at risk. */
+.hb-chip.hm-chip:not([data-role="alert"]) {
+  background: var(--color-paper);
 }
 
 .hm-row-sep {

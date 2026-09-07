@@ -67,28 +67,37 @@ def _make_app(
     if device_config is not None:
         app.config["DEVICE_CONFIG"] = device_config
     register_smoke_endpoints(app)
-    # Patch the lazily-imported plugin registry so we don't actually load plugins.
+    # Patch the lazily-imported plugin registry so we don't actually load
+    # plugins.  The swap is undone by the autouse ``_restore_registry``
+    # fixture below, which snapshots the module attribute for every test in
+    # this file rather than relying on per-app bookkeeping.
     if stub_plugin is not None:
         import plugins.plugin_registry as registry
 
-        app._orig_get_plugin_instance = registry.get_plugin_instance  # type: ignore[attr-defined]
         registry.get_plugin_instance = lambda plugin_config: stub_plugin  # type: ignore[assignment]
     return app
 
 
 @pytest.fixture(autouse=True)
-def _restore_registry(request: pytest.FixtureRequest) -> Iterator[Any]:
-    """Restore plugins.plugin_registry.get_plugin_instance after each test."""
-    yield
-    try:
-        import plugins.plugin_registry as registry
+def _restore_registry() -> Iterator[None]:
+    """Restore ``plugins.plugin_registry.get_plugin_instance`` after each test.
 
-        for app in getattr(request.node, "_smoke_apps", []) or []:
-            orig = getattr(app, "_orig_get_plugin_instance", None)
-            if orig is not None:
-                registry.get_plugin_instance = orig
-    except Exception:
-        pass
+    ``_make_app`` swaps the module-level function for a lambda returning a
+    stub plugin.  That is a raw attribute assignment, so nothing restores it
+    automatically, and the replacement is process-wide: every later test that
+    resolves ``get_plugin_instance`` through the registry module (rather than
+    through an already-bound import) gets the stub instead of the real
+    plugin, and anything attached to that shared stub object outlives the
+    test that attached it.  Snapshot and restore unconditionally so the leak
+    cannot escape this file.
+    """
+    import plugins.plugin_registry as registry
+
+    original = registry.get_plugin_instance
+    try:
+        yield
+    finally:
+        registry.get_plugin_instance = original
 
 
 def test_smoke_render_not_registered_without_env_var(

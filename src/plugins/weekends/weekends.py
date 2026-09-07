@@ -211,7 +211,7 @@ class Weekends(BasePlugin):
             base_params["empty_html"] = chrome.empty_state_html(
                 "Weekends", "No data available"
             )
-            return self._render(dimensions, base_params)
+            return self._render(dimensions, base_params, roles)
 
         if not layout.fits_min_rows(
             t, _ROW_PITCH_EM, _ROW_HEIGHT_EM, _MIN_ROWS, _HEADER_BAND_EM
@@ -221,7 +221,7 @@ class Weekends(BasePlugin):
             )
             base_params.update(chrome_html)
             base_params["too_small"] = True
-            return self._render(dimensions, base_params)
+            return self._render(dimensions, base_params, roles)
 
         payload = result.payload or {}
         events = [parse_event(raw) for raw in payload.get("events", [])]
@@ -272,17 +272,24 @@ class Weekends(BasePlugin):
         base_params["rows"] = [self._row_template_params(r, t) for r in rows]
         base_params["legend_text"] = "Accent date = long weekend"
 
-        return self._render(dimensions, base_params)
+        return self._render(dimensions, base_params, roles)
 
     def _render(
-        self, dimensions: tuple[int, int], template_params: dict[str, Any]
+        self,
+        dimensions: tuple[int, int],
+        template_params: dict[str, Any],
+        roles: palette.RoleMap,
     ) -> Any:
         image = self.render_image(
             dimensions, "weekends.html", "weekends.css", template_params
         )
         if not image:
             raise RuntimeError("Failed to take screenshot, please check logs.")
-        return image
+        # Snap the screenshot onto the resolved palette on the way out
+        # (SPEC §2.3): the inky drivers Floyd-Steinberg every non-"P" image
+        # they are handed, and palette-exact pixels leave that dither
+        # nothing to diffuse — see homeboard.palette.quantize.
+        return palette.quantize(image, roles)
 
     @staticmethod
     def _cache_key(ics_urls: list[str], holiday_url: str) -> str:

@@ -13,6 +13,20 @@ from PIL import Image
 from homeboard import palette
 
 
+@pytest.fixture(autouse=True)
+def _clear_inky_detection_memo() -> Any:
+    """Drop palette's inky-probe memo around every test.
+
+    `_detect_inky_six_colour()` caches its result for the life of the
+    process (the probe is an I2C EEPROM read on real hardware). Each test
+    below monkeypatches a *different* fake `inky` module, so without this
+    they would all see whichever answer happened to be cached first.
+    """
+    palette.reset_inky_detection_cache()
+    yield
+    palette.reset_inky_detection_cache()
+
+
 class _FakeDeviceConfig:
     config_file = "/tmp/does-not-matter/device.json"
 
@@ -69,7 +83,10 @@ class TestDetectCapability:
     def test_inky_hardware_detection_success_path(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        fake_driver = types.SimpleNamespace(colour="seven_colour")
+        # What every full-colour inky driver actually reports: `colour="multi"`
+        # (inky 2.4.0, e.g. inky_e673.py:106). The previous "seven_colour"
+        # mock asserted a contract no release of `inky` has ever emitted.
+        fake_driver = types.SimpleNamespace(colour="multi")
         fake_auto_module = types.SimpleNamespace(auto=lambda: fake_driver)
         fake_inky_pkg = types.ModuleType("inky")
         fake_inky_pkg.auto = fake_auto_module  # type: ignore[attr-defined]
@@ -190,3 +207,186 @@ class TestQuantize:
         img = Image.new("RGB", (10, 10), color=(120, 60, 200))  # way off-palette
         out = palette.quantize(img, roles)
         assert out.size == (10, 10)
+
+    @pytest.mark.parametrize("grey", [64, 96, 128, 144, 160, 175])
+    def test_dark_neutral_greys_snap_to_ink_not_a_chromatic_ink(
+        self, grey: int
+    ) -> None:
+        # Regression: a plain nearest-Euclidean match sent glyph-antialiasing
+        # greys onto the saturated inks (grey 72..136 -> AVAILABLE green,
+        # 144..160 -> WARN yellow), so text edges came out coloured and the
+        # panel's Floyd-Steinberg pass had error to diffuse. Neutrals must
+        # resolve on luma alone.
+        roles = palette.resolve(_FakeDeviceConfig("epd7in3f"))
+        img = Image.new("RGB", (3, 3), color=(grey, grey, grey))
+        arr = np.asarray(palette.quantize(img, roles))
+        assert np.all(arr == np.array(roles.colors[palette.Role.INK]))
+
+    @pytest.mark.parametrize("grey", [176, 200, 240, 255])
+    def test_light_neutral_greys_snap_to_paper(self, grey: int) -> None:
+        roles = palette.resolve(_FakeDeviceConfig("epd7in3f"))
+        img = Image.new("RGB", (3, 3), color=(grey, grey, grey))
+        arr = np.asarray(palette.quantize(img, roles))
+        assert np.all(arr == np.array(roles.colors[palette.Role.PAPER]))
+
+    def test_saturated_pixels_still_take_the_chromatic_match(self) -> None:
+        # The neutral special-case must not swallow real colour: a near-miss
+        # of each saturated ink still has to land back on that ink.
+        roles = palette.resolve(_FakeDeviceConfig("epd7in3f"))
+        for role in (
+            palette.Role.AVAILABLE,
+            palette.Role.WARN,
+            palette.Role.ALERT,
+            palette.Role.EMPHASIS,
+        ):
+            target = roles.colors[role]
+            near = tuple(max(0, min(255, c + 5)) for c in target)
+            img = Image.new("RGB", (2, 2), color=near)
+            arr = np.asarray(palette.quantize(img, roles))
+            assert np.all(arr == np.array(target)), role
+
+    def test_white_on_red_glyph_edge_does_not_become_yellow(self) -> None:
+        # Regression: (240, 145, 140) is a real antialiasing blend from
+        # white text on an alert-red chip. Under a plain nearest-colour
+        # match its squared distance was 23715 to red and 25550 to white,
+        # but only 17035 to WARN yellow — so every such edge pixel came out
+        # yellow, an ink none of the screens use. Measured speckle before
+        # the segment match: 64 px on board, 210 on trips, 113 on
+        # home_maintenance, 767 on weekends.
+        roles = palette.resolve(_FakeDeviceConfig("epd7in3f"))
+        img = Image.new("RGB", (2, 2), color=(240, 145, 140))
+        arr = np.asarray(palette.quantize(img, roles))
+        assert np.all(arr == np.array(roles.colors[palette.Role.ALERT]))
+
+    def test_blend_of_two_inks_resolves_to_one_of_those_two(self) -> None:
+        # The general invariant behind the case above: quantizing a blend of
+        # two palette colours must pick one of those two endpoints, never a
+        # third ink that happens to sit nearer the midpoint.
+        roles = palette.resolve(_FakeDeviceConfig("epd7in3f"))
+        entries = list(dict.fromkeys(roles.colors.values()))
+        for i, first in enumerate(entries):
+            for second in entries[i + 1 :]:
+                for weight in (0.25, 0.5, 0.75):
+                    blend = tuple(
+                        round(a * (1 - weight) + b * weight)
+                        for a, b in zip(first, second, strict=True)
+                    )
+                    img = Image.new("RGB", (2, 2), color=blend)
+                    got = tuple(np.asarray(palette.quantize(img, roles))[0, 0])
+                    assert got in (first, second), (first, second, weight, blend)
+
+
+class TestInkyDetectionMemo:
+    def test_result_is_memoised_so_the_eeprom_is_probed_once(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # resolve() runs on every render of every homeboard screen; the probe
+        # behind it is an I2C read on real hardware.
+        calls: list[int] = []
+
+        def _auto() -> Any:
+            calls.append(1)
+            return types.SimpleNamespace(colour="multi")
+
+        fake_auto_module = types.SimpleNamespace(auto=_auto)
+        fake_inky_pkg = types.ModuleType("inky")
+        fake_inky_pkg.auto = fake_auto_module  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "inky", fake_inky_pkg)
+        monkeypatch.setitem(sys.modules, "inky.auto", fake_auto_module)
+
+        cfg = _FakeDeviceConfig("inky")
+        assert palette._detect_capability(cfg) is True
+        assert palette._detect_capability(cfg) is True
+        assert palette._detect_capability(cfg) is True
+        assert len(calls) == 1
+
+    def test_completed_negative_probe_is_memoised(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A probe that *ran* and said "bw panel" is a real answer and can be
+        # cached like any other.
+        calls: list[int] = []
+
+        def _auto() -> Any:
+            calls.append(1)
+            return types.SimpleNamespace(colour="black")
+
+        fake_auto_module = types.SimpleNamespace(auto=_auto)
+        fake_inky_pkg = types.ModuleType("inky")
+        fake_inky_pkg.auto = fake_auto_module  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "inky", fake_inky_pkg)
+        monkeypatch.setitem(sys.modules, "inky.auto", fake_auto_module)
+
+        cfg = _FakeDeviceConfig("inky")
+        assert palette._detect_capability(cfg) is False
+        assert palette._detect_capability(cfg) is False
+        assert len(calls) == 1
+
+    def test_failed_probe_is_not_memoised(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A probe that *raised* is not an answer. generate_image() also runs
+        # synchronously in the long-lived Flask process (preview, update-now,
+        # display-next), so caching a transient I2C/import failure there would
+        # pin every later web-triggered render to the bw fallback until
+        # inkypi restarts, while the refresh worker kept rendering in colour.
+        calls: list[int] = []
+
+        def _auto() -> Any:
+            calls.append(1)
+            raise RuntimeError("no hardware attached")
+
+        fake_auto_module = types.SimpleNamespace(auto=_auto)
+        fake_inky_pkg = types.ModuleType("inky")
+        fake_inky_pkg.auto = fake_auto_module  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "inky", fake_inky_pkg)
+        monkeypatch.setitem(sys.modules, "inky.auto", fake_auto_module)
+
+        cfg = _FakeDeviceConfig("inky")
+        assert palette._detect_capability(cfg) is False
+        assert palette._detect_capability(cfg) is False
+        assert len(calls) == 2
+
+    def test_probe_self_heals_after_a_transient_failure(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The point of not caching failures: once the bus frees up, the very
+        # next render picks up the real answer without a restart.
+        calls: list[int] = []
+
+        def _auto() -> Any:
+            calls.append(1)
+            if len(calls) == 1:
+                raise RuntimeError("bus busy")
+            return types.SimpleNamespace(colour="multi")
+
+        fake_auto_module = types.SimpleNamespace(auto=_auto)
+        fake_inky_pkg = types.ModuleType("inky")
+        fake_inky_pkg.auto = fake_auto_module  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "inky", fake_inky_pkg)
+        monkeypatch.setitem(sys.modules, "inky.auto", fake_auto_module)
+
+        cfg = _FakeDeviceConfig("inky")
+        assert palette._detect_capability(cfg) is False
+        assert palette._detect_capability(cfg) is True
+        assert palette._detect_capability(cfg) is True
+        assert len(calls) == 2
+
+    def test_reset_forces_a_re_probe(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[int] = []
+
+        def _auto() -> Any:
+            calls.append(1)
+            return types.SimpleNamespace(colour="multi")
+
+        fake_auto_module = types.SimpleNamespace(auto=_auto)
+        fake_inky_pkg = types.ModuleType("inky")
+        fake_inky_pkg.auto = fake_auto_module  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "inky", fake_inky_pkg)
+        monkeypatch.setitem(sys.modules, "inky.auto", fake_auto_module)
+
+        cfg = _FakeDeviceConfig("inky")
+        assert palette._detect_capability(cfg) is True
+        palette.reset_inky_detection_cache()
+        assert palette._detect_capability(cfg) is True
+        assert len(calls) == 2

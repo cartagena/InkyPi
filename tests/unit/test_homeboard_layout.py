@@ -33,7 +33,11 @@ class TestTokens:
         assert t.height - t.footer_rule_em * t.base == pytest.approx(453.12)
         assert t.fs["title"] == pytest.approx(26.88)
         assert t.fs["item"] == pytest.approx(21.12)
-        assert t.fs["small"] == pytest.approx(14.4)
+        # 16.32, not SPEC §3.7's original 14.4: `small`/`label` were
+        # raised off the 0.75/0.78 multiples because DejaVu's stems do not
+        # survive an e-ink render at ~14px (see _FONT_SCALE's comment).
+        assert t.fs["small"] == pytest.approx(16.32)
+        assert t.fs["label"] == pytest.approx(16.896)
         assert t.fs["display"] == pytest.approx(43.2)
 
     def test_base_clamped_to_floor_on_a_short_panel(self) -> None:
