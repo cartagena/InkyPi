@@ -73,7 +73,6 @@
     <div class="board-todo-checkbox"></div>
     <div class="board-todo-title">{{ item.title }}</div>
     {% if item.age_tag %}<span class="hb-chip board-todo-age" data-role="{{ item.age_tag.role }}" data-solid="{{ 1 if item.age_tag.solid else 0 }}">{{ item.age_tag.label }}</span>{% endif %}
-    {% if not loop.last %}<div class="board-row-sep"></div>{% endif %}
   </div>
   {% endfor %}
   {% endif %}
