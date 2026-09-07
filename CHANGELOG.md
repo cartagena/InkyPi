@@ -1,6 +1,250 @@
 # CHANGELOG
 
 
+## v1.12.1 (2026-09-07)
+
+### Bug Fixes
+
+- **board**: Move todo chips to their own line, stop cutting into titles
+  ([`2e653e0`](https://github.com/cartagena/InkyPi/commit/2e653e004dd6459905e1a4b5b831eb3e5878790c))
+
+Priority/due/age chips shared the title's single flex line, and on anything but a short title they
+  overlapped/cut into it, making the title unreadable. SPEC §7.3 originally sized this row for one
+  line with only a right-aligned age tag (2.6em pitch) and predates the priority_tag/due_tag fields
+  entirely; once those were added, up to 3 chips were being squeezed onto that same line.
+
+Chips now render on their own line below the title, matching how the Projects/backlog rows already
+  do it. TODO_PITCH_EM grows from 2.35em to 2.9em to fit the second line (single source of truth for
+  both capacity math and render geometry, unchanged). The stale chip_discount title-width heuristic
+  (an UNVERIFIED per-chip pixel guess that existed specifically for the single-line squeeze) is
+  gone; the title's width budget now only needs to account for the checkbox + its own padding on
+  line 1. .board-todo-row goes back to 100% width, matching every other board row, since the
+  single-line-squeeze reason for 90% no longer applies.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+- **board**: Remove per-item separator lines from the to-do list
+  ([`a9cc2f1`](https://github.com/cartagena/InkyPi/commit/a9cc2f1b6cb50ccd3302c83fe17f11de44d13cb1))
+
+Per-item separators were added to every board list this session, but on the simplified single-line
+  to-do row (checkbox + title + age tag) they add visual clutter without helping readability the way
+  they do on Projects' two-line backlog/in-flight rows. Projects keeps its separators; to-do goes
+  back to plain whitespace between rows.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+- **board**: Simplify to-do row back to SPEC's original single-line design
+  ([`4e4cb8f`](https://github.com/cartagena/InkyPi/commit/4e4cb8f904bfdf628066e14563b99087dc447469))
+
+SPEC §7.3 only ever specified a checkbox, item text, and one right-aligned age tag for the to-do
+  row. A later boardbot integration added priority_tag/due_tag chips on top of that, which needed a
+  two-line row to avoid overlapping the title — reverted per user request back to just the age
+  signal, since more chips made the list harder to read, not easier. TODO_PITCH_EM goes back to its
+  original 2.6em now that the row is single-line again.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+- **board**: Tighten todo spacing, widen in-flight gap, add row separators
+  ([`416fc42`](https://github.com/cartagena/InkyPi/commit/416fc42eb9045bf7ba804562acc6a24e8ca04891))
+
+- IN_FLIGHT_LABEL_BAND_EM 0.8em -> 0.9em: ~2px more breathing room between the "In flight" label and
+  its first row (single constant also driving in_flight_capacity()'s row-count math, so capacity and
+  render geometry can't drift apart). - TODO_PITCH_EM 2.6em -> 2.35em: tighter spacing between to-do
+  rows. - Every in-flight/backlog/todo row now gets a 1px separator line under it (board previously
+  had none at all, unlike home_maintenance). Reuses this session's home_maintenance fix: `bottom:
+  0`, not a negative em offset, since rows are packed edge-to-edge at their own pitch. Each row's
+  own height is now set inline from board.py's already-computed *_pitch_px values (was implicit/auto
+  for in-flight and backlog rows, hardcoded 2.6em in CSS for todo rows) so the separator has a real
+  pitch-slot boundary to sit against — as a side effect, the in-flight accent bar now spans the full
+  item height per SPEC §7.3, not just its content's height.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+- **board**: Warn_is_solid can only escalate chips, never force them solid
+  ([`b5da04d`](https://github.com/cartagena/InkyPi/commit/b5da04d254f78822efd4a675677a0690560e0dd6))
+
+_chip_params()'s isinstance-based PriorityTag exclusion only special-cased priority, but the same
+  bug existed for DueTag's "approaching" tier: it's authored solid=False as a deliberate, permanent
+  design choice (calmer than the "Today"/"Tomorrow" tier below it), yet the old gate would force it
+  solid too once warn_is_solid flips, making the two tiers visually indistinguishable. Replaced the
+  special case with one general rule: the flag can only escalate a chip already authored wanting
+  solid, never force solid onto one authored outline-only. This correctly handles PriorityTag's
+  Medium, DueTag's approaching tier, and AgeTag/DueTag's genuine escalation tiers with no per-type
+  branching.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+- **home-maintenance**: Match header meta and date format to spec mockup
+  ([`b0ea0f9`](https://github.com/cartagena/InkyPi/commit/b0ea0f920d5595217eb0b03e5176c28f061de93b))
+
+Header showed a plain "N tasks" count; specs/mockups/home.svg wants a status breakdown ("N overdue ·
+  N due soon"), computed over the full list so a task pushed off-screen by the row cap is still
+  surfaced. Plain (non-chip) rows also showed "Oct 2026" instead of the mockup's year-less "Oct" — a
+  status this far out rarely needs the year to be unambiguous, and the extra width wasn't buying
+  anything.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+- **home-maintenance**: Row separator was overlapping the next row's text
+  ([`8ae8953`](https://github.com/cartagena/InkyPi/commit/8ae89538b8f84c3ac1c327af83af3b22ba291a85))
+
+.hm-row-sep used `bottom: -0.9em`, which pushes an absolutely-positioned element *outward* past its
+  container's bottom edge, not inward. With rows packed edge-to-edge (row_height_em == row_pitch_em,
+  no inter-row gap), that pushed each separator ~19px into the following row's own box, drawing the
+  line straight through its task text's descenders. Rows are packed with no gap, so the natural
+  row-to-row boundary is simply the row's own bottom edge — bottom: 0.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+- **homeboard**: Age chip uses word buckets instead of an ambiguous "Nd"
+  ([`d1ab56e`](https://github.com/cartagena/InkyPi/commit/d1ab56e5aed279383aa6083322043fda210e8d96))
+
+age_tag()'s bare "Nd" label sat next to due_tag()'s numeric "Due Nd"/ "Overdue Nd" labels with
+  nothing to tell a reader which one counts up (time since this fork's local ledger first saw the
+  item) and which counts down (time until a deadline) - and "0d" was actively misleading on a fresh
+  install, since every pre-existing item gets first_seen=today the first time it's tracked
+  regardless of how old the task really is. Switched to word buckets ("New"/"Aging"/"Stale"),
+  matching effort_tag's existing style, trading exact-day precision for an unambiguous label.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+- **homeboard**: Decouple priority chip from the warn_is_solid gate
+  ([`53e0585`](https://github.com/cartagena/InkyPi/commit/53e058558bc867fc9046f1bbe632506fb307b6cb))
+
+PriorityTag's Medium case authored solid=True, but board.py's shared _chip_params() unconditionally
+  overrode any warn-role chip's solid flag to RoleMap.warn_is_solid (currently False) - so "Medium"
+  priority only rendered as outline as a side effect of a hardware-legibility gate meant for the
+  age/due escalation ladders, not because of anything about priority itself. "High" priority
+  (role=alert) was never gated the same way, which read as arbitrary: two values of the same field
+  getting inconsistent treatment for an unrelated reason, and Medium would have silently jumped to
+  solid yellow the moment warn_is_solid flips after physical-panel verification - which doesn't make
+  sense for a stable, sender-declared two-value category.
+
+Made Medium's outline treatment a permanent, deliberate design choice (high shouts, medium notices)
+  instead: priority_tag() now authors it as solid=False directly, and _chip_params() no longer
+  applies the warn_is_solid override to PriorityTag specifically - only AgeTag/DueTag (the actual
+  escalation ladders) still respect that flag.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+- **homeboard**: Give approaching due dates actual colour
+  ([`294ac8b`](https://github.com/cartagena/InkyPi/commit/294ac8ba48d2e896c0ffb37df25b4eb738bd06a2))
+
+due_tag() had one threshold (1 day) between "imminent" (solid warn) and "everything else" (plain ink
+  outline) — a task due in 2 days read identically to one due in 3 months. Added a second, wider
+  tier: within 5 days now gets a warn-coloured outline before the solid-warn today/tomorrow tier
+  takes over.
+
+That alone wasn't visible: .hb-chip[data-role="warn"][data-solid="0"] in _chrome.css used
+  --color-ink for both border and text, so a "warn, not solid" chip already rendered identically to
+  an untagged one. Fixed the border to use --color-warn (text stays ink, avoiding the
+  dark-text-on-solid-yellow legibility question SPEC §2.2 still gates behind physical-panel
+  confirmation).
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+- **homeboard**: Recalibrate title truncation and add overflow backstops
+  ([`e9f43a1`](https://github.com/cartagena/InkyPi/commit/e9f43a15de110ec546326d44b0d7d38f4b44fb24))
+
+ADVANCE_RATIO (0.52) overestimated average glyph width against the real rendered font, causing
+  board/trips/home_maintenance titles to truncate far short of the space actually available.
+  Recalibrated to 0.46 from measurements against the actual rendered font, and added a CSS max-width
+  + overflow:hidden/ellipsis backstop (using the same pixel budget truncate() computed) to every
+  truncated title that was missing one, so a mismatched estimate can no longer overflow into
+  adjacent content.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+- **homeboard**: Remove BoardBot source label from footer
+  ([`edf62cb`](https://github.com/cartagena/InkyPi/commit/edf62cbfbc6329d97a6a65504b91121bc60be6e6))
+
+Every screen's footer showed a bottom-left "BoardBot" source label that never carried any signal —
+  it was always the same value across all four screens. Dropped it, keeping only the right-aligned
+  sync-freshness text.
+
+build_chrome()'s `source` parameter stays in place (unused) so
+  board.py/trips.py/home_maintenance.py/weekends.py don't need updating.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+- **trips**: Derive blocking from next_action, not an absent field
+  ([`4b63724`](https://github.com/cartagena/InkyPi/commit/4b637241d26965bd49adfe30f9008ec51a955ada))
+
+BoardBot's /trips API never sends a `blocking` field (docs/api.md and SPEC.md are both explicit
+  about this), so the pending next-action line on a booked trip always rendered in plain ink instead
+  of alert red, regardless of how urgent it actually was.
+
+A booked trip's next-action line is, by SPEC.md's own description, "the only actionable thing on the
+  screen" — so having one at all is what blocking means here. Derive it from whether next_action is
+  non-empty instead of waiting on a source field that will never arrive. Dropped parse_bool() along
+  with the dead field-read path.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_018KtEbnyJDcPNmcxVfS6qZ1
+
+### Chores
+
+- Track CLAUDE.md and the Claude Code agent roster
+  ([`e3b2941`](https://github.com/cartagena/InkyPi/commit/e3b29418326d10ce0830774a7fe83e98f0c0be84))
+
+Both were untracked, so git worktrees and fresh clones started with none of the repo's conventions.
+  Adds eight subsystem agents under .claude/agents/ (plugin-dev, web-backend, frontend-ui,
+  render-pipeline, test-qa, device-install, ci-release, security-audit) plus a README recording each
+  one's tool grants.
+
+.gitignore uses `.claude/*` with a negation rather than `.claude/`: git does not descend into an
+  excluded directory, so `!.claude/agents/` beneath a `.claude/` exclusion would never match.
+  settings.local.json and worktrees/ stay ignored.
+
+Reviewing CLAUDE.md against the code turned up four wrong claims, fixed here:
+
+- The dependency section said to edit install/requirements.in and regenerate with pip-compile.
+  Runtime deps have been uv-only since JTN-616, and pip-compile drops the sys_platform markers and
+  Pi arm64/armv7l/armv6l wheel hashes that install.sh needs under --require-hashes. Dev deps
+  genuinely are still pip-compiled from requirements-dev.in, so that exception is now called out
+  instead of conflated. - src/inkypi.py was described as "~200 lines after the JTN-289 split"; it is
+  799. Rewritten without a number so it cannot go stale the same way. - security:/ui:/css: were
+  described as passing the PR title lint while skipping the release bump. pr-title-lint.yml accepts
+  only the eleven conventional types, so those are rejected outright. Added the lowercase-subject
+  rule (subjectPattern: ^[^A-Z].+$) as well. - "This fork (jtn0123/InkyPi)" described upstream
+  rather than this checkout. Documents the three-level topology (fatihak -> jtn0123 -> origin) and
+  that the Homeboard screens are origin-only, not upstream candidates.
+
+Also adds the mypy tests/ baseline local-vs-CI gap (a local scripts/lint.sh undercounts by ~30
+  because venv.sh exports PYTHONPATH=src:<repo-root>, so "ratchet improved" locally does not mean CI
+  passes), the JS bundle rebuild step, and a Homeboard architecture section covering why boardbot.py
+  deliberately bypasses safe_http_get.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_0143h6fJ3PUkTaKZGXnfkcRh
+
+
 ## v1.12.0 (2026-09-06)
 
 ### Features
