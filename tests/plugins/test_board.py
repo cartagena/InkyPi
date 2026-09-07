@@ -410,11 +410,15 @@ class TestBacklogSeedKey:
         assert seen_seed_keys[0] != seen_seed_keys[1]
 
 
-class TestChipParamsPriorityExclusion:
-    """PriorityTag must not be swept up in AgeTag/DueTag's warn_is_solid
-    gate — Medium priority's outline treatment is a permanent design
-    choice (tags.priority_tag's docstring), not a placeholder pending
-    physical-panel legibility confirmation like the age/due ladders."""
+class TestChipParamsWarnIsSolidGate:
+    """warn_is_solid can only ESCALATE a chip already authored wanting
+    solid (chip.solid is True) — it can never force solid onto one
+    deliberately authored outline-only (chip.solid is False). Covers both
+    PriorityTag's Medium (a permanent design choice, tags.priority_tag's
+    docstring) and DueTag's "approaching" tier (deliberately calmer than
+    the "Today"/"Tomorrow" tier it sits below, tags.due_tag's docstring) —
+    neither should become indistinguishable from a genuinely escalated
+    chip just because the physical-panel legibility flag flipped."""
 
     @staticmethod
     def _role_map(*, warn_is_solid: bool) -> palette.RoleMap:
@@ -443,6 +447,34 @@ class TestChipParamsPriorityExclusion:
 
         params_off = _chip_params(age, self._role_map(warn_is_solid=False))
         params_on = _chip_params(age, self._role_map(warn_is_solid=True))
+        assert params_off is not None and params_on is not None
+        assert params_off["solid"] is False
+        assert params_on["solid"] is True
+
+    def test_due_tag_approaching_tier_stays_outline_when_warn_is_solid_true(
+        self,
+    ) -> None:
+        from plugins.board.board import _chip_params
+
+        due = tags.due_tag(date(2026, 9, 9), today=date(2026, 9, 4))
+        assert due is not None
+        assert due.role == palette.Role.WARN
+        assert due.solid is False  # the "approaching" tier, not "Today"/"Tomorrow"
+
+        params = _chip_params(due, self._role_map(warn_is_solid=True))
+        assert params is not None
+        assert params["solid"] is False
+
+    def test_due_tag_imminent_tier_still_follows_warn_is_solid(self) -> None:
+        from plugins.board.board import _chip_params
+
+        due = tags.due_tag(date(2026, 9, 4), today=date(2026, 9, 4))
+        assert due is not None
+        assert due.label == "Today"
+        assert due.solid is True
+
+        params_off = _chip_params(due, self._role_map(warn_is_solid=False))
+        params_on = _chip_params(due, self._role_map(warn_is_solid=True))
         assert params_off is not None and params_on is not None
         assert params_off["solid"] is False
         assert params_on["solid"] is True
