@@ -31,17 +31,13 @@ BACKLOG_PITCH_EM = 3.1
 MIN_BACKLOG = 2
 MAX_BACKLOG = 4
 
-# SPEC §7.3 originally sized this for a single-line row (title + one
-# right-aligned age tag) at 2.6em, predating boardbot's priority_tag/
-# due_tag fields — once those were added, up to 3 chips were squeezed
-# onto that same line alongside the title, overlapping/cutting into it on
-# anything but a short title. Chips now render on their own line below
-# the title (board.py/board.css), so the row needs room for two lines
-# again, not one — 2.9em, between BACKLOG_PITCH_EM's 3.1em (title +
-# chip-row at the slightly larger --fs-cell, up to 4 chips including a
-# size chip) and the old single-line 2.6em (todo's title is --fs-body,
-# smaller, and carries at most 3 simpler chips, no size chip).
-TODO_PITCH_EM = 2.9
+# SPEC §7.3's original single-line design: title + one right-aligned age
+# tag, nothing else. A later boardbot integration added priority_tag/
+# due_tag to this row too, which needed a two-line layout to avoid
+# overlapping the title — reverted per user request ("just an item with
+# how many days it's been open, nothing else") back to the single line
+# SPEC always specified, so the pitch goes back to its original 2.6em too.
+TODO_PITCH_EM = 2.6
 MIN_TODO = 4
 MAX_TODO = 9
 # Space reserved below the last to-do row for the "Cleared" line. UNVERIFIED

@@ -70,17 +70,9 @@
   {% else %}
   {% for item in todo %}
   <div class="board-todo-row" style="top: {{ loop.index0 * todo_pitch_px }}px; height: {{ todo_pitch_px }}px;">
-    <div class="board-todo-line1">
-      <div class="board-todo-checkbox"></div>
-      <div class="board-todo-title">{{ item.title }}</div>
-    </div>
-    {% if item.priority_tag or item.due_tag or item.age_tag %}
-    <div class="board-todo-chip-row">
-      {% if item.priority_tag %}<span class="hb-chip" data-role="{{ item.priority_tag.role }}" data-solid="{{ 1 if item.priority_tag.solid else 0 }}">{{ item.priority_tag.label }}</span>{% endif %}
-      {% if item.due_tag %}<span class="hb-chip" data-role="{{ item.due_tag.role }}" data-solid="{{ 1 if item.due_tag.solid else 0 }}">{{ item.due_tag.label }}</span>{% endif %}
-      {% if item.age_tag %}<span class="hb-chip" data-role="{{ item.age_tag.role }}" data-solid="{{ 1 if item.age_tag.solid else 0 }}">{{ item.age_tag.label }}</span>{% endif %}
-    </div>
-    {% endif %}
+    <div class="board-todo-checkbox"></div>
+    <div class="board-todo-title">{{ item.title }}</div>
+    {% if item.age_tag %}<span class="hb-chip board-todo-age" data-role="{{ item.age_tag.role }}" data-solid="{{ 1 if item.age_tag.solid else 0 }}">{{ item.age_tag.label }}</span>{% endif %}
     {% if not loop.last %}<div class="board-row-sep"></div>{% endif %}
   </div>
   {% endfor %}

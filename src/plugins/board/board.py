@@ -583,28 +583,32 @@ class Board(BasePlugin):
         age_warn: int,
         roles: palette.RoleMap,
     ) -> dict[str, Any]:
-        priority = tags.priority_tag(item.priority)
-        due = tags.due_tag(item.due_date, today)
         age = tags.age_tag(
             board_data.days_since(item.first_seen, today),
             age_show,
             age_warn,
             _TODO_AGE_ALERT_DAYS,
         )
-        # Chips now render on their own line below the title (board.html/
-        # board.css) rather than sharing the title's flex line, so the
-        # title's budget no longer needs to reserve room for trailing
-        # chips — only for the checkbox + its own left padding that share
-        # line 1 with it (checkbox 0.83em + title's own 1.4em padding-left,
-        # matching board.css's .board-todo-title/.board-todo-chip-row).
+        # SPEC §7.3's original single-line design: checkbox + title + one
+        # right-aligned age tag, nothing else — priority_tag/due_tag were a
+        # later boardbot-integration addition that needed a two-line row to
+        # avoid overlapping the title (see board_data.py's TODO_PITCH_EM
+        # comment); reverted per user request back to just the age signal.
+        # Reserve room for the checkbox + its padding (line-left) and, only
+        # when an age chip will actually render, a conservative budget for
+        # it (line-right) — most rows carry no age chip at all by design
+        # (SPEC §7.6: "most errands carry no tag at all"), and reserving
+        # space for one anyway would needlessly truncate every such title
+        # tighter than the row actually requires. CSS's overflow:hidden/
+        # ellipsis on .board-todo-title is the backstop if this estimate
+        # runs short regardless.
         row_w_px = t.width * column_w_pct / 100
         checkbox_and_padding_px = (0.83 + 1.4) * t.fs["body"]
-        title_w_px = row_w_px - checkbox_and_padding_px
+        age_tag_reserve_px = 0.15 * row_w_px if age is not None else 0.0
+        title_w_px = row_w_px - checkbox_and_padding_px - age_tag_reserve_px
         return {
             "title": layout.truncate(item.title, title_w_px, t.fs["body"]),
             "age_tag": _chip_params(age, roles),
-            "priority_tag": _chip_params(priority, roles),
-            "due_tag": _chip_params(due, roles),
         }
 
 
