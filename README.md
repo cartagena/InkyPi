@@ -190,6 +190,7 @@ When installing, use `-W` with your model name (without `.py`): `sudo bash insta
 - [API Keys](./docs/api_keys.md) — Configuring keys for OpenAI, Google, etc.
 - [Testing](./docs/testing.md) — Test suite, sharding, browser tests, coverage
 - [Building Plugins](./docs/building_plugins.md) — Create custom plugins (includes hello-world)
+- [Homeboard Screens](./docs/homeboard_screens.md) — What the Board/Trips/Home/Weekends screens do and how they look
 - [Security](./docs/security.md) — SBOM, vulnerability reporting
 - [Dependencies](./docs/dependency_locking.md) — uv lockfile workflow and hash pinning
 - [Troubleshooting](./docs/troubleshooting.md) — Common issues and fixes
