@@ -94,13 +94,22 @@ _INKY_SIX_COLOUR_COLOUR_VALUES = frozenset({"multi", "seven_colour", "seven-colo
 # simulating at the cost of every other screen looking dingy. Still
 # pending SPEC §9 step 2's physical-panel legibility check (warn_is_solid
 # below), but the ink colour values themselves are no longer a placeholder.
+#
+# CONFIRMED on the deployed panel: `inky.eeprom.read_eeprom()` reports
+# display_variant 22, "Spectra 6 7.3 800 x 480 (E673)", and `auto()`
+# returns `inky.inky_e673` — the exact driver these values come from. The
+# five ink values below are now byte-identical to that driver's own 0.5
+# blend, so quantize() leaves its Floyd-Steinberg pass literally nothing
+# to diffuse. `paper` remains the one deliberate divergence (the driver's
+# substrate is (208, 210, 210)); it always resolves to the panel's single
+# near-white ink regardless, since nothing else in the palette is close.
 _SIX_COLOUR_RGB: dict[Role, RGB] = {
     Role.INK: (0, 0, 0),
     Role.PAPER: (255, 255, 255),
     Role.AVAILABLE: (29, 173, 35),
-    Role.WARN: (231, 222, 35),
-    Role.ALERT: (205, 36, 37),
-    Role.EMPHASIS: (30, 29, 174),
+    Role.WARN: (232, 222, 36),
+    Role.ALERT: (206, 36, 38),
+    Role.EMPHASIS: (30, 30, 174),
 }
 
 _BW_RGB: dict[Role, RGB] = {
@@ -252,8 +261,20 @@ def _detect_inky_six_colour() -> bool:
 
 
 def _detect_capability(device_config: DeviceConfigLike) -> bool:
-    """Return True for a detected six-colour panel, False for bw/unknown."""
-    display_type = device_config.get_config("display_type", default="mock")
+    """Return True for a detected six-colour panel, False for bw/unknown.
+
+    The ``"inky"`` default is not arbitrary: it must match
+    ``DisplayManager.__init__``'s default for the same key
+    (``display/display_manager.py``), because ``display_type`` is *absent*
+    from device.json on every Inky install. ``install.sh``'s
+    ``update_config()`` only writes the key when ``WS_TYPE`` is set — i.e.
+    for Waveshare panels — and ``install/config_base/device.json`` does not
+    carry it. Defaulting to ``"mock"`` here while DisplayManager defaulted
+    to ``"inky"`` meant a real Inky Impression drove the panel correctly and
+    simultaneously resolved to the black-and-white palette, so every screen
+    rendered monochrome no matter what the hardware probe returned.
+    """
+    display_type = device_config.get_config("display_type", default="inky")
     if not isinstance(display_type, str):
         return False
 
