@@ -202,9 +202,9 @@ google-auth==2.57.0 \
     --hash=sha256:180dafe015cfb62193bea26b677500fab5b9fd51a1e825ebf3ad9b182047ae59 \
     --hash=sha256:9b4f96d6a1feb5f7201231f47cfb3de08d8f176f8a61f9e461555116e95a8789
     # via google-genai
-google-genai==2.20.0 \
-    --hash=sha256:49bddeccd29a4e6bf1706c5de67735f7115f537f08b6c36a70b8023c99399095 \
-    --hash=sha256:d382186f024e9050a7a4b25af6eacba9aa16c6e09594f5d1b530f22ff7f9d76f
+google-genai==2.22.0 \
+    --hash=sha256:9fa3b5d9ddb635005d8ab2d6206fb2b3d7204b66965bbce7de13ecd1a866ebcd \
+    --hash=sha256:c514001c45470cc0a942440ae1b8215445d12bfb6c373aac94637127e1f74ec6
     # via inkypi
 gpiod==2.4.2 ; sys_platform == 'linux' \
     --hash=sha256:1ba4d8e2ebc83ac50d4546134f2222cf67d50534eda7433f03f496950991611f \
