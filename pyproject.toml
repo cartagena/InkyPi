@@ -122,9 +122,20 @@ version_toml = [
   "pyproject.toml:tool.semantic_release.version",
 ]
 version = "1.12.3"
-branch = "main"
 tag_format = "v{version}"
-upload_to_pypi = false
+# v10's default parser ("conventional") ships parse_squash_commits = true, which
+# reads the `* feat:` / `* fix:` subject lines GitHub concatenates into a squash
+# body and lets them drive the bump. That contradicts the contract in
+# CONTRIBUTING.md: PRs are squash-merged and the PR *title* decides the version.
+# Measured on this repo's history — a `fix:` PR title whose squash body carries
+# an inner `* feat:` line resolves to 1.12.4 with this false and 1.13.0 with it
+# true. Keeping it false preserves the v9 (angular parser) behavior.
+#
+# Note this is not the `BREAKING CHANGE:` footer hazard CONTRIBUTING.md warns
+# about under "Do not branch from your previous feature branch" — a footer
+# anywhere in the body forces a major bump under either setting (verified), so
+# branching from fresh origin/main is still the only guard against that.
+commit_parser_options = { parse_squash_commits = false }
 # Regenerate VERSION from the canonical pyproject.toml value on each release.
 # Using NEW_VERSION (env var exported by python-semantic-release to
 # build_command) avoids relying on shell {version} expansion, which PSR does
