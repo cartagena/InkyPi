@@ -1,6 +1,62 @@
 # CHANGELOG
 
 
+## v1.12.3 (2026-09-08)
+
+### Bug Fixes
+
+- **homeboard**: Default display_type to inky, matching DisplayManager
+  ([`1d78a36`](https://github.com/cartagena/InkyPi/commit/1d78a36aec62048b57b605174ff746f28cdf3d19))
+
+Even with the "multi" detection fix from #58 deployed and _detect_inky_six_colour() correctly
+  returning True on the panel, every homeboard screen still rendered monochrome. The probe was never
+  reached.
+
+display_type is *absent* from device.json on every Inky install: install.sh's update_config() only
+  writes the key when WS_TYPE is set (so, Waveshare panels), and install/config_base/device.json
+  does not carry it. Two consumers then read the same missing key with opposite defaults —
+  DisplayManager (display_manager.py:72) defaults to "inky" and drives the panel correctly, while
+  _detect_capability defaulted to "mock", took the colour-preview branch, and returned False outside
+  dev mode. The result was a real Inky Impression driving colour hardware from a palette that had
+  already collapsed every role to rgb(0,0,0).
+
+Aligning the default to "inky" is the whole fix. Verified against a config with the key genuinely
+  absent: _detect_capability now probes the hardware and resolve() returns distinct role colours.
+
+Adds a guard test that reads DisplayManager's default out of its source, so the two cannot drift
+  apart again silently.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01NzvqQkcfAbTL53oLoKrbCH
+
+- **homeboard**: Pin ink values to the E673 palette exactly
+  ([`75a9bfe`](https://github.com/cartagena/InkyPi/commit/75a9bfee00b7317a32b4f10e022452bac196d922))
+
+The deployed panel is confirmed: `inky.eeprom.read_eeprom()` reports display_variant 22, "Spectra 6
+  7.3 800 x 480 (E673)", and `auto()` returns `inky.inky_e673` — the driver _SIX_COLOUR_RGB was
+  derived from, so no re-derivation for the 7-colour ACeP variant is needed.
+
+Comparing the constants against that driver's own 0.5 blend did turn up three values that were one
+  LSB off, from rounding when they were first derived: warn (231,222,35) vs (232,222,36), alert
+  (205,36,37) vs (206,36,38), emphasis (30,29,174) vs (30,30,174). Small, but it left the driver's
+  Floyd-Steinberg pass a non-zero error to diffuse on exactly the solid chip fills quantize() exists
+  to keep clean.
+
+paper stays pure white deliberately. The driver's substrate is (208,210,210), and `set_image`
+  quantizes to the first 6 palette entries only, so pure white is not reachable — but it resolves
+  uniformly to that one near-white ink (verified: a full-panel white field yields a single palette
+  index, no diffusion artefacts), and using the substrate colour directly would make every mock
+  preview look dingy for no on-panel gain.
+
+Verified end to end by pushing all four rendered screens through the real inky_e673 quantizer: every
+  distinct source colour maps to exactly one palette index, 0 speckled pixels on all four screens.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+
+Claude-Session: https://claude.ai/code/session_01NzvqQkcfAbTL53oLoKrbCH
+
+
 ## v1.12.2 (2026-09-07)
 
 ### Bug Fixes
