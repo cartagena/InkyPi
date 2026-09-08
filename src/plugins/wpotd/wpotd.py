@@ -46,7 +46,7 @@ _WPOTD_MIN_DATE = date(2007, 1, 1)
 
 
 class Wpotd(BasePlugin):
-    HEADERS = {"User-Agent": "InkyPi/0.0 (https://github.com/fatihak/InkyPi/)"}
+    HEADERS = {"User-Agent": "InkyPi/0.0 (https://github.com/cartagena/InkyPi/)"}
     API_URL = os.getenv(
         "INKYPI_WIKIPEDIA_API_URL", "https://en.wikipedia.org/w/api.php"
     )

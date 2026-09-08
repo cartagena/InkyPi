@@ -11,7 +11,7 @@ Thanks for your interest in contributing to InkyPi! This guide covers setup, tes
 
 ```bash
 # Clone the current repo or your fork
-git clone https://github.com/jtn0123/InkyPi.git
+git clone https://github.com/cartagena/InkyPi.git
 cd InkyPi
 
 # Create and activate a virtual environment

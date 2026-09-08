@@ -1,4 +1,4 @@
-"""Fit modes and the padImage → fitMode migration (upstream fatihak#736).
+"""Fit modes and the padImage → fitMode migration.
 
 Three image plugins previously each decided "crop or pad?" from their own copy
 of a boolean. Centralising it means they cannot drift, and — more importantly —

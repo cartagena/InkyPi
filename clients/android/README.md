@@ -2,7 +2,7 @@
 
 A standalone **touch dashboard app** for the Galaxy Tab S6 kitchen panel.
 
-Same idea as [InkyPi](https://github.com/fatihak/InkyPi) — plugin cards on a dashboard — but
+Same idea as [InkyPi](https://github.com/cartagena/InkyPi) — plugin cards on a dashboard — but
 **runs entirely on the tablet**. No Raspberry Pi, no server, no e-ink hardware. Rendered for a
 colour AMOLED instead of e-paper, hence the name.
 

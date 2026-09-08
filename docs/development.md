@@ -19,7 +19,7 @@ Traditional setup method
 
 ```bash
 # 1. Clone and setup
-git clone https://github.com/jtn0123/InkyPi.git
+git clone https://github.com/cartagena/InkyPi.git
 cd InkyPi
 
 # 2. Quick start (recommended)
@@ -49,7 +49,7 @@ command -v direnv >/dev/null || nix profile install "nixpkgs#direnv" \
   && source ~/.${SHELL##*/}rc # If not already present: install direnv, add hooks to shell rc and activate
 
 # 2. Clone and setup
-git clone https://github.com/jtn0123/InkyPi.git
+git clone https://github.com/cartagena/InkyPi.git
 cd InkyPi # direnv reads .envrc -> runs devbox shell -> installs deps & activates venv
 
 # 3. Run InkyPi in developer mode via devbox
@@ -205,7 +205,7 @@ allowed through.
 
 ### Making `ci-gate` a required status check (repo owner steps)
 
-1. Go to **GitHub.com → jtn0123/InkyPi → Settings → Branches**.
+1. Go to **GitHub.com → cartagena/InkyPi → Settings → Branches**.
 2. Under "Branch protection rules", click **Edit** next to the `main` rule (or **Add rule**
    if none exists).
 3. Enable **"Require status checks to pass before merging"**.
@@ -233,7 +233,7 @@ InkyPi relies on system packages for some features, which are normally installed
 
 The required packages can be found in this file:
 
-https://github.com/jtn0123/InkyPi/blob/main/install/debian-requirements.txt
+https://github.com/cartagena/InkyPi/blob/main/install/debian-requirements.txt
 
 Use your favourite package manager (such as `apt`) to install them.
 

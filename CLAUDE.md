@@ -7,15 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 InkyPi is a Flask web app + background refresh task (same process) that drives e-ink displays
 (Pimoroni Inky, Waveshare) from a Raspberry Pi.
 
-Fork topology is three levels deep — `fatihak/InkyPi` → `jtn0123/InkyPi` → **this checkout**:
-
-- `origin` = `cartagena/InkyPi` — where you work and merge.
-- `upstream` = `jtn0123/InkyPi` — a heavily diverged fork of `fatihak/InkyPi`, focused on security
-  hardening, testing, and install/update reliability. Treat those as first-class concerns here too.
-
-Sync direction is upstream → origin. Personal features (the Homeboard screens and their `boardbot`
-adapter, below) exist only in `origin` and are **not** upstream candidates — keep them out of any
-branch you intend to send to `jtn0123`.
+`origin` = `cartagena/InkyPi` is the only remote — there is no upstream to sync from or send
+changes back to. Security hardening, testing, and install/update reliability are first-class
+concerns here; treat them that way in every change.
 
 ## Commands
 

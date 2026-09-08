@@ -208,9 +208,8 @@ Your repository must include:
 
 ---
 
-See [InkyPi-Plugin-Template](https://github.com/fatihak/InkyPi-Plugin-Template) for a sample template of a third-party plugin.
-
-Once you're done, feel free to add your plugin to the [3rd Party Plugin List](https://github.com/fatihak/InkyPi/wiki/3rd-Party-Plugins) and share it in the [🙌 Show and Tell Discussion Board](https://github.com/fatihak/InkyPi/discussions/categories/show-and-tell).
+A third-party plugin is any repo with this layout — install it with
+`install/cli/inkypi-plugin` and it registers like a built-in.
 
 ---
 
@@ -240,7 +239,7 @@ Create `src/plugins/hello/plugin-info.json`:
 }
 ```
 
-`api_version` and `version` are checked at load time — see [JTN-300](https://linear.app/jtn0123/issue/JTN-300).
+`api_version` and `version` are checked at load time — see JTN-300.
 
 ### 3. Implement the plugin class
 

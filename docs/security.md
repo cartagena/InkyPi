@@ -10,11 +10,11 @@ so that security teams and auditors can inventory third-party dependencies.
 
 ```bash
 # Replace vX.Y.Z with the release tag, e.g. v0.39.8
-gh release download vX.Y.Z --repo jtn0123/InkyPi --pattern 'inkypi-vX.Y.Z-bom.json'
+gh release download vX.Y.Z --repo cartagena/InkyPi --pattern 'inkypi-vX.Y.Z-bom.json'
 ```
 
 Or download it directly from the GitHub releases page:
-`https://github.com/jtn0123/InkyPi/releases`
+`https://github.com/cartagena/InkyPi/releases`
 
 ### Validating the SBOM with cyclonedx-cli
 
@@ -53,5 +53,5 @@ pip-audit --sbom inkypi-vX.Y.Z-bom.json
 
 ## Security Reporting
 
-To report a vulnerability, please open a [GitHub Security Advisory](https://github.com/jtn0123/InkyPi/security/advisories/new)
+To report a vulnerability, please open a [GitHub Security Advisory](https://github.com/cartagena/InkyPi/security/advisories/new)
 or email the maintainers directly rather than filing a public issue.

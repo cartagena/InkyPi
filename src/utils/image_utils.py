@@ -348,7 +348,7 @@ def resolve_background_color(
     ``ImageOps.pad`` rather than anywhere obviously colour-related:
 
     * a colour resolved in ``RGB`` cannot be pasted into an ``L`` (grayscale)
-      or ``1`` (bi-level) image — the exact crash upstream fixed in #568, and
+      or ``1`` (bi-level) image — the exact crash fixed in InkyPi #568, and
       one our bi-colour and grayscale panel users are the most likely to hit;
     * ``ImageColor.getcolor`` raises ``ValueError`` on a malformed value, and
       the colour arrives from a free-text settings field.

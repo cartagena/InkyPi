@@ -343,7 +343,7 @@ HTTP_POOL_MAXSIZE = 10
 HTTP_POOL_BLOCK = False
 HTTP_STATUS_FORCELIST = (429, 500, 502, 503, 504)
 HTTP_ALLOWED_METHODS = ("HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE")
-HTTP_DEFAULT_USER_AGENT = "InkyPi/1.0 (+https://github.com/fatihak/InkyPi)"
+HTTP_DEFAULT_USER_AGENT = "InkyPi/1.0 (+https://github.com/cartagena/InkyPi)"
 DEFAULT_HEADERS: dict[str, str] = {"User-Agent": HTTP_DEFAULT_USER_AGENT}
 
 

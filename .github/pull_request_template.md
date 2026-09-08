@@ -19,12 +19,6 @@
 - [ ] This PR is based on `origin/main` (not a stale long-lived branch)
 - [ ] I rebased/merged latest `origin/main` before opening
 
-## Parent-Fork Sync Checklist
-
-- [ ] If this PR syncs from `fatihak/InkyPi`, changes were cherry-picked by feature
-- [ ] Relevant upstream behavior differences were documented in PR description
-- [ ] Plugin/add-to-playlist/update flows were smoke-tested after sync
-
 ## Compatibility/Release Checklist
 
 - [ ] `pytest` relevant suites pass locally

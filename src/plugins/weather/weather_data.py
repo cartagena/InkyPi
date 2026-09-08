@@ -352,7 +352,7 @@ def parse_open_meteo_forecast(
 
         # The moon phase belongs to the day being rendered.  This previously
         # added a day, so every row showed tomorrow's phase against today's
-        # label (upstream fatihak#613).
+        # label.
         target_date: date = dt.date()
 
         try:
