@@ -19,7 +19,7 @@ Traditional setup method
 
 ```bash
 # 1. Clone and setup
-git clone https://github.com/jtn0123/InkyPi.git
+git clone https://github.com/cartagena/InkyPi.git
 cd InkyPi
 
 # 2. Quick start (recommended)
@@ -49,7 +49,7 @@ command -v direnv >/dev/null || nix profile install "nixpkgs#direnv" \
   && source ~/.${SHELL##*/}rc # If not already present: install direnv, add hooks to shell rc and activate
 
 # 2. Clone and setup
-git clone https://github.com/jtn0123/InkyPi.git
+git clone https://github.com/cartagena/InkyPi.git
 cd InkyPi # direnv reads .envrc -> runs devbox shell -> installs deps & activates venv
 
 # 3. Run InkyPi in developer mode via devbox
@@ -168,6 +168,22 @@ python scripts/plugin_validator.py clock   # validate a single plugin
   - `src/config/schemas/device_config.schema.json`
   - `src/config/schemas/plugin-info.schema.json`
 
+### Utility scripts
+
+Hand-run helpers under `scripts/`. Nothing in CI calls these, so they are easy
+to miss — reach for them instead of rebuilding the same thing ad hoc.
+
+| Script | What it does |
+|---|---|
+| `diag_network.py` | DNS / TCP / TLS / TTFB timings for a set of URLs. Fast triage for "the Pi feels slow". Defaults to a built-in URL list; override with `--urls`. |
+| `render_weather_mock.py` | Renders the Weather plugin with mocked API responses — no tokens, no network. `--layout`, `--units`, `--out`. |
+| `compare_icons.py` | Builds an HTML matrix comparing the current weather icon set against a candidate pack, one row per icon code. |
+| `export_benchmarks_report.py` | Writes `docs/benchmarks_report.md` from the benchmarks SQLite DB (latest 50 refreshes). Generated on demand; gitignored. |
+| `logs.sh` | Streams or tails `inkypi.service` journald logs, locally or over SSH. `-f` to follow, `-g` to filter, `-h` for the full option list. |
+| `dry_run_plugin.py` | Loads a plugin by ID, calls `generate_image()` against a mock device config, and writes the result to a PNG. No display, refresh task, or web server. |
+| `seed_test_data.py` | Populates a dev environment with sample plugin instances, playlists, and history images plus sidecar JSON. |
+| `diagnostic_snapshot.py` | Collects a diagnostic tarball (config, logs, versions) for support workflows. |
+
 ## Testing Your Changes
 
 1. Configure a plugin through the web UI
@@ -205,7 +221,7 @@ allowed through.
 
 ### Making `ci-gate` a required status check (repo owner steps)
 
-1. Go to **GitHub.com → jtn0123/InkyPi → Settings → Branches**.
+1. Go to **GitHub.com → cartagena/InkyPi → Settings → Branches**.
 2. Under "Branch protection rules", click **Edit** next to the `main` rule (or **Add rule**
    if none exists).
 3. Enable **"Require status checks to pass before merging"**.
@@ -233,7 +249,7 @@ InkyPi relies on system packages for some features, which are normally installed
 
 The required packages can be found in this file:
 
-https://github.com/jtn0123/InkyPi/blob/main/install/debian-requirements.txt
+https://github.com/cartagena/InkyPi/blob/main/install/debian-requirements.txt
 
 Use your favourite package manager (such as `apt`) to install them.
 

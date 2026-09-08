@@ -2624,7 +2624,6 @@ svg.icon-thin {
 
 /* Settings button styling */
 .header-icons { display: flex; align-items: center; gap: 16px; }
-.nav-icons { display: inline-flex; align-items: center; gap: 8px; }
 
 .settings-button {
     font-size: 1rem;
@@ -9966,14 +9965,13 @@ details[open] > .update-release-notes-toggle::before {
 }
 .tooltip{visibility: hidden;}
 .tooltip-text{visibility: visible;}
-.live-preview-overlay{backdrop-filter: blur(4px); background: rgba(0,0,0,0.4);}
 @keyframes slide-in-from-right{from{opacity:0;}to{opacity:1;}}
 @keyframes slide-in-from-bottom{from{opacity:0;}to{opacity:1;}}
 /* @keyframes slideInFromRight */
 /* @keyframes slideInFromBottom */
 /* Enhanced Typography Hierarchy */
 /* Mobile adjustments for live preview */
-.live-preview-overlay{bottom: 20px;}
+.live-preview-overlay{backdrop-filter: blur(4px); background: rgba(0,0,0,0.4); bottom: 20px;}
 .live-preview-content{flex-direction: row;}
 
 /* SVG close icon for modal close buttons */

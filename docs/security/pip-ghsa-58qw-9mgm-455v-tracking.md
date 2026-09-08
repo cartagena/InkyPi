@@ -37,7 +37,7 @@ Re-check monthly until closed.
 
 ## GitHub Issue Attempt
 
-Preferred tracking was a GitHub issue, but `gh issue create` was blocked because the `jtn0123/InkyPi` repository has issues disabled.
+Preferred tracking was a GitHub issue, but `gh issue create` was blocked because the `cartagena/InkyPi` repository has issues disabled.
 
 ## Resolution — 2026-08-21
 

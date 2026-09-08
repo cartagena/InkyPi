@@ -7,7 +7,7 @@ Created: 2026-08-20
 - Rule: `pythonsecurity:S2083` — "Change this code to not construct the path from user-controlled data."
 - Severity: Blocker (drives `new_security_rating` to **E**, failing the PR quality gate)
 - Location: `src/utils/crash_breadcrumb.py`, the `write_text` call inside `_write_json`
-- First reported: PR [#632](https://github.com/jtn0123/InkyPi/pull/632)
+- First reported: PR #632
 
 ## Why It Fires
 
@@ -74,6 +74,6 @@ Close this tracking item when either:
 
 ## GitHub Issue Attempt
 
-Preferred tracking was a GitHub issue, but the `jtn0123/InkyPi` repository has
+Preferred tracking was a GitHub issue, but the `cartagena/InkyPi` repository has
 issues disabled — same constraint recorded in
 [the pip advisory tracking doc](./pip-ghsa-58qw-9mgm-455v-tracking.md).

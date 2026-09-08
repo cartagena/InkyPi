@@ -5,7 +5,7 @@ tolerance for waiting.
 
 ## Option 1 — Pre-built image (easiest, Pi Zero 2 W only)
 
-> Added in [JTN-533](https://linear.app/jtn0123/issue/JTN-533). Available from
+> Added in JTN-533. Available from
 > v0.43.0 onwards. Flash and go — skips the ~15 minute on-device `install.sh`
 > run entirely.
 
@@ -50,7 +50,7 @@ same install.sh flow on-device in about 2–3 minutes.
 ### Install steps
 
 1. Download the latest release from the
-   [InkyPi releases page](https://github.com/jtn0123/InkyPi/releases).
+   [InkyPi releases page](https://github.com/cartagena/InkyPi/releases).
    You want both files:
     - `inkypi-<version>-pi-zero-2-w.img.xz`
     - `inkypi-<version>-pi-zero-2-w.img.xz.sha256`
@@ -291,7 +291,7 @@ A fresh `install.sh` run on a Pi Zero 2 W takes **roughly 15 minutes** end-to-en
 
 ### Pre-built wheelhouse (faster first boot — JTN-604)
 
-As of the version that resolves [JTN-604](https://linear.app/jtn0123/issue/JTN-604), tagged releases ship a pre-built **wheelhouse** — a tarball of every Python dependency compiled in advance for `linux_armv7l` (Pi Zero 2 W, 32-bit Trixie) and `linux_aarch64` (Pi 4/5, 64-bit). `install.sh` detects your architecture from `uname -m`, fetches the matching `inkypi-wheels-<version>-<arch>.tar.gz` from the current release's GitHub assets, verifies its sha256, and hands the extracted wheelhouse to pip/uv via `--find-links` so no on-device compilation runs.
+As of the version that resolves JTN-604, tagged releases ship a pre-built **wheelhouse** — a tarball of every Python dependency compiled in advance for `linux_armv7l` (Pi Zero 2 W, 32-bit Trixie) and `linux_aarch64` (Pi 4/5, 64-bit). `install.sh` detects your architecture from `uname -m`, fetches the matching `inkypi-wheels-<version>-<arch>.tar.gz` from the current release's GitHub assets, verifies its sha256, and hands the extracted wheelhouse to pip/uv via `--find-links` so no on-device compilation runs.
 
 **Expected impact on a Pi Zero 2 W:**
 
@@ -310,7 +310,7 @@ sudo INKYPI_SKIP_WHEELHOUSE=1 ./install.sh
 
 ### uv resolver (faster + lighter dependency install — JTN-605)
 
-As of the version that resolves [JTN-605](https://linear.app/jtn0123/issue/JTN-605), InkyPi now uses [uv](https://github.com/astral-sh/uv) (a Rust-based pip replacement from the `ruff` team) for package installation. On a Pi Zero 2 W this drops the resolver's peak memory from **~100–150 MB down to ~10–20 MB** and installs **3–5× faster** than pip. Combined with the JTN-604 wheelhouse above, the full dependency install can run in **under 3 minutes** with **well under 200 MB** peak RAM.
+As of the version that resolves JTN-605, InkyPi now uses [uv](https://github.com/astral-sh/uv) (a Rust-based pip replacement from the `ruff` team) for package installation. On a Pi Zero 2 W this drops the resolver's peak memory from **~100–150 MB down to ~10–20 MB** and installs **3–5× faster** than pip. Combined with the JTN-604 wheelhouse above, the full dependency install can run in **under 3 minutes** with **well under 200 MB** peak RAM.
 
 `uv` is installed into the venv via `pip install uv` as a one-time bootstrap (no curl-pipe from a third-party host — same PyPI + hashes the venv already trusts), and `uv pip install --require-hashes` fully honors the JTN-516 hash-pinned lockfile for supply-chain integrity. `install.sh` sets `UV_HTTP_TIMEOUT=60` on each uv invocation so network hiccups on flaky Wi-Fi (JTN-534) don't hang the install indefinitely. If `uv` cannot be installed for any reason (e.g. unsupported arch, PyPI outage), `install.sh` cleanly falls back to plain `pip` — uv is purely an optimization, not a hard dependency.
 
@@ -320,7 +320,7 @@ If you're driving an unattended install via cloud-init (e.g. via a `runcmd:` blo
 
 ```yaml
 runcmd:
-- sudo -u <your-user> git clone --branch v0.28.1 --depth 1 https://github.com/jtn0123/InkyPi.git /home/<your-user>/InkyPi
+- sudo -u <your-user> git clone --branch v0.28.1 --depth 1 https://github.com/cartagena/InkyPi.git /home/<your-user>/InkyPi
 - chown -R <your-user>:<your-user> /home/<your-user>/InkyPi
 - bash -c 'cd /home/<your-user>/InkyPi/install && ./install.sh > /var/log/inkypi-install.log 2>&1 && touch /var/log/inkypi-install.done || touch /var/log/inkypi-install.failed'
 ```
@@ -331,7 +331,7 @@ Then SSH in and `tail -f /var/log/inkypi-install.log`. Check for `/var/log/inkyp
 
 The Pi Zero 2 W has no RTC battery. On boot, the system clock starts at the last `fake-hwclock` value, which can be months out of date if the Pi has been off for a while. Running `pip install` or `apt-get` before NTP syncs can cause TLS certificate validation failures ("certificate is not yet valid") because the system clock predates the server's SSL cert `notBefore` date.
 
-As of the version that resolves [JTN-592](https://linear.app/jtn0123/issue/JTN-592), `install.sh` now waits up to 60 seconds for `systemd-timesyncd` to confirm NTP sync via `timedatectl show -p NTPSynchronized` before starting any package installs. If your Pi is connected to a network with NTP access, the clock typically syncs within 5–10 seconds of boot. If the clock does not sync within 60 seconds (e.g. on an offline network), install will proceed with a warning — TLS errors may still occur in that case, and you can set the clock manually with `sudo date -u -s 'YYYY-MM-DD HH:MM:SS'`.
+As of the version that resolves JTN-592, `install.sh` now waits up to 60 seconds for `systemd-timesyncd` to confirm NTP sync via `timedatectl show -p NTPSynchronized` before starting any package installs. If your Pi is connected to a network with NTP access, the clock typically syncs within 5–10 seconds of boot. If the clock does not sync within 60 seconds (e.g. on an offline network), install will proceed with a warning — TLS errors may still occur in that case, and you can set the clock manually with `sudo date -u -s 'YYYY-MM-DD HH:MM:SS'`.
 
 ### Pi Zero W vs Pi Zero 2 W
 

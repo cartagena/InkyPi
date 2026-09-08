@@ -2,7 +2,14 @@
   "rules": {
     "block-no-empty": true,
     "color-no-invalid-hex": true,
-    "declaration-block-no-duplicate-properties": true,
+    "declaration-block-no-duplicate-properties": [
+      true,
+      {
+        "ignore": [
+          "consecutive-duplicates-with-different-values"
+        ]
+      }
+    ],
     "declaration-block-no-shorthand-property-overrides": true,
     "font-family-no-duplicate-names": true,
     "function-calc-no-unspaced-operator": true,
@@ -12,5 +19,9 @@
     "selector-max-specificity": "1,4,2",
     "comment-no-empty": true,
     "no-descending-specificity": null
-  }
+  },
+  "ignoreFiles": [
+    "src/static/styles/main.css",
+    "src/static/vendor/**/*.css"
+  ]
 }

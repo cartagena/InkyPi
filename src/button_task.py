@@ -11,7 +11,7 @@ display or config directly. Button presses are dispatched via methods on
 ``RefreshTask`` (``advance_playlist_next``, ``refresh_current``,
 ``set_blackout``), which in turn go through ``manual_update()`` and run the
 actual refresh on the refresh thread — see those methods' docstrings for why
-(upstream InkyPi PR #686's write-race note).
+(the InkyPi #686 write-race note).
 
 Hardware access (``gpiod``/``gpiodevice``) is imported lazily inside
 ``start()`` so this module always imports cleanly off-Pi, mirroring the
@@ -30,8 +30,8 @@ logger = logging.getLogger(__name__)
 #: BCM GPIO numbers for buttons A-D on Inky Impression boards (4", 5.7",
 #: 7.3"). The 13.3" variant uses GPIO 25 for C instead of 16 — see
 #: ``default_pins()`` below for the auto-detected override, or set
-#: ``buttons.pins.C`` in config directly. See examples/spectra6/buttons.py
-#: upstream.
+#: ``buttons.pins.C`` in config directly. See the Pimoroni Inky
+#: ``examples/spectra6/buttons.py`` sample for the stock pin map.
 DEFAULT_PINS: dict[str, int] = {"A": 5, "B": 6, "C": 16, "D": 24}
 
 #: Resolution (width, height) unique to the 13.3" Inky Impression — every

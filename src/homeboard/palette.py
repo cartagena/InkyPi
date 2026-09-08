@@ -46,7 +46,7 @@ class Role(StrEnum):
 RGB = tuple[int, int, int]
 
 # Waveshare's own "full colour" model-name suffix convention (e/f), pinned
-# against the exact set of six/seven-colour drivers this fork ships in
+# against the exact set of six/seven-colour drivers this project ships in
 # install/waveshare-manifest.txt. Deliberately hardcoded rather than read
 # from the manifest at runtime — the manifest is an install-time artifact,
 # not guaranteed present on a running Pi.
@@ -80,13 +80,13 @@ _INKY_SIX_COLOUR_COLOUR_VALUES = frozenset({"multi", "seven_colour", "seven-colo
 
 # The Inky Impression 7.3" (Spectra 6) panel's real native ink colours —
 # not a guess. Sourced from the `inky` package's own `inky_e673.py` driver
-# (SATURATED_PALETTE/DESATURATED_PALETTE), blended at this fork's own
+# (SATURATED_PALETTE/DESATURATED_PALETTE), blended at this project's own
 # default `inky_saturation` of 0.5 (see display/inky_display.py and
 # display/mock_display.py, both `image_settings.inky_saturation` default),
 # so this matches what a real panel configured at the default saturation
 # actually shows — e-paper ink reads duller than a vivid on-monitor guess
 # would. Re-derive with `blended = sat*SATURATED[i] + (1-sat)*DESATURATED[i]`
-# if this fork's default saturation ever changes. `paper` is kept pure
+# if this project's default saturation ever changes. `paper` is kept pure
 # white rather than the driver's true (208, 209, 210) substrate colour —
 # every screen uses it as the full-panel background, and a visibly grey
 # background reads as a rendering glitch rather than "faithful preview";

@@ -1,4 +1,4 @@
-"""Screenshot render wait and blank detection (upstream fatihak#683).
+"""Screenshot render wait and blank detection.
 
 Headless Chrome captures as soon as load fires, which is too early for pages
 that paint from JavaScript — they screenshot blank or half-built. Two settings

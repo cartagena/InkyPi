@@ -181,6 +181,14 @@ mock_display_output/
 runtime/
 src/static/images/current_image.png
 src/static/images/processed_image.png
+# A stray INKYPI_RUNTIME_DIR roots the same render output under
+# <runtime_dir>/images/ instead. A literal "true" once got committed that way
+# (see src/utils/paths.py:resolve_runtime_paths), so catch it wherever it lands.
+**/images/current_image.png
+**/images/processed_image.png
+
+# Generated on demand by scripts/export_benchmarks_report.py
+docs/benchmarks_report.md
 src/static/images/history/
 src/static/images/plugins/
 src/static/images/saved/
@@ -254,3 +262,6 @@ tests/snapshots/layout/actual/
 
 # Dogfood QA output — generated screenshots/videos/report, not source.
 dogfood-output/
+
+# Node tooling (stylelint) is not committed
+node_modules/

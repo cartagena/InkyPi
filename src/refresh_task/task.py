@@ -1341,7 +1341,7 @@ class RefreshTask:
         dispatches it through the background refresh thread rather than
         touching the display/config from the caller's thread. That
         discipline matters here specifically because the intended caller is
-        a GPIO button-poll thread — see upstream InkyPi PR #686's design
+        a GPIO button-poll thread — see the InkyPi #686 design
         note on avoiding display/config write races.
 
         Returns True if a refresh was dispatched, False if there was no

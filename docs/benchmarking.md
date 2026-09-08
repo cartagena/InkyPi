@@ -21,16 +21,21 @@ Add these to `src/config/device.json` as needed. Defaults are safe in production
 
 ### Where instrumentation lives
 
-- `src/refresh_task.py`:
+- `src/refresh_task/task.py`:
   - Creates a `benchmark_id` per refresh.
   - Persists `refresh_events` row with timing and system snapshot.
+- `src/refresh_task/display_pipeline.py`:
   - Emits `stage_events` for `generate_image` and overall `display_pipeline`.
+- `src/benchmarks/benchmark_storage.py`:
+  - Owns the SQLite schema and the best-effort writes.
 - `src/display/display_manager.py`:
   - Records `preprocess_ms` and `display_ms` and, if available, emits stage `display_driver` with driver type.
 
 ### Exporting reports
 
-Use the export script (to be added) or query the DB directly. A generated summary is tracked at `docs/benchmarks_report.md`.
+Run `python scripts/export_benchmarks_report.py` to write a summary of the latest
+50 refreshes to `docs/benchmarks_report.md`, or query the SQLite DB directly. The
+report is generated on demand and is not tracked in the repo.
 
 ### Overhead and safety
 

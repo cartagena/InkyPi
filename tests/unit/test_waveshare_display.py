@@ -227,7 +227,7 @@ def test_waveshare_display_image_valid_pil_image_not_rejected(
 
 
 class FakeGrayscaleModeEPD:
-    """Mirrors the epd3in7 driver shape (upstream fatihak#724).
+    """Mirrors the epd3in7 driver shape.
 
     Signatures copied from the manifest-pinned epd3in7.py: ``init`` and
     ``Clear`` take required mode arguments and there is no generic ``display``

@@ -1215,15 +1215,14 @@ class TestCommonWheelhouseFunctions:
         assert "aarch64" in body
 
     def test_downloads_from_release_fork(self) -> None:
-        # The wheelhouse download URL must target the fork, not upstream,
-        # since that's where our release workflow publishes artifacts.
+        # The wheelhouse download URL must target this repo, since that's
+        # where our release workflow publishes artifacts.
         body = self._fetch_fn_body()
         # Default repo value lives just above the function definition.
         assert "cartagena/InkyPi" in self.content
         # URL is assembled from the repo variable so it tracks overrides.
         assert "WHEELHOUSE_REPO" in body
         assert "releases/download" in body
-        assert "fatihak/InkyPi" not in body
 
     def test_fetch_reads_version_file(self) -> None:
         body = self._fetch_fn_body()

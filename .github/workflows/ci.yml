@@ -33,6 +33,15 @@ jobs:
         run: |
           python -m pip install -U pip wheel
           pip install -r install/requirements-dev.txt
+      # scripts/lint.sh runs stylelint over the hand-written CSS and fails the
+      # job when it is missing under CI, so it must be on PATH before that step.
+      # Pin the version so a stylelint release cannot turn the lint job red on
+      # an unrelated PR; bump it here and in .pre-commit-config.yaml together.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install stylelint
+        run: npm install -g stylelint@16.26.1
       - name: Lint and type-check
         env:
           CI: true

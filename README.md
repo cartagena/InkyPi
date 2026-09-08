@@ -4,8 +4,8 @@
 
 ### Your content, on paper. An open-source E-Ink display powered by Raspberry Pi.
 
-[![CI](https://github.com/jtn0123/InkyPi/actions/workflows/ci.yml/badge.svg)](https://github.com/jtn0123/InkyPi/actions/workflows/ci.yml)
-[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=jtn0123_InkyPi&metric=alert_status)](https://sonarcloud.io/summary/overall?id=jtn0123_InkyPi)
+[![CI](https://github.com/cartagena/InkyPi/actions/workflows/ci.yml/badge.svg)](https://github.com/cartagena/InkyPi/actions/workflows/ci.yml)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=cartagena_InkyPi&metric=alert_status)](https://sonarcloud.io/summary/overall?id=cartagena_InkyPi)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 [![License: GPL v3](https://img.shields.io/badge/license-GPL%20v3-green)](./LICENSE)
 
@@ -33,7 +33,7 @@
 
 **Web-based control** — configure and update the display from any device on your network
 
-**20+ built-in plugins** — clocks, weather, news, calendars, AI-generated art, and more
+**24 built-in plugins** — clocks, weather, news, calendars, AI-generated art, and more
 
 </td>
 <td width="50%">
@@ -53,7 +53,7 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/jtn0123/InkyPi.git
+git clone https://github.com/cartagena/InkyPi.git
 cd InkyPi
 sudo bash install/install.sh
 ```
@@ -62,20 +62,36 @@ After install, reboot your Pi and the InkyPi splash screen appears. Open the web
 
 > For Waveshare displays, pass the model: `sudo bash install/install.sh -W epd7in3f`
 
+On a Pi Zero 2 W this takes roughly 15 minutes. To skip it entirely, flash the
+**pre-built image** published with each release (Pi Zero 2 W only) — see
+[installation.md](./docs/installation.md).
+
 For detailed setup including Raspberry Pi OS imaging, see [installation.md](./docs/installation.md) or watch the [YouTube tutorial](https://youtu.be/L5PvQj1vfC4).
 
 ---
 
 ## Plugins
 
+24 plugins ship built in. Each one can be saved as multiple independently
+configured instances (e.g. two Weather cities) and mixed into a playlist.
+
 | Category | Plugins |
 |----------|---------|
-| **Display** | Clock · Countdown · Year Progress · Todo List |
+| **Display** | Clock · Countdown · Year Progress · To-Do List |
 | **Images** | Image Upload · Image Album · Image Folder · Image URL · Unsplash · NASA APOD · Wikipedia POTD |
-| **News & Media** | Newspaper Front Pages · Daily Comics · RSS Feeds |
-| **Information** | Weather · Calendar (Google / Outlook / Apple) · GitHub Stats |
-| **AI** | AI Image Generation · AI Text Generation (OpenAI) |
+| **News & Media** | Today's Newspaper · Daily Comic · RSS Feed |
+| **Information** | Weather · Calendar (Google / Outlook / Apple) · GitHub |
+| **AI** | AI Image · AI Text (OpenAI) |
 | **Utility** | Screenshot (capture any URL) |
+| **Dashboards** | Board · Trips · Home · Weekends |
+
+The four dashboard screens share a common layout toolkit (`src/homeboard/`) and
+read from iCal feeds plus a self-hosted `boardbot` service on your LAN. They are
+inert without that service configured — the other 20 plugins have no such
+dependency.
+
+Plugins that call an external API (weather, AI, calendar, GitHub) need a key —
+see [api_keys.md](./docs/api_keys.md).
 
 Want to build your own? See [Building InkyPi Plugins](./docs/building_plugins.md).
 
@@ -83,7 +99,9 @@ Want to build your own? See [Building InkyPi Plugins](./docs/building_plugins.md
 
 ## Hardware
 
-**Raspberry Pi** — Pi 4, Pi 3, or Zero 2 W (40-pin header recommended)
+**Raspberry Pi** — Zero 2 W or newer (Pi 4 / Pi 5 also fine), with a 40-pin header
+
+**OS** — Raspberry Pi OS based on Debian Trixie (arm64). Bookworm and Bullseye are no longer supported install targets.
 
 **MicroSD Card** — 8 GB minimum ([example](https://amzn.to/3G3Tq9W))
 
@@ -104,110 +122,6 @@ See [all Waveshare displays](https://www.waveshare.com/product/raspberry-pi/disp
 
 ---
 
-## What's New in This Fork
-
-This fork is **1,100+ commits** ahead of upstream, transforming InkyPi from a functional prototype into a production-grade, security-hardened system. Active development continues with a focus on reliability, security, and developer experience.
-
-### Security
-
-| Feature | Details |
-|---------|---------|
-| SSRF & DNS Rebinding Protection | DNS-pinned URL fetches block rebinding attacks |
-| Content Security Policy (CSP) | Nonce-based CSP eliminates inline script violations |
-| XSS Prevention | Systematic closure across 8+ blueprints |
-| Open-Redirect Defense | Host allow-list validation with safe URL rebuilding |
-| Path Traversal Protection | Input validation across all endpoints |
-| CSRF Token Validation | Per-request validation with secure token generation |
-| Rate Limiting | Token-bucket & sliding-window per-IP limits on auth/refresh/mutating endpoints |
-| Supply-Chain Integrity | Hash-pinned lockfiles (`--require-hashes`), SBOM, dependency license audit |
-| Secret Management | Persistent, entropy-rich SECRET_KEY bootstrap; secrets redacted from logs |
-
-### Testing
-
-| Feature | Details |
-|---------|---------|
-| End-to-End Journey Tests | First-run setup, API key CRUD, playlist management, plugin preview, update flow (Playwright) |
-| UI Audit Suite | Click sweeps, element overlap detection, responsive mobile tests, toggle state reflection |
-| Snapshot/Golden-File Testing | Plugin image output comparison for visual regressions |
-| Accessibility Testing | Axe-core scans integrated into Playwright |
-| Contract Tests | JSON response shape validation for 20+ endpoints |
-| Chaos Testing | RefreshTask error-injection paths |
-| Memory Gate | Peak RSS sampling and 512 MB smoke tests for Pi Zero 2 W |
-| Benchmark Regression Gate | Performance regression detection in CI |
-| Install Crash-Loop Gate | Prevents runaway restart bugs from merging |
-
-### Install & Update System
-
-| Feature | Details |
-|---------|---------|
-| One-Command Update | `do_update.sh` with semver tag resolution |
-| Rollback Support | `prev_version` breadcrumb for atomic rollback |
-| Update Failure Surfacing | Errors visible in the web UI, not just logs |
-| Atomic Install | File-level atomicity with `flock` guard against concurrent installs |
-| Pre-Built Wheels | Release asset wheelhouse accelerates install on Pi |
-| uv Migration | Faster dependency resolution, lighter installs vs pip |
-| Install Matrix | CI tests across Bookworm, Bullseye, and Trixie (arm64) |
-| Waveshare Driver Pinning | Locked driver versions for stability |
-
-### UI/UX
-
-| Feature | Details |
-|---------|---------|
-| HTMX Form Submission | Non-blocking plugin settings save with inline feedback |
-| In-App Modals | Replaced `window.confirm()` with accessible dialog modals |
-| Floating Debug Console | Client-side log viewer for troubleshooting |
-| System Health Dashboard | Status badge wired to `/api/diagnostics` |
-| Plugin Breadcrumbs | Navigation context and plugin chip display |
-| Form Validation | Toast notifications naming the failing field |
-| Progress Feedback | Visible button states for all async operations |
-| Time Input Picker | Native HTML5 input for playlist scheduling |
-| API Keys Management UI | Centralized key management for plugins |
-| Image History with Pagination | Browse and manage display history |
-
-### Accessibility
-
-| Feature | Details |
-|---------|---------|
-| Dialog Semantics | `role="dialog"`, Escape key handling, focus management |
-| ARIA Labels | Descriptive labels on icons, rows, buttons, toggle states |
-| Keyboard Navigation | Full keyboard support across modals and forms |
-| Skip-to-Content Link | Standard navigation landmark |
-| Automated Testing | Axe-core scans in CI prevent regressions |
-
-### Performance & Reliability
-
-| Feature | Details |
-|---------|---------|
-| Lazy Module Imports | Reduced startup memory footprint |
-| Low-Memory Image Loading | Memory-efficient image ops for preview plugins |
-| HTTP Cache with LRU Eviction | Bounded memory growth for cached responses |
-| Async Job Queue | Non-blocking plugin renders |
-| Systemd Hardening | `StartLimitBurst`, `OOMScoreAdjust`, failure service |
-| Multi-threaded Server | Concurrent request handling |
-
-### CI/CD Pipeline
-
-| Feature | Details |
-|---------|---------|
-| Security Scanning | CodeQL, Semgrep, Trivy, GitLeaks, dependency review |
-| Browser Smoke Tests | Mandatory CI gate for UI regressions |
-| Memory Diff Comments | Per-PR startup memory impact analysis |
-| Nightly OS Drift Detector | Catches breakage from system package updates |
-| CycloneDX SBOM | Software bill of materials as release asset |
-| Snapshot Artifact Upload | PNG diffs on test failure for visual debugging |
-
-### Developer Experience
-
-| Feature | Details |
-|---------|---------|
-| Watch-Mode CSS Rebuild | Live asset rebuild during development |
-| Dev-Mode Response Validator | Middleware schema enforcement (no-op in prod) |
-| Docker Install Simulation | Multi-base Dockerfile testing |
-| Benchmark Compare Script | Performance regression analysis |
-| 22 Plugins (vs 14 upstream) | 8 additional built-in plugins |
-
----
-
 ## Update
 
 ```bash
@@ -215,7 +129,7 @@ cd InkyPi
 sudo bash install/do_update.sh
 ```
 
-Pin a specific version: `sudo bash install/do_update.sh v0.51.6`
+Pin a specific version: `sudo bash install/do_update.sh v1.12.3`
 
 The web UI's "Update" button uses the same path. For branch tracking, use `git pull` then `sudo bash install/update.sh`.
 
@@ -224,13 +138,14 @@ The web UI's "Update" button uses the same path. For branch tracking, use `git p
 ## Development
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r install/requirements-dev.txt
 .venv/bin/python src/inkypi.py --dev --web-only
 ```
 
-Dev server runs on port 8080. See [CONTRIBUTING.md](./CONTRIBUTING.md) and [development.md](./docs/development.md) for full details.
+Requires Python 3.11–3.13. `--dev` needs no Pi, display, root/GPIO, or systemd,
+so this runs on macOS, Linux, and Windows. Dev server runs on port 8080. See [CONTRIBUTING.md](./CONTRIBUTING.md) and [development.md](./docs/development.md) for full details.
 
 ### Testing
 
@@ -275,13 +190,15 @@ When installing, use `-W` with your model name (without `.py`): `sudo bash insta
 - [API Keys](./docs/api_keys.md) — Configuring keys for OpenAI, Google, etc.
 - [Testing](./docs/testing.md) — Test suite, sharding, browser tests, coverage
 - [Building Plugins](./docs/building_plugins.md) — Create custom plugins (includes hello-world)
+- [Security](./docs/security.md) — SBOM, vulnerability reporting
+- [Dependencies](./docs/dependency_locking.md) — uv lockfile workflow and hash pinning
 - [Troubleshooting](./docs/troubleshooting.md) — Common issues and fixes
 
 ---
 
 ## Issues
 
-Check the [troubleshooting guide](./docs/troubleshooting.md) first. If you're still stuck, open an issue on [GitHub Issues](https://github.com/jtn0123/InkyPi/issues).
+Check the [troubleshooting guide](./docs/troubleshooting.md) first. If you're still stuck, open an issue on [GitHub Issues](https://github.com/cartagena/InkyPi/issues).
 
 > Pi Zero W users: see [Known Issues during Pi Zero W Installation](./docs/troubleshooting.md#known-issues-during-pi-zero-w-installation).
 
@@ -293,6 +210,6 @@ GPL 3.0 — see [LICENSE](./LICENSE). Font and icon attribution: [attribution.md
 
 <div align="center">
 
-Forked from [fatihak/InkyPi](https://github.com/fatihak/InkyPi)
+Originally based on [InkyPi](https://github.com/fatihak/InkyPi) by [fatihak](https://github.com/fatihak), with later work from [jtn0123/InkyPi](https://github.com/jtn0123/InkyPi).
 
 </div>
