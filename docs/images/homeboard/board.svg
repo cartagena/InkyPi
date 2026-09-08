@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="480" viewBox="0 0 800 480" role="img" aria-label="Board screen mockup: projects on the left, to-do list on the right">
+<rect x="0" y="0" width="800" height="480" fill="#FFFFFF"/>
+
+<text x="20" y="38" font-family="sans-serif" font-size="27" font-weight="600" fill="#000000">Projects</text>
+<text x="383" y="38" font-family="sans-serif" font-size="17" fill="#000000" text-anchor="end">2 in flight</text>
+<text x="418" y="38" font-family="sans-serif" font-size="27" font-weight="600" fill="#000000">To do</text>
+<text x="780" y="38" font-family="sans-serif" font-size="17" fill="#000000" text-anchor="end">11 open</text>
+<line x1="20" y1="53" x2="780" y2="53" stroke="#000000" stroke-width="1"/>
+<line x1="400" y1="63" x2="400" y2="445" stroke="#000000" stroke-width="1"/>
+
+<text x="20" y="78" font-family="sans-serif" font-size="17" fill="#000000">In flight</text>
+
+<rect x="20" y="88" width="4" height="55" fill="#1E1EAE"/>
+<text x="35" y="113" font-family="sans-serif" font-size="21" font-weight="600" fill="#000000">Frame the BBQ counter</text>
+<rect x="35" y="123" width="81" height="21" rx="2" fill="#FFFFFF" stroke="#1DAD23" stroke-width="1"/>
+<text x="75" y="139" font-family="sans-serif" font-size="17" fill="#1DAD23" text-anchor="middle">One day</text>
+<rect x="124" y="123" width="57" height="21" rx="2" fill="#CE2426" stroke="#CE2426" stroke-width="1"/>
+<text x="152" y="139" font-family="sans-serif" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">High</text>
+<text x="189" y="139" font-family="sans-serif" font-size="16" fill="#000000">Started 12 d ago</text>
+<line x1="20" y1="150" x2="383" y2="150" stroke="#000000" stroke-width="1"/>
+
+<rect x="20" y="153" width="4" height="55" fill="#1E1EAE"/>
+<text x="35" y="178" font-family="sans-serif" font-size="21" font-weight="600" fill="#000000">Run the gas line</text>
+<rect x="35" y="188" width="104" height="21" rx="2" fill="#FFFFFF" stroke="#1DAD23" stroke-width="1"/>
+<text x="87" y="204" font-family="sans-serif" font-size="17" fill="#1DAD23" text-anchor="middle">A few days</text>
+<rect x="147" y="188" width="73" height="21" rx="2" fill="#FFFFFF" stroke="#E8DE24" stroke-width="1"/>
+<text x="183" y="204" font-family="sans-serif" font-size="17" font-weight="700" fill="#000000" text-anchor="middle">Due 5d</text>
+<text x="228" y="204" font-family="sans-serif" font-size="16" fill="#000000">Blocked on permit</text>
+
+<line x1="20" y1="225" x2="383" y2="225" stroke="#000000" stroke-width="1"/>
+<text x="20" y="250" font-family="sans-serif" font-size="17" fill="#000000">From the backlog</text>
+
+<text x="20" y="283" font-family="sans-serif" font-size="20" fill="#000000">Rebuild the side gate</text>
+<rect x="20" y="293" width="81" height="21" rx="2" fill="#FFFFFF" stroke="#1DAD23" stroke-width="1"/>
+<text x="60" y="309" font-family="sans-serif" font-size="17" fill="#1DAD23" text-anchor="middle">One day</text>
+<rect x="109" y="293" width="61" height="21" rx="2" fill="#CE2426" stroke="#CE2426" stroke-width="1"/>
+<text x="139" y="309" font-family="sans-serif" font-size="17" font-weight="700" fill="#FFFFFF" text-anchor="middle">Stale</text>
+<line x1="20" y1="318" x2="383" y2="318" stroke="#000000" stroke-width="1"/>
+
+<text x="20" y="343" font-family="sans-serif" font-size="20" fill="#000000">Insulate the garage door</text>
+<rect x="20" y="353" width="104" height="21" rx="2" fill="#FFFFFF" stroke="#1DAD23" stroke-width="1"/>
+<text x="72" y="369" font-family="sans-serif" font-size="17" fill="#1DAD23" text-anchor="middle">A few days</text>
+<rect x="132" y="353" width="70" height="21" rx="2" fill="#FFFFFF" stroke="#E8DE24" stroke-width="1"/>
+<text x="167" y="369" font-family="sans-serif" font-size="17" font-weight="700" fill="#000000" text-anchor="middle">Aging</text>
+<line x1="20" y1="378" x2="383" y2="378" stroke="#000000" stroke-width="1"/>
+
+<text x="20" y="403" font-family="sans-serif" font-size="20" fill="#000000">Replace the hose bib</text>
+<rect x="20" y="413" width="127" height="21" rx="2" fill="#FFFFFF" stroke="#1DAD23" stroke-width="1"/>
+<text x="83" y="429" font-family="sans-serif" font-size="17" fill="#1DAD23" text-anchor="middle">Multiple days</text>
+<rect x="155" y="413" width="51" height="21" rx="2" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="180" y="429" font-family="sans-serif" font-size="17" fill="#000000" text-anchor="middle">New</text>
+
+<rect x="418" y="86" width="16" height="16" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="445" y="100" font-family="sans-serif" font-size="19" fill="#000000">Call about the pool heater</text>
+<rect x="710" y="84" width="70" height="21" rx="2" fill="#FFFFFF" stroke="#E8DE24" stroke-width="1"/>
+<text x="745" y="100" font-family="sans-serif" font-size="17" font-weight="700" fill="#000000" text-anchor="middle">Aging</text>
+
+<rect x="418" y="136" width="16" height="16" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="445" y="150" font-family="sans-serif" font-size="19" fill="#000000">Renew car registration</text>
+<rect x="729" y="134" width="51" height="21" rx="2" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="754" y="150" font-family="sans-serif" font-size="17" fill="#000000" text-anchor="middle">New</text>
+
+<rect x="418" y="186" width="16" height="16" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="445" y="200" font-family="sans-serif" font-size="19" fill="#000000">Return the swim goggles</text>
+
+<rect x="418" y="236" width="16" height="16" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="445" y="250" font-family="sans-serif" font-size="19" fill="#000000">Reorder the AC filters</text>
+
+<rect x="418" y="286" width="16" height="16" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="445" y="300" font-family="sans-serif" font-size="19" fill="#000000">Fix sprinkler zone 3</text>
+<rect x="729" y="284" width="51" height="21" rx="2" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="754" y="300" font-family="sans-serif" font-size="17" fill="#000000" text-anchor="middle">New</text>
+
+<rect x="418" y="336" width="16" height="16" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="445" y="350" font-family="sans-serif" font-size="19" fill="#000000">Email the tax guy</text>
+
+<rect x="418" y="386" width="16" height="16" fill="#FFFFFF" stroke="#000000" stroke-width="1"/>
+<text x="445" y="400" font-family="sans-serif" font-size="19" fill="#000000">Book the dentist</text>
+
+<text x="418" y="433" font-family="sans-serif" font-size="17" fill="#1DAD23">5 cleared this week</text>
+
+<line x1="20" y1="453" x2="780" y2="453" stroke="#000000" stroke-width="1"/>
+<text x="780" y="471" font-family="sans-serif" font-size="16" fill="#000000" text-anchor="end">Synced thu 6:30 am</text>
+</svg>

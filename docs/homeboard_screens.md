@@ -8,20 +8,22 @@ This document covers what each screen is *for* and what it *looks like*. For how
 into the refresh loop, see [Architecture](./architecture.md); for the plugin API itself, see
 [Building Plugins](./building_plugins.md).
 
-> **About the images.** Every screenshot below is rendered by the screens themselves, from fixture
-> data, with `scripts/render_homeboard_mocks.py` — no `boardbot` deployment, no calendar feeds, no
-> Pi required. They can't drift from the layout tokens, palette and chip ladders the code actually
-> uses, because they *are* that code's output. Regenerate them with:
+> **About the images.** The four screen illustrations are SVG mockups, adapted from the original
+> design mockups in `specs/`. Their **composition** — geometry, proportions, sample content — is the
+> design's; their **content vocabulary and colour** is the shipped code's, so the chip labels,
+> header meta, footer and palette values match what a panel renders today rather than what the
+> design first proposed. Where the two disagree, see
+> [Design intent vs. what ships](#design-intent-vs-what-ships).
+>
+> Two images are not mockups but live renders, because they're evidence about real behaviour rather
+> than illustrations of intent: the black-and-white palette collapse and the panel-too-small
+> fallback. Both come from `scripts/render_homeboard_mocks.py`, which drives the actual plugins
+> against fixture data — no `boardbot` deployment, no calendar feeds, no Pi. That script is also the
+> quickest way to see a change to any screen without deploying to a panel:
 >
 > ```bash
-> .venv/bin/python scripts/render_homeboard_mocks.py                                  # the four screens
-> .venv/bin/python scripts/render_homeboard_mocks.py weekends --palette bw --suffix _bw
-> .venv/bin/python scripts/render_homeboard_mocks.py board --dimensions 480x800 --suffix _too_small
+> .venv/bin/python scripts/render_homeboard_mocks.py   # → runtime/homeboard_renders/
 > ```
->
-> Fixture dates are relative to the run date, so the *content* stays the same and only the absolute
-> dates move. Board's backlog rotation is date-seeded, so which backlog items appear will differ
-> between runs — that rotation is the feature, not noise.
 
 ---
 
@@ -193,14 +195,14 @@ deterministically per day and weighted so long-ignored projects surface more oft
 item ever being pinned. The screen is the same all day, different tomorrow. It's a reminder that
 the backlog exists, not an indictment of it.
 
-![The Board screen: Projects on the left, To do on the right](./images/homeboard/board.png)
+![The Board screen: Projects on the left, To do on the right](./images/homeboard/board.svg)
 
 **Visual identity.** Board is the only screen with a split header — two independent
 title-plus-count pairs over one rule, one per column — and a full-height hairline divider down the
 gutter. The two halves are deliberately different textures:
 
 - **In flight** rows are the heaviest thing on the screen: a solid blue `emphasis` bar down the
-  left edge, a bold title, then a row of chips and an optional note (`Started 6 d ago`). At most
+  left edge, a bold title, then a row of chips and an optional note (`Started 12 d ago`). At most
   two ever show; extras become a `+N` in the header rather than more rows.
 - **From the backlog** rows sit under their own section label and rule, one weight lighter, with
   their chips inline — visibly the same kind of thing as an in-flight project, visibly not being
@@ -232,7 +234,7 @@ because it's a daydream, not a deadline.
 The next-action line is the only actionable text on the screen, and it's derived rather than
 configured: a trip that has a next action *is* blocked by definition, and it renders that way.
 
-![The Trips screen: two booked countdown cards above a list of trip ideas](./images/homeboard/trips.png)
+![The Trips screen: two booked countdown cards above a list of trip ideas](./images/homeboard/trips.svg)
 
 **Visual identity.** Trips is the most graphic of the four, and the only one with a large solid
 colour field. Each booked trip gets a **filled blue `emphasis` block** — roughly 13% of the panel
@@ -262,11 +264,11 @@ smoke-alarm batteries, the boiler service — the class of task nobody remembers
 regrets forgetting. It is deliberately the simplest of the four: one row per task, sorted so
 whatever needs attention floats to the top, fully deterministic given today's date.
 
-The header states the damage before you read a single row: `2 overdue · 2 due soon`, counted
+The header states the damage before you read a single row: `2 overdue · 1 due soon`, counted
 across the *whole* list rather than just the visible rows, so a task pushed off-screen by the row
 cap still registers.
 
-![The Home screen: a ruled list of maintenance tasks with overdue and due-soon chips](./images/homeboard/home_maintenance.png)
+![The Home screen: a ruled list of maintenance tasks with overdue and due-soon chips](./images/homeboard/home_maintenance.svg)
 
 **Visual identity.** Home is a **ruled ledger** — the only screen where every row is separated by
 a hairline, packed edge to edge with no gaps. Between five and ten rows depending on panel size.
@@ -277,7 +279,7 @@ Each row is three columns of decreasing weight:
 2. **Interval** (`Every 3 months`, `Seasonal`, `Every 7,500 mi`) at the smallest size on the
    screen — context, not a call to action.
 3. **Status**, right-aligned, and this is where the screen speaks: a solid red `Overdue 12 d`
-   chip, a yellow `Due in 9 days` chip, or — for anything further out — no chip at all, just a
+   chip, a yellow `Due in 5 days` chip, or — for anything further out — no chip at all, just a
    bare month abbreviation (`Nov`). A calm row is literally quieter: three words of small grey-ink
    text and a month.
 
@@ -306,7 +308,7 @@ has something to say also picks up a `· Mon off` suffix on its note; a free cel
 `Free`, because the accent date has already made the point and the whole value of a free cell is
 that it's empty.
 
-![The Weekends screen: six weekend rows showing free, partly booked and booked days](./images/homeboard/weekends.png)
+![The Weekends screen: six weekend rows showing free, partly booked and booked days](./images/homeboard/weekends.svg)
 
 **Visual identity.** Weekends is the only **grid**: a narrow date column, then two day columns
 under `Saturday` / `Sunday` labels, with four to six rows depending on panel height. Each cell is
@@ -318,7 +320,7 @@ one of three treatments, and they're distinguishable by fill *and* by content:
   legible on the physical panel) carrying the event name and a duration note like `Morning only`,
   `Afternoon only`, or `11am–2pm`.
 - **Booked** — a solid red field with paper-white text: event name on top, duration beneath
-  (`All day`, `Sat night to Sun`, `2pm–6pm +1` when there's more than one event). The darkest,
+  (`All day`, `Fri night to Sun`, `2pm–6pm +1` when there's more than one event). The darkest,
   heaviest thing on the screen.
 
 The date itself carries the long-weekend signal — blue and semibold instead of plain ink — with a
@@ -351,6 +353,42 @@ That's Board asked to render on a 480x800 portrait panel. Its stacked layout nee
 of height before both halves clear their minimum row counts — the base unit stops growing at 28px,
 so a taller panel buys body height in ems only up to a point. Rather than overflow past the footer,
 it says so.
+
+---
+
+## Design intent vs. what ships
+
+The mockups in `specs/` were drawn against the original Google Keep / Sheets data source, and the
+screens have moved since. Most of the gaps are deliberate — the reasoning is scattered through code
+comments, so it's collected here.
+
+### Changed on purpose
+
+| Element | Design mock | Ships today, and why |
+|---|---|---|
+| Age chip | `Waiting 214 d` | `Stale` / `Aging` / `New`. A bare `Nd` sat next to the due chip's own `Due Nd` with nothing to say which counted *up* and which counted *down* — and on a fresh install every row read `0d` regardless of real age, because the ledger's `first_seen` starts the day it first sees an item. Word buckets trade exact days for a signal you can trust. |
+| Size chip | `30 minutes`, `Half a day`, `One weekend` | `One day` / `A few days` / `Multiple days`. Size now comes from boardbot's structured `effort_days`, whose `[S\|M\|L]` shorthand maps to 1/2/4 days; the buckets match that shorthand so a project tagged `[M]` round-trips to a stable label. The mock also tinted in-flight size chips blue and backlog ones green — all size chips are green now, and `emphasis` blue is reserved for the in-flight bar itself. |
+| Footer, left half | `Keep · Home projects`, `Sheet · Trips` | Dropped. Every screen's source is boardbot, so the label carried no signal; the footer's one job is now sync freshness. |
+| Solid `warn` fills | Partly-booked cells and due-soon chips filled solid yellow with dark text | Outlines, until `RoleMap.warn_is_solid` flips. Dark-text-on-yellow is unverified on the physical panel, and an unconditional solid fill renders as invisible ink-on-ink on the black-and-white fallback. |
+| Blocking next action | Red when blocking, ink when not | Always red and bold when present, absent otherwise. Boardbot's `/trips` schema never sends a `blocking` field, so the code derives it: *having* a next action is what blocking means here. |
+| Weekends header/footer | Timestamp in the header, free-weekend count in the footer | Swapped. The footer slot is reserved for sync freshness on all four screens, so the count moved to the header meta. |
+| Home due text | `Late Sep` | `Sep`. A plain row is by definition past the due-soon window, so the extra precision wasn't worth the width. |
+
+### In the mock, not in the code
+
+These are the design's, and still arguably right:
+
+- **`Mon off` under the date.** The mock put the long-weekend note on its own line beneath the date,
+  so it showed on a *fully free* weekend. The code appends `· Mon off` to a cell's note instead, and
+  free cells render no note — so on a free long weekend the accent date is the only signal, and on a
+  black-and-white panel it's a weight change alone.
+- **`Sep 5–6` as the date label.** The code renders the Saturday only (`Sep 5`), which reads more
+  like a single day than a weekend.
+- **`3 of 17` beside "From the backlog".** The mock told you how much of the backlog you weren't
+  seeing. Board's rotation makes that number meaningful, and nothing shows it today.
+- **Three trip ideas under two booked cards.** The mock fits three; the row-count math clears only
+  two at 800×480, leaving visible dead space below them. The section gaps are the conservative
+  estimates flagged as `UNVERIFIED` in `trips_data.py`, so this is tunable rather than fixed.
 
 ---
 

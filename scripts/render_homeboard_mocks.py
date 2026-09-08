@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
-"""Render the documentation mockups for the homeboard screens.
+"""Render the homeboard screens live, from fixture data.
 
 Drives the *real* ``board``/``trips``/``home_maintenance``/``weekends``
-plugins against fixture data — no ``boardbot`` deployment, no calendar
-feeds, no Pi — and writes the resulting PNGs to ``docs/images/homeboard/``
-for ``docs/homeboard_screens.md`` to embed.
+plugins — no ``boardbot`` deployment, no calendar feeds, no Pi — and writes
+the resulting PNGs to ``runtime/homeboard_renders/`` (gitignored).
 
-Rendering through the plugins themselves (rather than hand-drawing a
-mockup) is the point: the images can never drift from the layout tokens,
-palette and chip ladders the screens actually use, because they *are* that
-code's output. The six-colour Spectra 6 palette is forced on via the
-dev-only ``HOMEBOARD_COLOUR_PREVIEW`` override so the mockups show what the
-physical panel shows, not the black-and-white ``mock`` fallback.
-
-Usage::
+Two uses. Day to day, it is the fastest way to see what a change to a
+screen actually looks like without deploying to a panel. It also produced
+the two behaviour images committed under ``docs/images/homeboard/`` for
+``docs/homeboard_screens.md``, which show real output rather than a
+mockup — the black-and-white palette collapse and the panel-too-small
+fallback::
 
     .venv/bin/python scripts/render_homeboard_mocks.py
     .venv/bin/python scripts/render_homeboard_mocks.py --dimensions 480x800
+
+    # the two committed images:
+    .venv/bin/python scripts/render_homeboard_mocks.py weekends \
+        --palette bw --suffix _bw --out-dir docs/images/homeboard
+    .venv/bin/python scripts/render_homeboard_mocks.py board \
+        --dimensions 480x800 --suffix _too_small --out-dir docs/images/homeboard
+
+The six-colour Spectra 6 palette is forced on via the dev-only
+``HOMEBOARD_COLOUR_PREVIEW`` override, so a render shows what the physical
+panel shows rather than the black-and-white ``mock`` fallback.
 
 Fixture dates are relative to the day the script runs, so re-running it
 produces the same *content* (the same chips, states and countdowns) on
@@ -59,7 +66,7 @@ BASE_URL = "http://homelab.local:8765"
 ICS_URL = "http://homelab.local/calendars/family.ics"
 HOLIDAY_ICS_URL = "http://homelab.local/calendars/holidays.ics"
 
-OUTPUT_DIR = REPO_ROOT / "docs" / "images" / "homeboard"
+OUTPUT_DIR = REPO_ROOT / "runtime" / "homeboard_renders"
 
 TZ = ZoneInfo(TIMEZONE)
 TODAY = datetime.now(TZ).date()
@@ -77,63 +84,71 @@ def _days(offset: int) -> str:
 
 PROJECT_ROWS: list[dict[str, Any]] = [
     {
-        "text": f"*Kitchen shelving — started {_days(-6)}",
+        "text": f"*Frame the BBQ counter — started {_days(-12)}",
         "checked": False,
         "effort_days": 1,
         "priority": "high",
     },
     {
-        "text": "*Garage sort-out",
+        "text": "*Run the gas line — Blocked on permit",
         "checked": False,
         "effort_days": 3,
         "due_date": _days(5),
     },
-    {"text": "Repaint the hallway", "checked": False, "effort_days": 6},
-    {"text": "Sort out the loft", "checked": False, "effort_days": 3},
-    {"text": "Bike service", "checked": False, "effort_days": 1},
-    {"text": "Replace the fence panel", "checked": False, "effort_days": 2},
-    {"text": "Build the raised beds", "checked": False, "effort_days": 4},
+    {"text": "Rebuild the side gate", "checked": False, "effort_days": 1},
+    {"text": "Insulate the garage door", "checked": False, "effort_days": 3},
+    {"text": "Replace the hose bib", "checked": False, "effort_days": 6},
+    {"text": "Re-stain the deck", "checked": False, "effort_days": 4},
+    {"text": "Swap the entry light fixture", "checked": False, "effort_days": 1},
 ]
 
 # text -> how many days ago the board first saw it (drives the age chips).
 PROJECT_AGES = {
-    "*Kitchen shelving — started " + _days(-6): 6,
-    "*Garage sort-out": 40,
-    "Repaint the hallway": 210,
-    "Sort out the loft": 120,
-    "Bike service": 30,
-    "Replace the fence panel": 95,
-    "Build the raised beds": 160,
+    "*Frame the BBQ counter — started " + _days(-12): 12,
+    "*Run the gas line — Blocked on permit": 40,
+    "Rebuild the side gate": 214,
+    "Insulate the garage door": 96,
+    "Replace the hose bib": 31,
+    "Re-stain the deck": 150,
+    "Swap the entry light fixture": 70,
 }
 
 TODO_ROWS: list[dict[str, Any]] = [
-    {"text": "Chase the plumber", "checked": False},
-    {"text": "Fix the gate latch", "checked": False},
-    {"text": "Call about the boiler service", "checked": False},
-    {"text": "Renew passport", "checked": False},
-    {"text": "Replace the hall bulb", "checked": False},
+    {"text": "Call about the pool heater", "checked": False},
+    {"text": "Fix sprinkler zone 3", "checked": False},
+    {"text": "Renew car registration", "checked": False},
+    {"text": "Return the swim goggles", "checked": False},
+    {"text": "Reorder the AC filters", "checked": False},
+    {"text": "Email the tax guy", "checked": False},
     {"text": "Book the dentist", "checked": False},
-    {"text": "Return the router", "checked": False},
-    {"text": "Order printer ink", "checked": False},
+    {"text": "Pick up the prescription", "checked": False},
+    {"text": "Cancel the extra streaming box", "checked": False},
+    {"text": "Send the school forms back", "checked": False},
+    {"text": "Move the sprinkler timer", "checked": False},
 ]
 
 TODO_AGES = {
-    "Chase the plumber": 60,
-    "Fix the gate latch": 45,
-    "Call about the boiler service": 21,
-    "Renew passport": 18,
-    "Replace the hall bulb": 5,
-    "Book the dentist": 3,
-    "Return the router": 2,
-    "Order printer ink": 1,
+    "Call about the pool heater": 38,
+    "Fix sprinkler zone 3": 22,
+    "Renew car registration": 16,
+    "Return the swim goggles": 12,
+    "Reorder the AC filters": 10,
+    "Email the tax guy": 8,
+    "Book the dentist": 6,
+    "Pick up the prescription": 5,
+    "Cancel the extra streaming box": 4,
+    "Send the school forms back": 3,
+    "Move the sprinkler timer": 2,
 }
 
 # Items ticked off in WhatsApp over the past few days — the "N cleared this
 # week" line. They are gone from the list, so they only exist in the ledger.
 TODO_CLEARED = {
     "Post the parcel": 1,
-    "Water the plants": 3,
-    "Pick up the dry cleaning": 5,
+    "Water the plants": 2,
+    "Pick up the dry cleaning": 3,
+    "Book the car wash": 4,
+    "Refill the propane": 5,
 }
 
 
@@ -145,78 +160,93 @@ def _next_weekday(weekday: int, weeks_out: int) -> date:
     return TODAY + timedelta(days=ahead, weeks=weeks_out)
 
 
-_LISBON_START = _next_weekday(4, 1)  # a Friday, ~1-2 weeks out
-_SKI_START = _next_weekday(5, 6)  # a Saturday, ~7 weeks out
+_TAHOE_START = _next_weekday(4, 3)  # a Friday, ~4 weeks out
+_BRAZIL_START = _next_weekday(5, 14)  # a Saturday, ~15 weeks out
 
 TRIP_ROWS: list[dict[str, Any]] = [
     {
-        "name": "Lisbon",
+        "name": "Tahoe with the Silvas",
         "status": "booked",
-        "start": _LISBON_START.isoformat(),
-        "end": (_LISBON_START + timedelta(days=2)).isoformat(),
-        "next_action": "Book airport parking",
+        "start": _TAHOE_START.isoformat(),
+        "end": (_TAHOE_START + timedelta(days=2)).isoformat(),
+        "next_action": "Cabin not confirmed yet",
     },
     {
-        "name": "Ski week",
+        "name": "Brazil, family visit",
         "status": "booked",
-        "start": _SKI_START.isoformat(),
-        "end": (_SKI_START + timedelta(days=7)).isoformat(),
+        "start": _BRAZIL_START.isoformat(),
+        "end": (_BRAZIL_START + timedelta(days=16)).isoformat(),
         "next_action": "",
     },
-    {"name": "Copenhagen", "status": "idea", "target_window": "Spring, long weekend"},
-    {"name": "Northern Portugal", "status": "idea", "target_window": "Next autumn"},
-    {"name": "Dolomites", "status": "idea", "target_window": "Summer 2027"},
+    {
+        "name": "Yosemite, off season",
+        "status": "idea",
+        "target_window": "Feb, book by Nov",
+    },
+    {"name": "Big Sur, long weekend", "status": "idea", "target_window": "Spring"},
+    {
+        "name": "Disneyland with the kids",
+        "status": "idea",
+        "target_window": "Needs a 3-day window",
+    },
 ]
 
 MAINTENANCE_ROWS: list[dict[str, Any]] = [
     {
-        "task": "Replace the furnace filter",
+        "task": "Water heater flush",
+        "interval_value": 1,
+        "interval_unit": "years",
+        "last_done": _days(-405),
+    },
+    {
+        "task": "HVAC filter",
         "interval_value": 3,
         "interval_unit": "months",
-        "last_done": _days(-105),
+        "last_done": _days(-104),
     },
     {
-        "task": "Clean the gutters",
+        "task": "Pool filter clean",
+        "interval_value": 1,
+        "interval_unit": "months",
+        "last_done": _days(-26),
+    },
+    {
+        "task": "Odyssey service",
+        "interval_value": 7500,
+        "interval_unit": "miles",
+        "next_due_override": _days(20),
+    },
+    {
+        "task": "Gutters cleared",
         "interval_value": None,
         "interval_unit": "seasonal",
-        "next_due_override": _days(-4),
+        "next_due_override": _days(50),
     },
     {
-        "task": "Service the boiler",
+        "task": "Sprinklers to winter mode",
+        "interval_value": None,
+        "interval_unit": "seasonal",
+        "next_due_override": _days(80),
+    },
+    {
+        "task": "Smoke detector batteries",
         "interval_value": 1,
         "interval_unit": "years",
-        "last_done": _days(-356),
+        "last_done": _days(-280),
     },
     {
-        "task": "Bleed the radiators",
-        "interval_value": 6,
-        "interval_unit": "months",
-        "last_done": _days(-170),
-    },
-    {
-        "task": "Descale the kettle",
-        "interval_value": 6,
-        "interval_unit": "months",
-        "last_done": _days(-120),
-    },
-    {
-        "task": "Smoke alarm batteries",
+        "task": "Termite inspection",
         "interval_value": 1,
         "interval_unit": "years",
-        "last_done": _days(-250),
-    },
-    {
-        "task": "Flush the water heater",
-        "interval_value": 2,
-        "interval_unit": "years",
-        "last_done": _days(-500),
+        "last_done": _days(-200),
     },
 ]
 
 
 def _calendar_events() -> list[dict[str, Any]]:
-    """Six weekends' worth of events: one all-day birthday, one short
-    brunch, and one overnight trip that spans Saturday into Sunday."""
+    """Six weekends' worth of events, matching the Weekends mockup: an
+    all-day meet, a Saturday-morning competition, and one trip that runs
+    Friday night through Sunday."""
     weekends = weekend_dates(TODAY, 6)
     events: list[dict[str, Any]] = []
 
@@ -224,22 +254,10 @@ def _calendar_events() -> list[dict[str, Any]]:
         sat = weekends[1][0]
         events.append(
             {
-                "summary": "Ben's birthday party",
+                "summary": "Swim meet",
                 "start": _iso(sat, 0),
                 "end": _iso(sat + timedelta(days=1), 0),
                 "all_day": True,
-                "transparent": False,
-                "recurring": False,
-            }
-        )
-    if len(weekends) > 2:
-        sun = weekends[2][1]
-        events.append(
-            {
-                "summary": "Brunch with the Harpers",
-                "start": _iso(sun, 11),
-                "end": _iso(sun, 14),
-                "all_day": False,
                 "transparent": False,
                 "recurring": False,
             }
@@ -248,8 +266,20 @@ def _calendar_events() -> list[dict[str, Any]]:
         sat = weekends[3][0]
         events.append(
             {
-                "summary": "Cabin at the lake",
-                "start": _iso(sat, 16),
+                "summary": "Cheer competition",
+                "start": _iso(sat, 8),
+                "end": _iso(sat, 11, 30),
+                "all_day": False,
+                "transparent": False,
+                "recurring": False,
+            }
+        )
+    if len(weekends) > 4:
+        sat = weekends[4][0]
+        events.append(
+            {
+                "summary": "Tahoe with the Silvas",
+                "start": _iso(sat - timedelta(days=1), 18),
                 "end": _iso(sat + timedelta(days=1), 14),
                 "all_day": False,
                 "transparent": False,
@@ -260,15 +290,16 @@ def _calendar_events() -> list[dict[str, Any]]:
 
 
 def _holiday_events() -> list[dict[str, Any]]:
-    """A bank holiday on the Monday after the last visible weekend, so one
-    row renders its date in the long-weekend accent."""
+    """A holiday on the Monday after the *first* weekend, so the top row
+    renders its date in the long-weekend accent while both days stay free —
+    the case where the accent date is the only signal there is."""
     weekends = weekend_dates(TODAY, 6)
     if not weekends:
         return []
-    monday = weekends[-1][1] + timedelta(days=1)
+    monday = weekends[0][1] + timedelta(days=1)
     return [
         {
-            "summary": "Bank holiday",
+            "summary": "Holiday",
             "start": _iso(monday, 0),
             "end": _iso(monday + timedelta(days=1), 0),
             "all_day": True,
