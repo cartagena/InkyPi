@@ -8,6 +8,21 @@ This document covers what each screen is *for* and what it *looks like*. For how
 into the refresh loop, see [Architecture](./architecture.md); for the plugin API itself, see
 [Building Plugins](./building_plugins.md).
 
+> **About the images.** Every screenshot below is rendered by the screens themselves, from fixture
+> data, with `scripts/render_homeboard_mocks.py` — no `boardbot` deployment, no calendar feeds, no
+> Pi required. They can't drift from the layout tokens, palette and chip ladders the code actually
+> uses, because they *are* that code's output. Regenerate them with:
+>
+> ```bash
+> .venv/bin/python scripts/render_homeboard_mocks.py                                  # the four screens
+> .venv/bin/python scripts/render_homeboard_mocks.py weekends --palette bw --suffix _bw
+> .venv/bin/python scripts/render_homeboard_mocks.py board --dimensions 480x800 --suffix _too_small
+> ```
+>
+> Fixture dates are relative to the run date, so the *content* stays the same and only the absolute
+> dates move. Board's backlog rotation is date-seeded, so which backlog items appear will differ
+> between runs — that rotation is the feature, not noise.
+
 ---
 
 ## The premise
@@ -71,6 +86,15 @@ Because every accent flattens to black on a B&W panel, colour never carries mean
 - Solid `warn` fills (dark text on yellow) are gated behind a single flag pending a physical-panel
   legibility check; until then those cells and chips render as outlines everywhere.
 
+The same Weekends screen, resolved against a black-and-white panel — every accent has collapsed to
+ink, and the screen still reads correctly, because the distinctions were never carried by hue alone:
+
+![The Weekends screen on a black-and-white panel, with every accent collapsed to black](./images/homeboard/weekends_bw.png)
+
+Booked cells are still the heaviest thing on the grid (solid black, paper text), partly-booked
+still carries a heavier border than free plus an event name and time, and the long-weekend date is
+still set apart — bold ink instead of blue.
+
 The finished screenshot is snapped onto exactly these colours on its way out (`palette.quantize`),
 so the display driver's dithering has nothing left to diffuse — the screens look crisp rather than
 speckled, and antialiased text edges stay black-and-white instead of being pulled onto a stray
@@ -80,7 +104,8 @@ green or yellow.
 
 Nothing is hardcoded in pixels (`src/homeboard/layout.py`). One base unit —
 `clamp(height × 0.040, 14px, 28px)` — generates the whole type scale and every vertical band, so
-the same screens compose correctly at 800×480, 640×400, 1600×1200, and in portrait.
+the same screens compose correctly at 800×480, 640×400 and 1600×1200. Trips, Home and Weekends
+also compose in portrait; Board is the exception, for the reason given in its own section below.
 
 | Token | × base | 800×480 |
 |---|---|---|
@@ -135,8 +160,13 @@ panel, and grey is what turns into speckle.
 |---|---|
 | **Size** | `One day` → `A few days` → `Multiple days`, always a green outline |
 | **Priority** | `High` (solid red) → `Medium` (yellow outline) → nothing |
-| **Due** | `Overdue Nd` (solid red) → `Today` / `Tomorrow` (solid yellow) → `Due Nd` (yellow outline, within 5 days) → `Due Nd` (plain ink outline) |
-| **Age** | `New` (ink outline) → `Aging` (solid yellow) → `Stale` (solid red) |
+| **Due** | `Overdue Nd` (solid red) → `Today` / `Tomorrow` (yellow, bold) → `Due Nd` (yellow outline, within 5 days) → `Due Nd` (plain ink outline) |
+| **Age** | `New` (ink outline) → `Aging` (yellow, bold) → `Stale` (solid red) |
+
+The yellow tiers are authored wanting a solid fill and currently render as a bold, yellow-bordered
+outline — the `warn_is_solid` flag above keeps them that way until dark-text-on-yellow is confirmed
+legible on the physical panel. Red tiers are solid today, because paper-on-red is unambiguous on
+both panel types.
 
 Two rules hold everywhere:
 
@@ -163,25 +193,7 @@ deterministically per day and weighted so long-ignored projects surface more oft
 item ever being pinned. The screen is the same all day, different tomorrow. It's a reminder that
 the backlog exists, not an indictment of it.
 
-```
- Projects              2 in flight │ To do                     8 open
- ─────────────────────────────────────────────────────────────────────
- In flight                         │  ☐ Renew passport             New
- ▌ Kitchen shelving                │  ☐ Book dentist
- ▌ [A few days] [High] Started 6 d │  ☐ Fix the gate latch      Aging
-   ──────────────────────────────  │  ☐ Return the router
- ▌ Garage sort-out                 │  ☐ Call about the boiler
- ▌ [One day] [Due 3d]              │  ☐ Order printer ink
-                                   │  ☐ Chase the plumber
- ─────────────────────────         │  ☐ Replace hall bulb
- From the backlog                  │
- Repaint the hallway  [Multiple days] [Stale]
- Sort the loft            [A few days] [Aging]
- Bike service                    [One day] [New]
-                                   │  3 cleared this week
- ─────────────────────────────────────────────────────────────────────
-                                                    Synced fri 4:05 pm
-```
+![The Board screen: Projects on the left, To do on the right](./images/homeboard/board.png)
 
 **Visual identity.** Board is the only screen with a split header — two independent
 title-plus-count pairs over one rule, one per column — and a full-height hairline divider down the
@@ -201,7 +213,10 @@ gutter. The two halves are deliberately different textures:
   from WhatsApp, so the count moves without anyone touching the panel.
 
 When the panel is portrait or near-square, the two columns stack with a horizontal rule between
-them instead, both running full content width.
+them instead, both running full content width — though only on a tall panel: stacked, each half
+gets less than half the body height, and below roughly 1200px neither clears its minimum row count
+(see the too-small fallback [below](#when-things-go-wrong)). On every panel this project ships
+against, Board is a landscape screen.
 
 ---
 
@@ -217,27 +232,7 @@ because it's a daydream, not a deadline.
 The next-action line is the only actionable text on the screen, and it's derived rather than
 configured: a trip that has a next action *is* blocked by definition, and it renders that way.
 
-```
- Trips                                            2 booked · 3 ideas
- ─────────────────────────────────────────────────────────────────────
- Booked
- ┌──────┐
- │      │  Lisbon
- │  12  │  Fri 3 Oct – Sun 5 Oct
- │ days │  Book airport parking            ← bold + red when blocking
- └──────┘
- ┌──────┐
- │  47  │  Ski week
- │ days │  Sat 15 Nov – Sat 22 Nov
- └──────┘
- ─────────────────────────────────────────────────────────────────────
- On the list
- Copenhagen                                         Spring, long weekend
- Northern Portugal                                             Next autumn
- Dolomites                                                     Summer 2027
- ─────────────────────────────────────────────────────────────────────
-                                                    Synced fri 4:05 pm
-```
+![The Trips screen: two booked countdown cards above a list of trip ideas](./images/homeboard/trips.png)
 
 **Visual identity.** Trips is the most graphic of the four, and the only one with a large solid
 colour field. Each booked trip gets a **filled blue `emphasis` block** — roughly 13% of the panel
@@ -267,25 +262,11 @@ smoke-alarm batteries, the boiler service — the class of task nobody remembers
 regrets forgetting. It is deliberately the simplest of the four: one row per task, sorted so
 whatever needs attention floats to the top, fully deterministic given today's date.
 
-The header states the damage before you read a single row: `2 overdue · 3 due soon`, counted
+The header states the damage before you read a single row: `2 overdue · 2 due soon`, counted
 across the *whole* list rather than just the visible rows, so a task pushed off-screen by the row
 cap still registers.
 
-```
- Home                                          2 overdue · 3 due soon
- ─────────────────────────────────────────────────────────────────────
- Replace furnace filter        Every 3 months      [ Overdue 12 d ]
- ─────────────────────────────────────────────────────────────────────
- Clean gutters                 Seasonal            [ Overdue 4 d  ]
- ─────────────────────────────────────────────────────────────────────
- Service the boiler            Every year          [ Due in 9 days]
- ─────────────────────────────────────────────────────────────────────
- Descale the kettle            Every 6 months                   Nov
- ─────────────────────────────────────────────────────────────────────
- Smoke alarm batteries         Every year                       Jan
- ─────────────────────────────────────────────────────────────────────
-                                                    Synced fri 4:05 pm
-```
+![The Home screen: a ruled list of maintenance tasks with overdue and due-soon chips](./images/homeboard/home_maintenance.png)
 
 **Visual identity.** Home is a **ruled ledger** — the only screen where every row is separated by
 a hairline, packed edge to edge with no gaps. Between five and ten rows depending on panel size.
@@ -320,27 +301,12 @@ entries below a configurable threshold. Any all-day or overnight event books the
 single event covering both days merges into one spanning cell rather than repeating itself.
 
 It also flags **long weekends**: when the adjacent Friday or Monday is a public holiday or matches
-the school-out pattern, the row's date turns blue and the cell picks up a `· Mon off` note.
+the school-out pattern, the row's date switches to the blue `emphasis` accent. A cell that already
+has something to say also picks up a `· Mon off` suffix on its note; a free cell stays a plain
+`Free`, because the accent date has already made the point and the whole value of a free cell is
+that it's empty.
 
-```
- Weekends                            3 free weekends in the next 6
- ─────────────────────────────────────────────────────────────────────
-        Saturday                     Sunday
- Oct 4  ┌ Free ─────────────┐        ┌ Free ─────────────┐
-        └───────────────────┘        └───────────────────┘
- Oct 11 ███ Ben's birthday ███       ┌ Free ─────────────┐
-        ███ All day        ███       └───────────────────┘
- Oct 18 ┌ Free ─────────────┐        ╔ Brunch with M ════╗   ← partly
-        └───────────────────┘        ╚ 11am–2pm ═════════╝
- Oct 25 ███ Cabin trip ██████████████████████████████████     ← spanning
-        ███ Sat night to Sun ███████████████████████████
- Nov 1  ┌ Free ─────────────┐        ┌ Free ─────────────┐
-        └───────────────────┘        └───────────────────┘
- Nov 8  ┌ Free ─────────────┐        ┌ Free ─────────────┐   ← Nov 8 in blue
- Accent date = long weekend
- ─────────────────────────────────────────────────────────────────────
-                                                    Synced fri 4:05 pm
-```
+![The Weekends screen: six weekend rows showing free, partly booked and booked days](./images/homeboard/weekends.png)
 
 **Visual identity.** Weekends is the only **grid**: a narrow date column, then two day columns
 under `Saturday` / `Sunday` labels, with four to six rows depending on panel height. Each cell is
@@ -377,7 +343,14 @@ All four screens fail the same way, on purpose:
 | Board: one list fetched, one didn't | Renders both columns; footer shows the *worse* of the two states |
 
 The frame never breaks. A screen in trouble still looks like part of the board, and always says so
-in the footer rather than quietly showing yesterday's data as if it were today's.
+in the footer rather than quietly showing yesterday's data as if it were today's:
+
+![The Board screen on a panel too small to hold its minimum rows, showing the fallback message](./images/homeboard/board_too_small.png)
+
+That's Board asked to render on a 480x800 portrait panel. Its stacked layout needs roughly 1200px
+of height before both halves clear their minimum row counts — the base unit stops growing at 28px,
+so a taller panel buys body height in ems only up to a point. Rather than overflow past the footer,
+it says so.
 
 ---
 
@@ -396,6 +369,7 @@ in the footer rather than quietly showing yesterday's data as if it were today's
 | `src/plugins/trips/` | Trips — row parsing, booked/idea split, section sizing |
 | `src/plugins/home_maintenance/` | Home — due-date computation and status ladder |
 | `src/plugins/weekends/` | Weekends — weekend classification and long-weekend detection |
+| `scripts/render_homeboard_mocks.py` | Renders the mockups in this document from fixture data |
 
 `src/homeboard/` is deliberately not a plugin: it has no `plugin-info.json`, so the registry never
 discovers it. It exists so the four screens share one identity instead of four near-identical
