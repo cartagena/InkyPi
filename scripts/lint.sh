@@ -24,6 +24,7 @@ MYPY_TESTS_BASELINE="?"
 MYPY_TESTS_RATCHET_EXIT=0
 MYPY_STRICT_EXIT=0
 SHELLCHECK_EXIT=0
+STYLELINT_EXIT=0
 
 echo "Running Ruff linter..."
 ruff check src tests scripts
@@ -285,9 +286,40 @@ else
     fi
 fi
 
+# CSS — hand-written stylesheets must pass stylelint. The generated bundle
+# (src/static/styles/main.css) and vendored CSS are excluded via ignoreFiles in
+# .stylelintrc.json, so this lints the partials and plugin render CSS only.
+echo "Running stylelint..."
+STYLELINT_CMD=""
+if command -v stylelint > /dev/null 2>&1; then
+    STYLELINT_CMD="stylelint"
+elif command -v npx > /dev/null 2>&1 && npx --no-install stylelint --version > /dev/null 2>&1; then
+    # --no-install: never silently download a different version mid-lint.
+    STYLELINT_CMD="npx --no-install stylelint"
+fi
+
+if [ -n "$STYLELINT_CMD" ]; then
+    $STYLELINT_CMD "src/**/*.css"
+    STYLELINT_EXIT=$?
+    if [ $STYLELINT_EXIT -ne 0 ]; then
+        echo "❌ stylelint found issues (exit code: $STYLELINT_EXIT)"
+    else
+        echo "✅ stylelint passed"
+    fi
+else
+    # In CI the binary must be present; locally we skip with a warning.
+    if [[ -n "${CI:-}" ]]; then
+        echo "❌ stylelint not found — install it in the CI image."
+        STYLELINT_EXIT=1
+    else
+        echo "⚠️  stylelint not found — skipping (install via: npm install -g stylelint)"
+    fi
+fi
+
 # Report summary — src/ must stay clean, tests/ is ratcheted, and the strict
-# subset remains fully blocking. Ruff, Black, and shellcheck are blocking too.
-if [ $RUFF_EXIT -ne 0 ] || [ $BLACK_EXIT -ne 0 ] || [ $MYPY_SRC_RATCHET_EXIT -ne 0 ] || [ $MYPY_TESTS_RATCHET_EXIT -ne 0 ] || [ $MYPY_STRICT_EXIT -ne 0 ] || [ $SHELLCHECK_EXIT -ne 0 ]; then
+# subset remains fully blocking. Ruff, Black, shellcheck and stylelint are
+# blocking too.
+if [ $RUFF_EXIT -ne 0 ] || [ $BLACK_EXIT -ne 0 ] || [ $MYPY_SRC_RATCHET_EXIT -ne 0 ] || [ $MYPY_TESTS_RATCHET_EXIT -ne 0 ] || [ $MYPY_STRICT_EXIT -ne 0 ] || [ $SHELLCHECK_EXIT -ne 0 ] || [ $STYLELINT_EXIT -ne 0 ]; then
     echo ""
     echo "❌ Some checks failed:"
     [ $RUFF_EXIT -ne 0 ] && echo "  - Ruff: $RUFF_EXIT"
@@ -296,6 +328,7 @@ if [ $RUFF_EXIT -ne 0 ] || [ $BLACK_EXIT -ne 0 ] || [ $MYPY_SRC_RATCHET_EXIT -ne
     [ $MYPY_TESTS_RATCHET_EXIT -ne 0 ] && echo "  - mypy tests/ ratchet: $MYPY_TESTS_RATCHET_EXIT"
     [ $MYPY_STRICT_EXIT -ne 0 ] && echo "  - mypy strict subset: $MYPY_STRICT_EXIT"
     [ $SHELLCHECK_EXIT -ne 0 ] && echo "  - shellcheck: $SHELLCHECK_EXIT"
+    [ $STYLELINT_EXIT -ne 0 ] && echo "  - stylelint: $STYLELINT_EXIT"
     echo ""
     echo "Post-run actions will continue..."
 else
@@ -329,7 +362,7 @@ else
     echo "✅ mypy tests/: ${MYPY_TESTS_COUNT} issue(s) matches baseline ${MYPY_TESTS_BASELINE}"
 fi
 
-if [ $RUFF_EXIT -ne 0 ] || [ $BLACK_EXIT -ne 0 ] || [ $MYPY_SRC_RATCHET_EXIT -ne 0 ] || [ $MYPY_TESTS_RATCHET_EXIT -ne 0 ] || [ $MYPY_STRICT_EXIT -ne 0 ] || [ $SHELLCHECK_EXIT -ne 0 ]; then
+if [ $RUFF_EXIT -ne 0 ] || [ $BLACK_EXIT -ne 0 ] || [ $MYPY_SRC_RATCHET_EXIT -ne 0 ] || [ $MYPY_TESTS_RATCHET_EXIT -ne 0 ] || [ $MYPY_STRICT_EXIT -ne 0 ] || [ $SHELLCHECK_EXIT -ne 0 ] || [ $STYLELINT_EXIT -ne 0 ]; then
     exit 1
 fi
 

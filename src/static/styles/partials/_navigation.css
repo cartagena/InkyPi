@@ -176,7 +176,6 @@ svg.icon-thin {
 
 /* Settings button styling */
 .header-icons { display: flex; align-items: center; gap: 16px; }
-.nav-icons { display: inline-flex; align-items: center; gap: 8px; }
 
 .settings-button {
     font-size: 1rem;

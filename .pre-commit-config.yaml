@@ -28,6 +28,17 @@ repos:
         ]
         files: ^(src|tests)/
 
+  # CSS lint for hand-written stylesheets. The generated bundle
+  # (src/static/styles/main.css) and vendored CSS are excluded here as well as
+  # in .stylelintrc.json, since pre-commit passes staged paths explicitly.
+  - repo: https://github.com/thibaudcolas/pre-commit-stylelint
+    rev: v16.26.1
+    hooks:
+      - id: stylelint
+        additional_dependencies: ["stylelint@16.26.1"]
+        files: \.css$
+        exclude: ^(src/static/styles/main\.css|src/static/vendor/)
+
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.18.4
     hooks:

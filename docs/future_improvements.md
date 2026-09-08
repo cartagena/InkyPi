@@ -15,10 +15,10 @@
   - Live Logs viewer and filters in `src/templates/settings.html` via `/api/logs`
   - Optional HTTP latency logging via `INKYPI_HTTP_LOG_LATENCY` in `src/utils/http_utils.py`
 - Backup & Restore — Implemented
-  - Export/import endpoints and include-keys option in `src/blueprints/settings.py`
+  - Export/import endpoints and include-keys option in `src/blueprints/settings/_config.py`
   - UI controls under Backup & Restore in `src/templates/settings.html`
 - Benchmarking — Implemented
-  - Instrumentation in `src/refresh_task.py` and `src/display/display_manager.py`
+  - Instrumentation in `src/refresh_task/` and `src/display/display_manager.py`
   - See `docs/benchmarking.md` for details
 - Developer Workflow — Implemented
   - Quick dev without hardware, hot reload path in `README.md` and `docs/development.md`

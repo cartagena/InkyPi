@@ -112,6 +112,13 @@ runner = "python -m pytest tests/ -x --tb=no -q"
 dict_synonyms = ""
 
 [tool.semantic_release]
+# GitHub release bodies are rendered from templates/.release_notes.md.j2.
+# That exact path is python-semantic-release's own convention, not ours:
+# template_dir defaults to "templates" and DEFAULT_RELEASE_NOTES_TPL_FILE is
+# ".release_notes.md.j2" (semantic_release/cli/const.py), so the file is picked
+# up with no setting pointing at it. It is live — do not delete it as an orphan.
+# CHANGELOG.md keeps the default detailed format; the template only shapes the
+# release body.
 # Keep BOTH the PEP-621 [project].version and the semantic-release anchor in
 # sync on every release. Listing them together means python-semantic-release
 # rewrites both TOML keys when bumping, so packaging metadata (pip, uv,
