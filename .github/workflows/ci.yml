@@ -37,7 +37,7 @@ jobs:
       # job when it is missing under CI, so it must be on PATH before that step.
       # Pin the version so a stylelint release cannot turn the lint job red on
       # an unrelated PR; bump it here and in .pre-commit-config.yaml together.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
       - name: Install stylelint
