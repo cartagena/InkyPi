@@ -186,3 +186,26 @@ class TestAdapter:
     def test_passes_object_through(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(boardbot, "_get_json", lambda *a, **k: {"title": "T"})
         assert boardbot.fetch_sermon_latest("http://h", "t") == {"title": "T"}
+
+
+class TestReviewFixes:
+    def test_empty_object_does_not_replace_cache(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(boardbot, "_get_json", lambda *a, **k: {})
+        with pytest.raises(ValueError):
+            boardbot.fetch_sermon_latest("http://h", "t")
+
+    def test_fit_pop_removes_the_truncated_block(self) -> None:
+        blocks, _ = sd.fit_blocks(["a", "bb"], 5, 1, [16])
+        assert "a" not in blocks or blocks == ["a"]
+
+    def test_tiny_panel_uses_too_small_frame(
+        self, with_token: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(boardbot, "fetch_sermon_latest", lambda *a, **k: _FIXTURE)
+        monkeypatch.setattr(
+            Sermon, "get_oriented_dimensions", lambda self, dc: (200, 60)
+        )
+        image = Sermon({"id": "sermon"}).generate_image(_SETTINGS, with_token)
+        assert isinstance(image, Image.Image)

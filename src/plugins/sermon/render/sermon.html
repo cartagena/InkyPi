@@ -10,11 +10,13 @@
 
 {% if empty_html %}
 {{ empty_html | safe }}
+{% elif too_small %}
+<div class="hb-too-small">Panel too small for this screen</div>
 {% else %}
 {% if subline %}
 <div class="sermon-subline">{{ subline }}</div>
 {% endif %}
-<div class="sermon-body" style="top: calc(var(--body-top) + {{ subline_h_px }}px); height: {{ body_h_px }}px;">
+<div class="sermon-body sermon-{{ screen }}" style="top: calc(var(--body-top) + {{ subline_h_px }}px); height: {{ body_h_px }}px;">
   {% if screen == "message" %}
     {% if notes %}<div class="sermon-notes" style="font-size: {{ label_px }}px;">{{ notes }}</div>{% endif %}
     {% for p in summary %}
@@ -32,6 +34,7 @@
       {% endfor %}
     </ol>
   {% else %}
+    <div class="sermon-lists">
     {% if scriptures %}
     <div class="sermon-label" style="font-size: {{ label_px }}px;">Passages from the sermon</div>
     <ul class="sermon-passages" style="font-size: {{ list_font_px }}px;">
@@ -44,6 +47,7 @@
       {% for s in related %}<li>{{ s }}</li>{% endfor %}
     </ul>
     {% endif %}
+    </div>
     {% if reflection %}
     <div class="sermon-reflection" style="font-size: {{ reflection.font_px }}px;">{{ reflection.text }}{% if reflection.inferred %}<span class="sermon-mark">*</span>{% endif %}</div>
     {% endif %}

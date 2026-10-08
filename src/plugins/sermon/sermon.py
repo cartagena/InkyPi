@@ -34,6 +34,8 @@ logger = logging.getLogger(__name__)
 _FONT_STEPS = (1.45, 1.25, 1.1, 0.95, 0.85)
 _HEADER_TITLE_W_PCT = 62.0
 _SUBLINE_EM = 1.5
+_MIN_BODY_EM = 6.0  # below this the body can't hold a useful screen
+_NOTES_MARGIN_EM = 0.35
 _REFLECT_SHARE = 0.38  # of the body height, reserved for the question
 
 
@@ -68,7 +70,7 @@ class Sermon(BasePlugin):
                             option("apply", "Apply it"),
                             option("reflect", "Read & reflect"),
                         ],
-                        hint="Rotate hourly cycles through all three screens.",
+                        hint="Rotate hourly picks the screen from the clock, so it needs a playlist/refresh interval of 1 hour (or any interval not a multiple of 3 hours).",
                     ),
                 ),
             ),
@@ -117,6 +119,7 @@ class Sermon(BasePlugin):
             "extra_css_files": [chrome.CHROME_CSS_PATH],
             "empty_html": "",
             "screen": "",
+            "too_small": False,
         }
 
         payload = result.payload
@@ -144,6 +147,7 @@ class Sermon(BasePlugin):
         )
         params.update(self._body_params(t, sermon, screen))
         params["screen"] = screen
+        params.setdefault("too_small", False)
         return self._render(dimensions, params, roles)
 
     @staticmethod
@@ -155,6 +159,8 @@ class Sermon(BasePlugin):
         subline_h = _SUBLINE_EM * t.base if subline else 0.0
         body_top = t.body_top_em * t.base
         body_h = t.height - body_top - t.body_bottom_em * t.base - subline_h
+        if body_h < _MIN_BODY_EM * t.base:
+            return {"too_small": True}
         steps = [m * t.base for m in _FONT_STEPS]
         footnote_h = t.fs["small"] * sd.LINE_HEIGHT
         footnote = sd.has_inferred(sermon, screen)
@@ -182,7 +188,14 @@ class Sermon(BasePlugin):
         if screen == "message":
             labels = sd.service_note_labels(sermon.service_notes)
             notes = " · ".join(labels)
-            note_h = t.fs["label"] * sd.LINE_HEIGHT if notes else 0.0
+            note_h = (
+                sd.estimate_lines(notes, content_w, t.fs["label"])
+                * t.fs["label"]
+                * sd.LINE_HEIGHT
+                + _NOTES_MARGIN_EM * t.fs["label"]
+                if notes
+                else 0.0
+            )
             out["notes"] = notes
             texts, font_px = sd.fit_blocks(
                 [sermon.summary] if sermon.summary else [],
@@ -201,9 +214,9 @@ class Sermon(BasePlugin):
                     out["highlights"] = hl
                     out["highlight_font_px"] = small
         elif screen == "apply":
-            # Width reserve (96%) leaves room for the trailing `*` marker.
+            # Width reserve (90%): the list indent (1.4em) and trailing `*` marker.
             texts, font_px = sd.fit_blocks(
-                [m.text for m in sermon.takeaways], content_w * 0.96, body_h, steps
+                [m.text for m in sermon.takeaways], content_w * 0.90, body_h, steps
             )
             out["takeaways"] = [
                 {"text": tx, "inferred": m.inferred}

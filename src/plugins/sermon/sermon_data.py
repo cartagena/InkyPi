@@ -230,7 +230,7 @@ def fit_blocks(
             break
         idx = max(range(len(blocks)), key=lambda i: len(blocks[i]))
         if len(blocks[idx]) <= 1:
-            blocks.pop()
+            blocks.pop(idx)
             continue
         shorter = truncate_words(blocks[idx], int(len(blocks[idx]) * 0.85))
         # Guard against truncate_words returning something no shorter.

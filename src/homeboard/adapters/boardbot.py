@@ -3,8 +3,8 @@
 ``boardbot`` (github.com/cartagena/boardbot) is a small self-hosted service
 that backs four InkyPi screens — ``board`` (to-dos + projects), ``trips``,
 ``home_maintenance`` and ``sermon`` — over one HTTP API: a WhatsApp bridge
-lets items be added/completed from a phone, a Python service stores them in
-SQLite and exposes ``GET /todo``, ``GET /projects``, ``GET /trips``,
+lets items be added/completed from a phone, a Python service stores them
+in SQLite and exposes ``GET /todo``, ``GET /projects``, ``GET /trips``,
 ``GET /maintenance`` and ``GET /sermons/latest``. This module is the InkyPi-side client for that HTTP
 API — it never sees WhatsApp or SQLite directly.
 
@@ -190,4 +190,7 @@ def fetch_sermon_latest(base_url: str, token: str) -> dict[str, Any]:
     data = _get_json("sermons/latest", base_url, token)
     if not isinstance(data, dict):
         raise ValueError("boardbot /sermons/latest did not return a JSON object")
+    if not (data.get("title") or data.get("summary")):
+        # Don't let a content-free object overwrite the last good cached sermon.
+        raise ValueError("boardbot /sermons/latest returned no title or summary")
     return data
