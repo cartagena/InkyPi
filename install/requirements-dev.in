@@ -33,7 +33,7 @@ types-PyYAML==6.0.12.20260906
 types-requests==2.33.0.20260906
 
 # Linting / formatting
-black>=26.5.1,<27
+black>=26.10.0,<27
 ruff>=0.16.10,<1
 
 # Dev watch-mode rebuilds (JTN-713) — provides the `watchmedo` CLI used by
@@ -55,7 +55,7 @@ pillow>=11.0,<13
 # pi-heif has wheels for all major platforms — no platform guard needed.
 pi-heif==1.4.0
 tzdata>=2024.1
-openai>=2.0,<3
+openai>=2.0,<4
 google-genai>=1.14,<3
 numpy>=2.0,<3
 icalendar>=6.0,<8
@@ -92,7 +92,7 @@ pre-commit>=4.6.2,<5
 pip-licenses>=5.0,<6
 
 # Mutation testing (optional — slow; run with: mutmut run)
-mutmut>=2.5,<3
+mutmut>=3.8.0,<4
 
 # Memory profiling for the per-PR memory diff comment (JTN-610). Linux-only
 # wheels; tracemalloc fallback is used on other platforms. Pinned to 1.x to
