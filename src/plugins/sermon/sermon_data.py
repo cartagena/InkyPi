@@ -2,8 +2,8 @@
 
 No I/O and no rendering — everything here is deterministic so it can be
 unit-tested without a browser. Layout rules follow boardbot's hand-off for
-``GET /sermons/latest``: three body screens under one shared header, text
-shrunk a font step before it is truncated, never cut mid-word.
+``GET /sermons/latest``: four body screens under one shared header band,
+text shrunk a font step before it is truncated, never cut mid-word.
 """
 
 from __future__ import annotations
@@ -16,9 +16,15 @@ from typing import Any, Literal
 
 from homeboard.layout import ADVANCE_RATIO
 
-Screen = Literal["message", "apply", "reflect"]
-SCREENS: tuple[Screen, ...] = ("message", "apply", "reflect")
+Screen = Literal["message", "highlights", "apply", "reflect"]
+SCREENS: tuple[Screen, ...] = ("message", "highlights", "apply", "reflect")
 SCREEN_SETTING_VALUES = ("auto", *SCREENS)
+SCREEN_LABELS: dict[Screen, str] = {
+    "message": "The Message",
+    "highlights": "Key Points",
+    "apply": "Apply It",
+    "reflect": "Read & Reflect",
+}
 
 _SECONDS_PER_SCREEN = 3600
 
@@ -189,13 +195,23 @@ def estimate_lines(text: str, width_px: float, font_px: float) -> int:
 
 
 def block_height(
-    texts: Sequence[str], width_px: float, font_px: float, gap: float = ITEM_GAP
+    texts: Sequence[str],
+    width_px: float,
+    font_px: float,
+    gap: float = ITEM_GAP,
+    line_height: float = LINE_HEIGHT,
+    min_block: float = 0.0,
 ) -> float:
-    """Estimated rendered height of *texts* stacked as separate blocks."""
+    """Estimated rendered height of *texts* stacked as separate blocks.
+    *gap*, *line_height* and *min_block* (the smallest a block can be, e.g.
+    a number badge taller than one line) are multiples of the font size."""
     if not texts:
         return 0.0
-    lines = sum(estimate_lines(t, width_px, font_px) for t in texts)
-    return lines * font_px * LINE_HEIGHT + (len(texts) - 1) * gap * font_px
+    blocks = sum(
+        max(estimate_lines(t, width_px, font_px) * line_height, min_block)
+        for t in texts
+    )
+    return (blocks + (len(texts) - 1) * gap) * font_px
 
 
 def truncate_words(text: str, max_chars: int) -> str:
@@ -215,18 +231,25 @@ def fit_blocks(
     width_px: float,
     height_px: float,
     font_steps: Sequence[float],
+    gap: float = ITEM_GAP,
+    line_height: float = LINE_HEIGHT,
+    min_block: float = 0.0,
 ) -> tuple[list[str], float]:
     """Pick the largest font in *font_steps* (descending) at which *texts*
     fit, shrinking before truncating. At the smallest font, if it still
     overflows, the longest block is word-truncated repeatedly until it fits.
     Returns ``(texts, font_px)``."""
     blocks = list(texts)
+
+    def _height(font_px: float) -> float:
+        return block_height(blocks, width_px, font_px, gap, line_height, min_block)
+
     for font_px in font_steps:
-        if block_height(blocks, width_px, font_px) <= height_px:
+        if _height(font_px) <= height_px:
             return blocks, font_px
     font_px = font_steps[-1]
     for _ in range(1000):
-        if block_height(blocks, width_px, font_px) <= height_px or not blocks:
+        if _height(font_px) <= height_px or not blocks:
             break
         idx = max(range(len(blocks)), key=lambda i: len(blocks[i]))
         if len(blocks[idx]) <= 1:
@@ -236,3 +259,32 @@ def fit_blocks(
         # Guard against truncate_words returning something no shorter.
         blocks[idx] = shorter if len(shorter) < len(blocks[idx]) else blocks[idx][:-2]
     return blocks, font_px
+
+
+def fit_line(
+    text: str, width_px: float, font_steps: Sequence[float]
+) -> tuple[str, float]:
+    """Single-line variant of ``fit_blocks``: the largest font in
+    *font_steps* at which *text* stays on one line, else the smallest font
+    with *text* word-truncated to fit."""
+    for font_px in font_steps:
+        if estimate_lines(text, width_px, font_px) <= 1:
+            return text, font_px
+    font_px = font_steps[-1]
+    max_chars = max(1, int(width_px / (font_px * ADVANCE_RATIO)))
+    return truncate_words(text, max_chars), font_px
+
+
+def chip_rows(
+    items: Sequence[str], width_px: float, font_px: float, extra_px: float
+) -> int:
+    """Estimated number of wrapped rows for inline chips: each chip is its
+    text plus *extra_px* of padding, border and margin."""
+    rows, used = 0, width_px
+    for item in items:
+        w = len(item) * font_px * ADVANCE_RATIO + extra_px
+        if used + w > width_px:
+            rows += 1
+            used = 0.0
+        used += w
+    return rows

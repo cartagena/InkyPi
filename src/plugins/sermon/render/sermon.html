@@ -2,62 +2,55 @@
 <html>
 <head>
 <meta charset="utf-8">
-<style>{{ root_css | safe }}</style>
+<style>
+@font-face { font-family: "SermonJost"; src: url("{{ font_url }}") format("truetype"); }
+{{ root_css | safe }}
+</style>
 {% for style in inline_styles %}<style>{{ style | safe }}</style>{% endfor %}
 </head>
-<body>
-{{ header_html | safe }}
+<body class="sermon-{{ screen }}" style="--band: {{ band }}; --on-band: {{ on_band }}; --mark: {{ mark }};
+  --pad-x: {{ px.pad_x }}px; --band-h: {{ px.band_h }}px; --band-pad: {{ px.band_pad }}px;
+  --kicker: {{ px.kicker }}px; --title: {{ px.title }}px; --meta: {{ px.meta }}px;
+  --body-top: {{ px.body_top }}px; --body-bottom: {{ px.body_bottom }}px; --footer: {{ px.footer }}px;
+  --tag: {{ px.tag }}px; --label: {{ px.label }}px; --chip: {{ px.chip }}px;">
+<header class="band">
+  <div class="kicker">
+    <span>{{ kicker }}</span>
+    {% if not empty %}<span class="dots">{% for i in range(screen_count) %}<i class="{{ 'on' if i == screen_idx }}"></i>{% endfor %}</span>{% endif %}
+  </div>
+  <div class="title">{{ title }}</div>
+  {% if meta %}<div class="meta">{{ meta }}</div>{% endif %}
+</header>
 
-{% if empty_html %}
-{{ empty_html | safe }}
-{% elif too_small %}
-<div class="hb-too-small">Panel too small for this screen</div>
-{% else %}
-{% if subline %}
-<div class="sermon-subline">{{ subline }}</div>
-{% endif %}
-<div class="sermon-body sermon-{{ screen }}" style="top: calc(var(--body-top) + {{ subline_h_px }}px); height: {{ body_h_px }}px;">
-  {% if screen == "message" %}
-    {% if notes %}<div class="sermon-notes" style="font-size: {{ label_px }}px;">{{ notes }}</div>{% endif %}
-    {% for p in summary %}
-    <p class="sermon-summary" style="font-size: {{ font_px }}px;">{{ p }}</p>
+<main>
+{% if too_small %}
+  <div class="too-small">Panel too small for this screen</div>
+{% elif empty %}
+{% elif screen == "message" %}
+  {% for n in notes %}<span class="tag">{{ n }}</span>{% endfor %}
+  {% for p in summary %}<p class="summary" style="font-size: {{ font_px }}px;">{{ p }}</p>{% endfor %}
+{% elif screen in ("highlights", "apply") %}
+  <ol class="points" style="font-size: {{ font_px }}px; --item-gap: {{ item_gap }}em;">
+    {% for item in items %}
+    <li><b>{{ loop.index }}</b><span>{{ item.text }}{% if item.inferred %}<em class="mark">*</em>{% endif %}</span></li>
     {% endfor %}
-    {% if highlights %}
-    <ul class="sermon-highlights" style="font-size: {{ highlight_font_px }}px;">
-      {% for h in highlights %}<li>{{ h }}</li>{% endfor %}
-    </ul>
-    {% endif %}
-  {% elif screen == "apply" %}
-    <ol class="sermon-takeaways" style="font-size: {{ font_px }}px;">
-      {% for tk in takeaways %}
-      <li>{{ tk.text }}{% if tk.inferred %}<span class="sermon-mark">*</span>{% endif %}</li>
-      {% endfor %}
-    </ol>
-  {% else %}
-    <div class="sermon-lists">
-    {% if scriptures %}
-    <div class="sermon-label" style="font-size: {{ label_px }}px;">Passages from the sermon</div>
-    <ul class="sermon-passages" style="font-size: {{ list_font_px }}px;">
-      {% for s in scriptures %}<li>{{ s }}</li>{% endfor %}
-    </ul>
-    {% endif %}
-    {% if related %}
-    <div class="sermon-label" style="font-size: {{ label_px }}px;">Suggested</div>
-    <ul class="sermon-passages" style="font-size: {{ list_font_px }}px;">
-      {% for s in related %}<li>{{ s }}</li>{% endfor %}
-    </ul>
-    {% endif %}
-    </div>
-    {% if reflection %}
-    <div class="sermon-reflection" style="font-size: {{ reflection.font_px }}px;">{{ reflection.text }}{% if reflection.inferred %}<span class="sermon-mark">*</span>{% endif %}</div>
-    {% endif %}
+  </ol>
+{% else %}
+  {% if scriptures %}
+  <div class="label">Passages from the sermon</div>
+  <div class="chips">{% for p in scriptures %}<span class="chip">{{ p }}</span>{% endfor %}</div>
   {% endif %}
-</div>
-{% if footnote %}
-<div class="sermon-footnote" style="height: {{ footnote_h_px }}px;">{{ footnote }}</div>
+  {% if related %}
+  <div class="label">Suggested</div>
+  <div class="chips">{% for p in related %}<span class="chip suggested">{{ p }}</span>{% endfor %}</div>
+  {% endif %}
+  {% if reflection %}
+  <div class="question" style="font-size: {{ reflection.font_px }}px;">{{ reflection.text }}{% if reflection.inferred %}<em class="mark">*</em>{% endif %}</div>
+  {% endif %}
 {% endif %}
-{% endif %}
+</main>
 
-{{ footer_html | safe }}
+{% if footnote %}<div class="footnote">{{ footnote }}</div>{% endif %}
+{% if sync %}<footer>{{ sync }}</footer>{% endif %}
 </body>
 </html>

@@ -1,10 +1,15 @@
 """Sermon — the weekly sermon summary from boardbot (``GET /sermons/latest``).
 
-One plugin, three body screens (message / apply it / read & reflect) under a
-shared header, picked from the clock so a plain hourly playlist rotates
-through them with no stored state. Same adapter and fail-soft cache as
-``trips`` (see ``homeboard.adapters.boardbot``); boardbot does all the
-fetching, transcription and summarizing, this only reads JSON and draws it.
+One plugin, four body screens (message / key points / apply it / read &
+reflect), each in its own palette colour, picked from the clock so a plain
+hourly playlist rotates through them with no stored state. Two designs,
+chosen per instance — see ``sermon_layouts``. Same adapter and fail-soft
+cache as ``trips`` (see ``homeboard.adapters.boardbot``); boardbot does all
+the fetching, transcription and summarizing, this only reads JSON and draws
+it.
+
+Unlike the other homeboard screens this one draws its own header and footer
+instead of ``homeboard.chrome``: the colour band or sidebar *is* the header.
 """
 
 from __future__ import annotations
@@ -24,19 +29,11 @@ from plugins.base_plugin.settings_schema import (
     schema,
     section,
 )
-from plugins.sermon import sermon_data as sd
+from plugins.sermon import sermon_data as sd, sermon_layouts as sl
+from utils.app_utils import get_font_path
 from utils.time_utils import get_timezone
 
 logger = logging.getLogger(__name__)
-
-# Body font steps as multiples of `base` (28/24/21/18/16px on 800x480):
-# shrink a step before truncating.
-_FONT_STEPS = (1.45, 1.25, 1.1, 0.95, 0.85)
-_HEADER_TITLE_W_PCT = 62.0
-_SUBLINE_EM = 1.5
-_MIN_BODY_EM = 6.0  # below this the body can't hold a useful screen
-_NOTES_MARGIN_EM = 0.35
-_REFLECT_SHARE = 0.38  # of the body height, reserved for the question
 
 
 class Sermon(BasePlugin):
@@ -60,6 +57,19 @@ class Sermon(BasePlugin):
                 "Display",
                 row(
                     field(
+                        "design",
+                        "select",
+                        label="Design",
+                        default=sl.DEFAULT_DESIGN,
+                        options=[
+                            option("band", "Colour band"),
+                            option("sidebar", "Sidebar poster"),
+                        ],
+                        hint="Colour band: a coloured header across the top. Sidebar poster: a coloured column on the left with the screen number.",
+                    ),
+                ),
+                row(
+                    field(
                         "screen",
                         "select",
                         label="Screen",
@@ -67,10 +77,11 @@ class Sermon(BasePlugin):
                         options=[
                             option("auto", "Rotate hourly"),
                             option("message", "The message"),
+                            option("highlights", "Key points"),
                             option("apply", "Apply it"),
                             option("reflect", "Read & reflect"),
                         ],
-                        hint="Rotate hourly picks the screen from the clock, so it needs a playlist/refresh interval of 1 hour (or any interval not a multiple of 3 hours).",
+                        hint="Rotate hourly picks one of the four screens from the clock (hour mod 4), so set the playlist/refresh interval to 1 hour — at 2 or 4 hours only some screens would ever show.",
                     ),
                 ),
             ),
@@ -110,147 +121,33 @@ class Sermon(BasePlugin):
 
         timezone_raw = device_config.get_config("timezone", default="UTC")
         tz = get_timezone(timezone_raw if isinstance(timezone_raw, str) else "UTC")
-        sync_text = chrome.sync_text(result, tz)
-
-        params: dict[str, Any] = {
-            "root_css": "",
-            "header_html": "",
-            "footer_html": "",
-            "extra_css_files": [chrome.CHROME_CSS_PATH],
-            "empty_html": "",
-            "screen": "",
-            "too_small": False,
-        }
 
         payload = result.payload
         if result.empty or not isinstance(payload, Mapping):
-            params.update(chrome.build_chrome(t, roles, "Sermon", "", "", sync_text))
-            params["empty_html"] = chrome.empty_state_html("Sermon", "No sermon yet")
-            return self._render(dimensions, params, roles)
+            sermon = None
+            screen: sd.Screen = "message"
+        else:
+            sermon = sd.parse_sermon(payload)
+            screen = sd.resolve_screen(settings.get("screen"), time.time())
 
-        sermon = sd.parse_sermon(payload)
-        screen = sd.resolve_screen(settings.get("screen"), time.time())
-
-        title_w_px = t.width * _HEADER_TITLE_W_PCT / 100
-        header_title = layout.truncate(
-            sermon.title or "Sermon", title_w_px, t.fs["title"]
-        )
-        params.update(
-            chrome.build_chrome(
-                t,
-                roles,
-                header_title,
-                sd.format_service_date(sermon.service_date),
-                "",
-                sync_text,
-            )
-        )
-        params.update(self._body_params(t, sermon, screen))
-        params["screen"] = screen
-        params.setdefault("too_small", False)
+        design = sl.resolve_design(settings.get("design"))
+        params = self.build_params(t, roles, sermon, screen, design)
+        params["sync"] = chrome.sync_text(result, tz)
         return self._render(dimensions, params, roles)
 
-    @staticmethod
-    def _body_params(
-        t: layout.Tokens, sermon: sd.Sermon, screen: sd.Screen
+    def build_params(
+        self,
+        t: layout.Tokens,
+        roles: palette.RoleMap,
+        sermon: sd.Sermon | None,
+        screen: sd.Screen,
+        design: sl.Design = sl.DEFAULT_DESIGN,
     ) -> dict[str, Any]:
-        content_w = t.width * t.content_w_pct / 100
-        subline = " · ".join(p for p in (sermon.series, sermon.speaker) if p)
-        subline_h = _SUBLINE_EM * t.base if subline else 0.0
-        body_top = t.body_top_em * t.base
-        body_h = t.height - body_top - t.body_bottom_em * t.base - subline_h
-        if body_h < _MIN_BODY_EM * t.base:
-            return {"too_small": True}
-        steps = [m * t.base for m in _FONT_STEPS]
-        footnote_h = t.fs["small"] * sd.LINE_HEIGHT
-        footnote = sd.has_inferred(sermon, screen)
-        if footnote:
-            body_h -= footnote_h
-
-        out: dict[str, Any] = {
-            "subline": layout.truncate(subline, content_w, t.fs["label"]),
-            "subline_h_px": subline_h,
-            "body_h_px": body_h,
-            "footnote": sd.INFERRED_FOOTNOTE if footnote else "",
-            "footnote_h_px": footnote_h if footnote else 0.0,
-            "notes": "",
-            "summary": [],
-            "highlights": [],
-            "takeaways": [],
-            "scriptures": [],
-            "related": [],
-            "reflection": None,
-            "font_px": steps[0],
-            "list_font_px": t.fs["item"],
-            "label_px": t.fs["label"],
-        }
-
-        if screen == "message":
-            labels = sd.service_note_labels(sermon.service_notes)
-            notes = " · ".join(labels)
-            note_h = (
-                sd.estimate_lines(notes, content_w, t.fs["label"])
-                * t.fs["label"]
-                * sd.LINE_HEIGHT
-                + _NOTES_MARGIN_EM * t.fs["label"]
-                if notes
-                else 0.0
-            )
-            out["notes"] = notes
-            texts, font_px = sd.fit_blocks(
-                [sermon.summary] if sermon.summary else [],
-                content_w,
-                body_h - note_h,
-                steps,
-            )
-            out["summary"], out["font_px"] = texts, font_px
-            # Highlights only if all of them fit, untruncated, in what the
-            # summary left over; they are optional (see boardbot hand-off).
-            if texts and sermon.highlights:
-                room = body_h - note_h - sd.block_height(texts, content_w, font_px)
-                hl = [f"• {h}" for h in sermon.highlights]
-                small = steps[-1]
-                if sd.block_height(hl, content_w, small) <= room - small:
-                    out["highlights"] = hl
-                    out["highlight_font_px"] = small
-        elif screen == "apply":
-            # Width reserve (90%): the list indent (1.4em) and trailing `*` marker.
-            texts, font_px = sd.fit_blocks(
-                [m.text for m in sermon.takeaways], content_w * 0.90, body_h, steps
-            )
-            out["takeaways"] = [
-                {"text": tx, "inferred": m.inferred}
-                for tx, m in zip(texts, sermon.takeaways, strict=False)
-            ]
-            out["font_px"] = font_px
-        else:
-            out.update(Sermon._reflect_params(t, sermon, content_w, body_h))
-        return out
-
-    @staticmethod
-    def _reflect_params(
-        t: layout.Tokens, sermon: sd.Sermon, content_w: float, body_h: float
-    ) -> dict[str, Any]:
-        list_px = t.fs["item"]
-        out: dict[str, Any] = {
-            "scriptures": sermon.scriptures[:8],
-            "related": sermon.related_passages[:2],
-            "list_font_px": list_px,
-        }
-        if sermon.reflection:
-            q_steps = [m * t.base for m in _FONT_STEPS]
-            q_texts, q_px = sd.fit_blocks(
-                [sermon.reflection.text],
-                content_w * 0.96,
-                body_h * _REFLECT_SHARE,
-                q_steps,
-            )
-            out["reflection"] = {
-                "text": q_texts[0],
-                "inferred": sermon.reflection.inferred,
-                "font_px": q_px,
-            }
-        return out
+        """Template parameters for one render (``sermon=None`` is the "no
+        sermon yet" frame). Separate from ``generate_image`` so previews and
+        tests can drive it with any palette, payload and design."""
+        font_url = self.to_file_url(get_font_path("jost"))
+        return sl.build_params(t, roles, sermon, screen, design, font_url)
 
     def _render(
         self,
@@ -258,9 +155,8 @@ class Sermon(BasePlugin):
         template_params: dict[str, Any],
         roles: palette.RoleMap,
     ) -> Any:
-        image = self.render_image(
-            dimensions, "sermon.html", "sermon.css", template_params
-        )
+        html_file, css_file = sl.TEMPLATES[template_params["design"]]
+        image = self.render_image(dimensions, html_file, css_file, template_params)
         if not image:
             raise RuntimeError("Failed to take screenshot, please check logs.")
         # Snap onto the resolved palette — see homeboard.palette.quantize.
