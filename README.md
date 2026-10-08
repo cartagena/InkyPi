@@ -83,11 +83,11 @@ configured instances (e.g. two Weather cities) and mixed into a playlist.
 | **Information** | Weather · Calendar (Google / Outlook / Apple) · GitHub |
 | **AI** | AI Image · AI Text (OpenAI) |
 | **Utility** | Screenshot (capture any URL) |
-| **Dashboards** | Board · Trips · Home · Weekends |
+| **Dashboards** | Board · Trips · Home · Weekends · Sermon |
 
-The four dashboard screens share a common layout toolkit (`src/homeboard/`) and
+The five dashboard screens share a common layout toolkit (`src/homeboard/`) and
 read from iCal feeds plus a self-hosted `boardbot` service on your LAN. They are
-inert without that service configured — the other 20 plugins have no such
+inert without that service configured — the other plugins have no such
 dependency.
 
 Plugins that call an external API (weather, AI, calendar, GitHub) need a key —

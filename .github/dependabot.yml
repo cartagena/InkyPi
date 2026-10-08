@@ -1,24 +1,32 @@
 version: 2
+
+# One weekly PR carrying every dependency update (runtime, dev and GitHub
+# Actions, all update types). A plain `groups:` block only groups within one
+# ecosystem, so `multi-ecosystem-groups` is what lets uv and github-actions share
+# a single PR. Note: Dependabot *security* updates are not covered by this
+# schedule/grouping and can still open their own PRs.
+multi-ecosystem-groups:
+  all-dependencies:
+    schedule:
+      interval: "weekly"
+      day: "monday"
+
 updates:
   # Source of truth is pyproject.toml + uv.lock (JTN-616); install/requirements.txt
   # is generated from them by `uv export`. Pointing Dependabot at /install made it
   # edit that generated file, which fails the lockfile drift check by construction
   # and duplicated every security bump across both paths. The uv ecosystem updates
   # pyproject.toml and uv.lock together, keeping `uv lock --check` green.
+  #
+  # Dependabot does not regenerate install/requirements.txt or the pip-compiled
+  # install/requirements-dev.txt, so the combined PR needs those refreshed by hand
+  # (see docs/dependency_locking.md) before it can pass CI.
   - package-ecosystem: "uv"
     directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-    open-pull-requests-limit: 5
-    groups:
-      minor-and-patch:
-        update-types:
-          - "minor"
-          - "patch"
+    patterns: ["*"]
+    multi-ecosystem-group: "all-dependencies"
 
   - package-ecosystem: "github-actions"
     directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
+    patterns: ["*"]
+    multi-ecosystem-group: "all-dependencies"
