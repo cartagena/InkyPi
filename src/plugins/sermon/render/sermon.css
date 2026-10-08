@@ -162,7 +162,8 @@ main {
   right: 0;
   bottom: 0;
   padding: 0.17em 0 0.17em 0.67em;
-  border-left: 0.5em solid var(--band);
+  /* --accent, not --band: a yellow bar on white is illegible. */
+  border-left: 0.5em solid var(--accent);
   font-weight: 700;
   line-height: 1.25;
 }

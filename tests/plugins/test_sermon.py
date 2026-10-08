@@ -85,6 +85,27 @@ class TestScreens:
         assert sd.resolve_screen("auto", 0) == sd.screen_for_clock(0)
         assert sd.resolve_screen("bogus", 0) == sd.screen_for_clock(0)
 
+    @pytest.mark.parametrize(
+        ("screen", "missing"),
+        [
+            ("highlights", {"highlights": []}),
+            ("apply", {"takeaways": []}),
+            (
+                "reflect",
+                {"scriptures": [], "related_passages": [], "reflection_question": {}},
+            ),
+        ],
+    )
+    def test_empty_screen_falls_back_to_the_message(
+        self, screen: sd.Screen, missing: dict[str, Any]
+    ) -> None:
+        full = sd.parse_sermon(_FIXTURE)
+        assert sd.resolve_screen(screen, 0, full) == screen
+        sparse = sd.parse_sermon({**_FIXTURE, **missing})
+        assert sd.resolve_screen(screen, 0, sparse) == "message"
+        hour = sd.SCREENS.index(screen) * 3600
+        assert sd.resolve_screen("auto", hour, sparse) == "message"
+
     def test_footnote_only_when_inferred_shown(self) -> None:
         s = sd.parse_sermon(_FIXTURE)
         assert sd.has_inferred(s, "apply") and sd.has_inferred(s, "reflect")

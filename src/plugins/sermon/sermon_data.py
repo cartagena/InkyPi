@@ -153,11 +153,31 @@ def screen_for_clock(now_epoch: float) -> Screen:
     return SCREENS[int(now_epoch // _SECONDS_PER_SCREEN) % len(SCREENS)]
 
 
-def resolve_screen(setting: Any, now_epoch: float) -> Screen:
-    """The ``screen`` setting: a fixed screen, or ``auto`` (clock rotation)."""
+def has_content(sermon: Sermon, screen: Screen) -> bool:
+    """Whether *screen* has anything to show for *sermon* — boardbot omits
+    unset fields, so any body screen but the message can come up empty."""
+    if screen == "highlights":
+        return bool(sermon.highlights)
+    if screen == "apply":
+        return bool(sermon.takeaways)
+    if screen == "reflect":
+        return bool(sermon.scriptures or sermon.related_passages or sermon.reflection)
+    return True
+
+
+def resolve_screen(
+    setting: Any, now_epoch: float, sermon: Sermon | None = None
+) -> Screen:
+    """The ``screen`` setting: a fixed screen, or ``auto`` (clock rotation).
+    A screen with nothing to show for *sermon* falls back to the message
+    rather than drawing a colour band over an empty body."""
     if isinstance(setting, str) and setting in SCREENS:
-        return setting
-    return screen_for_clock(now_epoch)
+        screen: Screen = setting
+    else:
+        screen = screen_for_clock(now_epoch)
+    if sermon is not None and not has_content(sermon, screen):
+        return "message"
+    return screen
 
 
 def has_inferred(sermon: Sermon, screen: Screen) -> bool:

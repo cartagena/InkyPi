@@ -127,6 +127,8 @@ def _summary(
     line_height: float,
     tag_h: float,
 ) -> dict[str, Any]:
+    """Message screen: service-note tags (one row, *tag_h* tall) above the
+    summary, fitted into what the tags leave of *height*."""
     notes = sd.service_note_labels(sermon.service_notes)
     texts, font_px = sd.fit_blocks(
         [sermon.summary] if sermon.summary else [],
@@ -138,9 +140,9 @@ def _summary(
     return {"notes": notes, "summary": texts, "font_px": font_px}
 
 
-def _numbered(
-    texts: list[str],
-    inferred: list[bool],
+def _list_body(
+    sermon: sd.Sermon,
+    screen: sd.Screen,
     text_w: float,
     height: float,
     steps: list[float],
@@ -148,6 +150,14 @@ def _numbered(
     line_height: float,
     min_block: float,
 ) -> dict[str, Any]:
+    """Key points or takeaways (the only two list screens), fitted into
+    *height*; *gap*, *line_height* and *min_block* are as for
+    ``sermon_data.block_height``."""
+    if screen == "highlights":
+        texts, inferred = sermon.highlights, [False] * len(sermon.highlights)
+    else:
+        texts = [m.text for m in sermon.takeaways]
+        inferred = [m.inferred for m in sermon.takeaways]
     fitted, font_px = sd.fit_blocks(
         texts,
         text_w,
@@ -167,30 +177,11 @@ def _numbered(
     }
 
 
-def _list_body(
-    sermon: sd.Sermon,
-    screen: sd.Screen,
-    text_w: float,
-    height: float,
-    steps: list[float],
-    gap: float,
-    line_height: float,
-    min_block: float,
-) -> dict[str, Any]:
-    """Key points or takeaways (the only two list screens)."""
-    if screen == "highlights":
-        texts, inferred = sermon.highlights, [False] * len(sermon.highlights)
-    else:
-        texts = [m.text for m in sermon.takeaways]
-        inferred = [m.inferred for m in sermon.takeaways]
-    return _numbered(
-        texts, inferred, text_w, height, steps, gap, line_height, min_block
-    )
-
-
 def _question(
     sermon: sd.Sermon, width: float, room: float, steps: list[float], lh: float
 ) -> dict[str, Any] | None:
+    """Reflection question fitted into *room* (what the passage lists leave),
+    or ``None`` when there is no question or nothing of it fits."""
     if not sermon.reflection:
         return None
     texts, q_px = sd.fit_blocks(
@@ -236,6 +227,8 @@ _BAND_QUESTION_GAP_EM = 0.6
 def _band_params(
     t: layout.Tokens, sermon: sd.Sermon | None, screen: sd.Screen
 ) -> dict[str, Any]:
+    """Colour-band design: band header (kicker, fitted title, meta line) and
+    the per-screen body, with every CSS size in ``px``."""
     b = t.base
     pad_x = _BAND_PAD_X_EM * b
     content_w = t.width - 2 * pad_x
@@ -368,7 +361,10 @@ _SB_POINT_STEPS_EM = (1.04, 0.94, 0.85, 0.78)
 _SB_POINT_BAR_EM = 0.99  # left bar + its padding
 _SB_POINT_GAP = 0.55
 _SB_APPLY_STEPS_EM = (0.91, 0.85, 0.78, 0.73)
-_SB_APPLY_NUM_EM = 1.4  # numeral column, ems of the list font
+# Numeral column, ems of the list font: the CSS ``flex: 0 0 1.4em`` resolves
+# against the numeral's own 1.37em font, so it is 1.4 * 1.37 list-font ems.
+_SB_APPLY_NUM_SCALE = 1.37
+_SB_APPLY_NUM_EM = 1.4 * _SB_APPLY_NUM_SCALE
 _SB_APPLY_NUM_GAP_EM = 0.63
 _SB_APPLY_GAP = 0.46
 _SB_LIST_LH = 1.25
@@ -410,6 +406,9 @@ def _sidebar_title(title: str, width: float, steps: list[float]) -> tuple[str, f
 def _sidebar_params(
     t: layout.Tokens, sermon: sd.Sermon | None, screen: sd.Screen
 ) -> dict[str, Any]:
+    """Sidebar-poster design: colour column (number, screen name, date /
+    series / speaker), a title of up to two lines whose height sets the body
+    top, and the per-screen body, with every CSS size in ``px``."""
     b = t.base
     side_w = t.width * _SB_SIDE_PCT / 100
     side_pad = _SB_SIDE_PAD_EM * b
@@ -512,7 +511,8 @@ def _sidebar_params(
                 steps,
                 _SB_APPLY_GAP,
                 _SB_LIST_LH,
-                0.0,
+                # The numeral (line-height 1 at 1.37em) outgrows one text line.
+                _SB_APPLY_NUM_SCALE,
             )
         )
     else:

@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <style>
-@font-face { font-family: "SermonJost"; src: url("{{ font_url }}") format("truetype"); }
+@font-face { font-family: "SermonJost"; src: url("{{ font_url }}") format("truetype"); font-weight: 100 900; }
 {{ root_css | safe }}
 </style>
 {% for style in inline_styles %}<style>{{ style | safe }}</style>{% endfor %}
 </head>
-<body class="sermon-{{ screen }}" style="--band: {{ band }}; --on-band: {{ on_band }}; --mark: {{ mark }};
+<body class="sermon-{{ screen }}" style="--band: {{ band }}; --on-band: {{ on_band }}; --accent: {{ accent }}; --mark: {{ mark }};
   --pad-x: {{ px.pad_x }}px; --band-h: {{ px.band_h }}px; --band-pad: {{ px.band_pad }}px;
   --kicker: {{ px.kicker }}px; --title: {{ px.title }}px; --meta: {{ px.meta }}px;
   --body-top: {{ px.body_top }}px; --body-bottom: {{ px.body_bottom }}px; --footer: {{ px.footer }}px;

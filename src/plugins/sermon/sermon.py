@@ -128,7 +128,7 @@ class Sermon(BasePlugin):
             screen: sd.Screen = "message"
         else:
             sermon = sd.parse_sermon(payload)
-            screen = sd.resolve_screen(settings.get("screen"), time.time())
+            screen = sd.resolve_screen(settings.get("screen"), time.time(), sermon)
 
         design = sl.resolve_design(settings.get("design"))
         params = self.build_params(t, roles, sermon, screen, design)
