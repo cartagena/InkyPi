@@ -112,9 +112,9 @@ HTTP cache, playlist scheduling, JSON-file config store, Waitress over Gunicorn,
   chromium (other Linux/devbox), or Google Chrome (macOS) — see `docs/development.md` for the
   platform matrix.
 - **Homeboard** (fork-specific): `src/homeboard/` is a shared layout/chrome/palette/tag toolkit for
-  the dashboard-style screens — `board`, `trips`, `home_maintenance`, `weekends`. Its data comes
+  the dashboard-style screens — `board`, `trips`, `home_maintenance`, `weekends`, `sermon`. Its data comes
   from `src/homeboard/adapters/`: `ical.py`, and `boardbot.py`, a read-only client for a
-  self-hosted `boardbot` service (WhatsApp bridge → SQLite → `GET /todo`, `/projects`, `/trips`,
+  self-hosted `boardbot` service (WhatsApp bridge → SQLite → `GET /todo`, `/projects`, `/trips`, `/sermons/latest`,
   `/maintenance`). Note the deliberate exception documented in `boardbot.py`: it uses the pooled
   session from `utils.http_client` rather than `utils.http_utils.safe_http_get`, because the SSRF
   guard in that helper rejects private IPs and boardbot is an explicitly-configured LAN service.

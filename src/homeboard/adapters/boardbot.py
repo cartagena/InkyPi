@@ -1,11 +1,11 @@
 """Read-only adapter for a self-hosted ``boardbot`` deployment.
 
 ``boardbot`` (github.com/cartagena/boardbot) is a small self-hosted service
-that backs four InkyPi screens — ``board`` (to-dos + projects), ``trips``
-and ``home_maintenance`` — over one HTTP API: a WhatsApp bridge lets items
-be added/completed from a phone, a Python service stores them in SQLite and
-exposes ``GET /todo``, ``GET /projects``, ``GET /trips`` and
-``GET /maintenance``. This module is the InkyPi-side client for that HTTP
+that backs four InkyPi screens — ``board`` (to-dos + projects), ``trips``,
+``home_maintenance`` and ``sermon`` — over one HTTP API: a WhatsApp bridge
+lets items be added/completed from a phone, a Python service stores them in
+SQLite and exposes ``GET /todo``, ``GET /projects``, ``GET /trips``,
+``GET /maintenance`` and ``GET /sermons/latest``. This module is the InkyPi-side client for that HTTP
 API — it never sees WhatsApp or SQLite directly.
 
 Uses the shared pooled ``requests.Session`` (``utils.http_client``), not
@@ -26,7 +26,7 @@ from urllib.parse import urlsplit
 from utils.http_client import get_http_session
 
 ListName = Literal["todo", "projects"]
-ResourceName = Literal["todo", "projects", "trips", "maintenance"]
+ResourceName = Literal["todo", "projects", "trips", "maintenance", "sermons/latest"]
 
 # Env key the plugin reads its bearer token from (via
 # device_config.load_env_key). Matches the env var name boardbot's own
@@ -76,14 +76,12 @@ def cache_key(base_url: str, resource: ResourceName) -> str:
     return f"{base_url}:{resource}"
 
 
-def _get_resource(
-    resource: ResourceName, base_url: str, token: str
-) -> list[dict[str, Any]]:
-    """Shared GET for every boardbot read endpoint — auth, config
-    validation and the bare-JSON-array response convention (SPEC/docs/api.md
-    §"Response conventions") are identical across ``/todo``, ``/projects``,
-    ``/trips`` and ``/maintenance``; only the field shape per item differs,
-    which callers handle themselves.
+def _get_json(resource: ResourceName, base_url: str, token: str) -> Any:
+    """Shared GET for every boardbot read endpoint — auth and config
+    validation are identical across all of them. The list endpoints
+    (``/todo``, ``/projects``, ``/trips``, ``/maintenance``) return a bare
+    JSON array (SPEC/docs/api.md §"Response conventions"); ``/sermons/latest``
+    returns a single object. Callers handle the shape per resource.
 
     Raises ``RuntimeError`` for configuration problems (missing/blank
     settings) — callers should already have rejected these via
@@ -109,7 +107,14 @@ def _get_resource(
         timeout=_REQUEST_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
-    items: list[dict[str, Any]] = response.json()
+    return response.json()
+
+
+def _get_resource(
+    resource: ResourceName, base_url: str, token: str
+) -> list[dict[str, Any]]:
+    """``_get_json`` for the list endpoints (bare JSON array)."""
+    items: list[dict[str, Any]] = _get_json(resource, base_url, token)
     return items
 
 
@@ -168,3 +173,21 @@ def fetch_maintenance(base_url: str, token: str) -> list[dict[str, Any]]:
     its docs) — that stays this repo's ``due_dates.compute_next_due``.
     """
     return _get_resource("maintenance", base_url, token)
+
+
+def fetch_sermon_latest(base_url: str, token: str) -> dict[str, Any]:
+    """Fetch the most recent summarized service from ``GET /sermons/latest``.
+
+    Returns boardbot's JSON object as-is (``title``, ``service_date``,
+    ``summary``, ``takeaways``, ``scriptures``, ... — unset fields are
+    omitted, never ``null``); ``plugins.sermon.sermon_data.parse_sermon``
+    does the field-level parsing. A ``503`` (feature off, or nothing
+    summarized yet) and a ``401`` raise ``requests.HTTPError`` like any
+    other non-2xx, which ``BasePlugin.cached_fetch`` treats as transient:
+    the last good sermon keeps rendering, or the plugin shows its
+    "no sermon yet" frame when there is none.
+    """
+    data = _get_json("sermons/latest", base_url, token)
+    if not isinstance(data, dict):
+        raise ValueError("boardbot /sermons/latest did not return a JSON object")
+    return data

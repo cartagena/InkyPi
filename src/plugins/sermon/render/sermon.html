@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>{{ root_css | safe }}</style>
+{% for style in inline_styles %}<style>{{ style | safe }}</style>{% endfor %}
+</head>
+<body>
+{{ header_html | safe }}
+
+{% if empty_html %}
+{{ empty_html | safe }}
+{% else %}
+{% if subline %}
+<div class="sermon-subline">{{ subline }}</div>
+{% endif %}
+<div class="sermon-body" style="top: calc(var(--body-top) + {{ subline_h_px }}px); height: {{ body_h_px }}px;">
+  {% if screen == "message" %}
+    {% if notes %}<div class="sermon-notes" style="font-size: {{ label_px }}px;">{{ notes }}</div>{% endif %}
+    {% for p in summary %}
+    <p class="sermon-summary" style="font-size: {{ font_px }}px;">{{ p }}</p>
+    {% endfor %}
+    {% if highlights %}
+    <ul class="sermon-highlights" style="font-size: {{ highlight_font_px }}px;">
+      {% for h in highlights %}<li>{{ h }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+  {% elif screen == "apply" %}
+    <ol class="sermon-takeaways" style="font-size: {{ font_px }}px;">
+      {% for tk in takeaways %}
+      <li>{{ tk.text }}{% if tk.inferred %}<span class="sermon-mark">*</span>{% endif %}</li>
+      {% endfor %}
+    </ol>
+  {% else %}
+    {% if scriptures %}
+    <div class="sermon-label" style="font-size: {{ label_px }}px;">Passages from the sermon</div>
+    <ul class="sermon-passages" style="font-size: {{ list_font_px }}px;">
+      {% for s in scriptures %}<li>{{ s }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% if related %}
+    <div class="sermon-label" style="font-size: {{ label_px }}px;">Suggested</div>
+    <ul class="sermon-passages" style="font-size: {{ list_font_px }}px;">
+      {% for s in related %}<li>{{ s }}</li>{% endfor %}
+    </ul>
+    {% endif %}
+    {% if reflection %}
+    <div class="sermon-reflection" style="font-size: {{ reflection.font_px }}px;">{{ reflection.text }}{% if reflection.inferred %}<span class="sermon-mark">*</span>{% endif %}</div>
+    {% endif %}
+  {% endif %}
+</div>
+{% if footnote %}
+<div class="sermon-footnote" style="height: {{ footnote_h_px }}px;">{{ footnote }}</div>
+{% endif %}
+{% endif %}
+
+{{ footer_html | safe }}
+</body>
+</html>

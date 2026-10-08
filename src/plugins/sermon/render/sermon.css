@@ -1,0 +1,74 @@
+/* Sermon summary — three body screens under the shared homeboard chrome. */
+
+.sermon-subline,
+.sermon-body,
+.sermon-footnote {
+  position: absolute;
+  left: var(--margin-x);
+  width: var(--content-w);
+}
+
+.sermon-subline {
+  top: var(--body-top);
+  font-size: var(--fs-label);
+}
+
+.sermon-body {
+  overflow: hidden;
+  line-height: 1.3;
+}
+
+.sermon-footnote {
+  bottom: var(--body-bottom);
+  font-size: var(--fs-small);
+}
+
+.sermon-notes {
+  font-weight: 600;
+  margin-bottom: 0.35em;
+}
+
+.sermon-summary {
+  margin: 0;
+}
+
+.sermon-highlights,
+.sermon-passages {
+  margin: 0.5em 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sermon-takeaways {
+  margin: 0;
+  padding-left: 1.4em;
+}
+
+.sermon-takeaways li {
+  margin-bottom: 0.35em;
+}
+
+.sermon-passages {
+  columns: 2;
+  column-gap: var(--gutter);
+}
+
+.sermon-label {
+  margin-top: 0.4em;
+  font-weight: 600;
+}
+
+.sermon-reflection {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 96%;
+  padding-top: 0.4em;
+  border-top: 1px solid var(--color-ink);
+  font-weight: 600;
+}
+
+.sermon-mark {
+  color: var(--color-emphasis);
+  font-weight: 600;
+}

@@ -1,0 +1,7 @@
+{
+  "display_name": "Sermon",
+  "id": "sermon",
+  "class": "Sermon",
+  "api_version": "1.0",
+  "version": "1.0.0"
+}

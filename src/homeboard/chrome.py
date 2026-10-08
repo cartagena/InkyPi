@@ -9,7 +9,7 @@ one that ``{% extends %}`` the InkyPi-wide
 place (it just renders whatever template it's given and screenshots the
 result).
 
-The header/footer markup that's supposed to be identical across all four
+The header/footer markup that's supposed to be identical across all
 screens still has to live somewhere canonical — no plugin's own Jinja
 environment can see outside its own plugin directory / ``base_plugin/render/``
 (``BasePlugin.__init__`` builds that loader per-plugin), so it can't
