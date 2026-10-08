@@ -3,14 +3,17 @@
 
 from __future__ import annotations
 
+import json
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import pytest
 from PIL import Image
 
+from homeboard import layout, palette
 from homeboard.adapters import boardbot
-from plugins.sermon import sermon_data as sd
+from plugins.sermon import sermon_data as sd, sermon_layouts as sl
 from plugins.sermon.sermon import Sermon
 
 _SETTINGS = {"base_url": "http://piserver.local:8765"}
@@ -73,14 +76,35 @@ class TestParse:
 
 class TestScreens:
     def test_clock_rotation_cycles_hourly(self) -> None:
-        seen = [sd.screen_for_clock(h * 3600 + 5) for h in range(6)]
-        assert seen[:3] == seen[3:]
+        seen = [sd.screen_for_clock(h * 3600 + 5) for h in range(8)]
+        assert seen[:4] == seen[4:]
         assert set(seen) == set(sd.SCREENS)
 
     def test_explicit_setting_overrides_clock(self) -> None:
         assert sd.resolve_screen("apply", 0) == "apply"
         assert sd.resolve_screen("auto", 0) == sd.screen_for_clock(0)
         assert sd.resolve_screen("bogus", 0) == sd.screen_for_clock(0)
+
+    @pytest.mark.parametrize(
+        ("screen", "missing"),
+        [
+            ("highlights", {"highlights": []}),
+            ("apply", {"takeaways": []}),
+            (
+                "reflect",
+                {"scriptures": [], "related_passages": [], "reflection_question": {}},
+            ),
+        ],
+    )
+    def test_empty_screen_falls_back_to_the_message(
+        self, screen: sd.Screen, missing: dict[str, Any]
+    ) -> None:
+        full = sd.parse_sermon(_FIXTURE)
+        assert sd.resolve_screen(screen, 0, full) == screen
+        sparse = sd.parse_sermon({**_FIXTURE, **missing})
+        assert sd.resolve_screen(screen, 0, sparse) == "message"
+        hour = sd.SCREENS.index(screen) * 3600
+        assert sd.resolve_screen("auto", hour, sparse) == "message"
 
     def test_footnote_only_when_inferred_shown(self) -> None:
         s = sd.parse_sermon(_FIXTURE)
@@ -115,7 +139,9 @@ class TestGenerateImage:
         with pytest.raises(RuntimeError):
             Sermon({"id": "sermon"}).generate_image({"base_url": ""}, device_config_dev)
 
-    @pytest.mark.parametrize("screen", ["message", "apply", "reflect", "auto"])
+    @pytest.mark.parametrize(
+        "screen", ["message", "highlights", "apply", "reflect", "auto"]
+    )
     def test_each_screen_renders(
         self, with_token: Any, monkeypatch: pytest.MonkeyPatch, screen: str
     ) -> None:
@@ -147,7 +173,7 @@ class TestGenerateImage:
             "takeaways": [{"text": "x " * 100, "source": "stated"}] * 5,
         }
         monkeypatch.setattr(boardbot, "fetch_sermon_latest", lambda *a, **k: big)
-        for screen in ("message", "apply"):
+        for screen in ("message", "highlights", "apply"):
             image = Sermon({"id": "sermon"}).generate_image(
                 {**_SETTINGS, "screen": screen}, with_token
             )
@@ -209,3 +235,171 @@ class TestReviewFixes:
         )
         image = Sermon({"id": "sermon"}).generate_image(_SETTINGS, with_token)
         assert isinstance(image, Image.Image)
+
+
+_SAMPLE = json.loads(
+    (Path(__file__).parent / "fixtures" / "sermon_sample.json").read_text()
+)
+_SIX = palette.RoleMap(
+    colors=dict(palette._SIX_COLOUR_RGB), six_colour=True, warn_is_solid=False
+)
+_MONO = palette.RoleMap(
+    colors=dict(palette._BW_RGB), six_colour=False, warn_is_solid=False
+)
+
+
+def _rgb(role: palette.Role, roles: palette.RoleMap = _SIX) -> str:
+    r, g, b = roles.colors[role]
+    return f"rgb({r}, {g}, {b})"
+
+
+@pytest.fixture(params=sl.DESIGNS)
+def design(request: pytest.FixtureRequest) -> sl.Design:
+    return request.param  # type: ignore[no-any-return]
+
+
+class TestLayouts:
+    @pytest.fixture(autouse=True)
+    def _design(self, design: sl.Design) -> None:
+        self.design = design
+
+    def _params(
+        self, screen: sd.Screen, roles: palette.RoleMap = _SIX
+    ) -> dict[str, Any]:
+        return Sermon({"id": "sermon"}).build_params(
+            layout.tokens(800, 480),
+            roles,
+            sd.parse_sermon(_SAMPLE),
+            screen,
+            self.design,
+        )
+
+    @pytest.mark.parametrize(
+        ("screen", "role"),
+        [
+            ("message", palette.Role.EMPHASIS),
+            ("highlights", palette.Role.ALERT),
+            ("apply", palette.Role.AVAILABLE),
+            ("reflect", palette.Role.WARN),
+        ],
+    )
+    def test_each_screen_has_its_own_colour(
+        self, screen: sd.Screen, role: palette.Role
+    ) -> None:
+        params = self._params(screen)
+        assert params["band"] == _rgb(role)
+        text = palette.Role.INK if screen == "reflect" else palette.Role.PAPER
+        assert params["on_band"] == _rgb(text)
+
+    def test_mono_panel_never_puts_ink_text_on_an_ink_band(self) -> None:
+        for screen in sd.SCREENS:
+            params = self._params(screen, _MONO)
+            assert params["band"] != params["on_band"], screen
+
+    def test_sample_fits_without_truncation(self) -> None:
+        sample = sd.parse_sermon(_SAMPLE)
+        message = self._params("message")
+        assert message["summary"] == [sample.summary]
+        assert message["notes"] == ["Baptism"]
+        assert message["title"] == sample.title
+        points = self._params("highlights")
+        assert [i["text"] for i in points["items"]] == sample.highlights
+        apply = self._params("apply")
+        assert [i["text"] for i in apply["items"]] == [t.text for t in sample.takeaways]
+        assert [i["inferred"] for i in apply["items"]] == [False] * 4 + [True]
+        reflect = self._params("reflect")
+        assert reflect["reflection"]["text"] == sample.reflection.text  # type: ignore[union-attr]
+
+    def test_footnote_only_where_inferred_text_shows(self) -> None:
+        # The sample's last takeaway is inferred; its reflection is stated.
+        assert self._params("apply")["footnote"] == sd.INFERRED_FOOTNOTE
+        for screen in ("message", "highlights", "reflect"):
+            assert self._params(screen)["footnote"] == ""
+
+    def test_screen_position_tracks_the_screen(self) -> None:
+        for idx, screen in enumerate(sd.SCREENS):
+            params = self._params(screen)
+            assert params["design"] == self.design
+            assert params["screen_idx"] == idx
+            assert params["screen_count"] == 4
+
+    def test_no_sermon_frame(self) -> None:
+        params = Sermon({"id": "sermon"}).build_params(
+            layout.tokens(800, 480), _SIX, None, "message", self.design
+        )
+        assert params["empty"] and params["title"] == "No sermon yet"
+
+    def test_overlong_title_shrinks_then_truncates(self) -> None:
+        raw = {**_SAMPLE, "title": "Word " * 40}
+        t = layout.tokens(800, 480)
+        params = Sermon({"id": "sermon"}).build_params(
+            t, _SIX, sd.parse_sermon(raw), "message", self.design
+        )
+        assert params["title"].endswith("…")
+        assert params["px"]["title"] < 1.5 * t.base
+
+    def test_reflect_accent_is_never_yellow_on_white(self) -> None:
+        params = self._params("reflect")
+        assert params["band"] == _rgb(palette.Role.WARN)
+        assert params["accent"] == _rgb(palette.Role.INK)
+
+
+class TestDesignSetting:
+    def test_band_screens_label_the_kicker(self) -> None:
+        for screen in sd.SCREENS:
+            params = Sermon({"id": "sermon"}).build_params(
+                layout.tokens(800, 480), _SIX, sd.parse_sermon(_SAMPLE), screen, "band"
+            )
+            assert params["kicker"] == sd.SCREEN_LABELS[screen]
+
+    def test_sidebar_carries_name_and_meta(self) -> None:
+        params = Sermon({"id": "sermon"}).build_params(
+            layout.tokens(800, 480),
+            _SIX,
+            sd.parse_sermon(_SAMPLE),
+            "reflect",
+            "sidebar",
+        )
+        assert params["name_lines"] == ("Read &", "Reflect")
+        assert [m["text"] for m in params["side_meta"]] == [
+            "SUNDAY, SEP 27",
+            "Fit for the King",
+            "Joel Dombrow",
+        ]
+
+    def test_unknown_design_falls_back_to_band(self) -> None:
+        assert sl.resolve_design(None) == "band"
+        assert sl.resolve_design("poster") == "band"
+        assert sl.resolve_design("sidebar") == "sidebar"
+
+    def test_settings_schema_offers_both_designs(self) -> None:
+        text = json.dumps(Sermon({"id": "sermon"}).build_settings_schema())
+        assert '"design"' in text and '"band"' in text and '"sidebar"' in text
+
+    @pytest.mark.parametrize("screen", sd.SCREENS)
+    def test_sidebar_renders_each_screen(
+        self, with_token: Any, monkeypatch: pytest.MonkeyPatch, screen: str
+    ) -> None:
+        monkeypatch.setattr(boardbot, "fetch_sermon_latest", lambda *a, **k: _SAMPLE)
+        image = Sermon({"id": "sermon"}).generate_image(
+            {**_SETTINGS, "screen": screen, "design": "sidebar"}, with_token
+        )
+        assert isinstance(image, Image.Image)
+        assert image.size == tuple(with_token.get_resolution())
+
+
+class TestFitHelpers:
+    def test_badge_height_counts_for_single_line_items(self) -> None:
+        plain = sd.block_height(["one line"], 700, 20, line_height=1.28)
+        badged = sd.block_height(
+            ["one line"], 700, 20, line_height=1.28, min_block=1.57
+        )
+        assert badged == pytest.approx(1.57 * 20) and badged > plain
+
+    def test_fit_line_keeps_short_text(self) -> None:
+        assert sd.fit_line("Short", 700, [37, 32]) == ("Short", 37)
+
+    def test_chip_rows_wraps(self) -> None:
+        assert sd.chip_rows([], 700, 18, 32) == 0
+        assert sd.chip_rows(["Psalms 23"], 700, 18, 32) == 1
+        assert sd.chip_rows(["Psalms 103:19"] * 12, 700, 18, 32) > 1
