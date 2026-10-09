@@ -336,15 +336,15 @@ def _band_params(
 
 # --- design B: sidebar poster -------------------------------------------------
 
-_SB_SIDE_PCT = 31.0
-_SB_SIDE_PAD_EM = 1.15
-_SB_NUM_EM = 5.4
-_SB_NUM_OF_EM = 1.56
-_SB_NAME_EM = 2.08
-_SB_SIDE_META_EM = 0.94
-_SB_SIDE_DATE_EM = 0.83
-_SB_PAD_L_EM = 1.46
-_SB_PAD_R_EM = 1.35
+_SB_SIDE_PCT = 23.0
+_SB_SIDE_PAD_EM = 1.0
+_SB_NUM_EM = 4.4
+_SB_NUM_OF_EM = 1.3
+_SB_NAME_EM = 1.62
+_SB_SIDE_META_EM = 0.83
+_SB_SIDE_DATE_EM = 0.73
+_SB_PAD_L_EM = 1.25
+_SB_PAD_R_EM = 1.15
 _SB_PAD_T_EM = 1.15
 _SB_TITLE_STEPS_EM = (1.51, 1.35, 1.2)
 _SB_TITLE_LH = 1.1
@@ -376,7 +376,7 @@ _SB_COLS_GAP_EM = 0.52
 _SB_QUESTION_STEPS_EM = (1.45, 1.3, 1.15, 1.04, 0.94, 0.85)
 _SB_QUESTION_LH = 1.25
 _SB_QUESTION_RULE_EM = 0.68  # top rule + its padding
-_SB_QUESTION_GAP_EM = 0.6
+_SB_QUESTION_GAP_EM = 1.1
 
 _SB_NAME_LINES: dict[sd.Screen, tuple[str, str]] = {
     "message": ("The", "Message"),
@@ -460,7 +460,7 @@ def _sidebar_params(
     date = sd.format_service_date(sermon.service_date).upper()
     out["title"] = title
     out["side_meta"] = [
-        {"text": layout.truncate(text, side_inner, size * b), "date": is_date}
+        {"text": layout.truncate(text, 2 * side_inner, size * b), "date": is_date}
         for text, size, is_date in (
             (date, _SB_SIDE_DATE_EM, True),
             (sermon.series, _SB_SIDE_META_EM, False),

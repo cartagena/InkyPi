@@ -61,16 +61,14 @@ aside {
 }
 
 .side-meta div {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 .side-meta .date {
   margin-bottom: 0.25em;
   font-size: var(--side-date);
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
 }
 
 section {
