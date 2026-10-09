@@ -1,6 +1,6 @@
 [project]
 name = "inkypi"
-version = "1.14.0"
+version = "1.15.0"
 description = "InkyPi — e-ink dashboard for Raspberry Pi"
 requires-python = ">=3.11,<3.14"
 # Runtime dependencies mirror install/requirements.in during the uv-lock migration
@@ -127,7 +127,7 @@ version_toml = [
   "pyproject.toml:project.version",
   "pyproject.toml:tool.semantic_release.version",
 ]
-version = "1.14.0"
+version = "1.15.0"
 tag_format = "v{version}"
 # v10's default parser ("conventional") ships parse_squash_commits = true, which
 # reads the `* feat:` / `* fix:` subject lines GitHub concatenates into a squash
