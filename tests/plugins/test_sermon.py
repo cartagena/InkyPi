@@ -367,10 +367,11 @@ class TestDesignSetting:
             "Joel Dombrow",
         ]
 
-    def test_unknown_design_falls_back_to_band(self) -> None:
-        assert sl.resolve_design(None) == "band"
-        assert sl.resolve_design("poster") == "band"
-        assert sl.resolve_design("sidebar") == "sidebar"
+    def test_unknown_design_falls_back_to_the_default(self) -> None:
+        assert sl.DEFAULT_DESIGN == "sidebar"
+        assert sl.resolve_design(None) == "sidebar"
+        assert sl.resolve_design("poster") == "sidebar"
+        assert sl.resolve_design("band") == "band"
 
     def test_settings_schema_offers_both_designs(self) -> None:
         text = json.dumps(Sermon({"id": "sermon"}).build_settings_schema())

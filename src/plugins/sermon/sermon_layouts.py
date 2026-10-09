@@ -22,7 +22,7 @@ from plugins.sermon import sermon_data as sd
 
 Design = Literal["band", "sidebar"]
 DESIGNS: tuple[Design, ...] = ("band", "sidebar")
-DEFAULT_DESIGN: Design = "band"
+DEFAULT_DESIGN: Design = "sidebar"
 # (template, stylesheet) under the plugin's render/ dir.
 TEMPLATES: dict[Design, tuple[str, str]] = {
     "band": ("sermon.html", "sermon.css"),
