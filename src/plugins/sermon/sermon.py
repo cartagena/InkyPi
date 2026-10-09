@@ -62,10 +62,10 @@ class Sermon(BasePlugin):
                         label="Design",
                         default=sl.DEFAULT_DESIGN,
                         options=[
-                            option("band", "Colour band"),
                             option("sidebar", "Sidebar poster"),
+                            option("band", "Colour band"),
                         ],
-                        hint="Colour band: a coloured header across the top. Sidebar poster: a coloured column on the left with the screen number.",
+                        hint="Sidebar poster: a coloured column on the left with the screen number. Colour band: a coloured header across the top.",
                     ),
                 ),
                 row(

@@ -22,7 +22,7 @@ from plugins.sermon import sermon_data as sd
 
 Design = Literal["band", "sidebar"]
 DESIGNS: tuple[Design, ...] = ("band", "sidebar")
-DEFAULT_DESIGN: Design = "band"
+DEFAULT_DESIGN: Design = "sidebar"
 # (template, stylesheet) under the plugin's render/ dir.
 TEMPLATES: dict[Design, tuple[str, str]] = {
     "band": ("sermon.html", "sermon.css"),
@@ -203,13 +203,13 @@ _BAND_META_EM = 0.99
 _BAND_BODY_GAP_EM = 1.04  # band -> first body line
 _BAND_TAG_EM = 0.73
 _BAND_TAG_BOX_EM = 0.94  # tag padding + border + margin below it
-_BAND_SUMMARY_STEPS_EM = (1.15, 1.04, 0.94, 0.85)
+_BAND_SUMMARY_STEPS_EM = (1.6, 1.45, 1.3, 1.15, 1.04, 0.94, 0.85)
 _BAND_SUMMARY_LH = 1.38
-_BAND_POINT_STEPS_EM = (1.2, 1.1, 1.0, 0.9)
-_BAND_APPLY_STEPS_EM = (1.0, 0.94, 0.85, 0.78)
-_BAND_LIST_LH = 1.28
-_BAND_POINT_GAP = 0.65
-_BAND_APPLY_GAP = 0.47
+_BAND_POINT_STEPS_EM = (1.6, 1.45, 1.3, 1.2, 1.1, 1.0, 0.9)
+_BAND_APPLY_STEPS_EM = (1.5, 1.35, 1.2, 1.1, 1.0, 0.94, 0.85, 0.78)
+_BAND_LIST_LH = 1.2
+_BAND_POINT_GAP = 0.4
+_BAND_APPLY_GAP = 0.35
 _BAND_BADGE_EM = 1.57  # number badge, ems of the list font
 _BAND_BADGE_GAP_EM = 0.65
 _BAND_LABEL_EM = 0.73
@@ -218,7 +218,7 @@ _BAND_CHIP_EM = 0.94
 _BAND_CHIP_X_EM = 1.67  # chip padding + border + right margin, horizontally
 _BAND_CHIP_Y_EM = 0.78  # chip padding + border + bottom margin, vertically
 _BAND_CHIPS_GAP_EM = 0.63
-_BAND_QUESTION_STEPS_EM = (1.25, 1.1, 1.0, 0.9)
+_BAND_QUESTION_STEPS_EM = (1.6, 1.45, 1.3, 1.15, 1.0, 0.9)
 _BAND_QUESTION_LH = 1.25
 _BAND_QUESTION_BAR_EM = 1.46  # coloured bar + its padding
 _BAND_QUESTION_GAP_EM = 0.6
@@ -336,15 +336,15 @@ def _band_params(
 
 # --- design B: sidebar poster -------------------------------------------------
 
-_SB_SIDE_PCT = 31.0
-_SB_SIDE_PAD_EM = 1.15
-_SB_NUM_EM = 5.4
-_SB_NUM_OF_EM = 1.56
-_SB_NAME_EM = 2.08
-_SB_SIDE_META_EM = 0.94
-_SB_SIDE_DATE_EM = 0.83
-_SB_PAD_L_EM = 1.46
-_SB_PAD_R_EM = 1.35
+_SB_SIDE_PCT = 23.0
+_SB_SIDE_PAD_EM = 1.0
+_SB_NUM_EM = 4.4
+_SB_NUM_OF_EM = 1.3
+_SB_NAME_EM = 1.62
+_SB_SIDE_META_EM = 0.83
+_SB_SIDE_DATE_EM = 0.73
+_SB_PAD_L_EM = 1.25
+_SB_PAD_R_EM = 1.15
 _SB_PAD_T_EM = 1.15
 _SB_TITLE_STEPS_EM = (1.51, 1.35, 1.2)
 _SB_TITLE_LH = 1.1
@@ -355,12 +355,12 @@ _SB_RULE_TOP_EM = 0.63
 _SB_RULE_BOTTOM_EM = 0.73
 _SB_TAG_EM = 0.68
 _SB_TAG_BOX_EM = 0.78
-_SB_SUMMARY_STEPS_EM = (1.04, 0.94, 0.85, 0.78)
+_SB_SUMMARY_STEPS_EM = (1.45, 1.3, 1.15, 1.04, 0.94, 0.85, 0.78)
 _SB_SUMMARY_LH = 1.4
-_SB_POINT_STEPS_EM = (1.04, 0.94, 0.85, 0.78)
+_SB_POINT_STEPS_EM = (1.45, 1.3, 1.15, 1.04, 0.94, 0.85, 0.78)
 _SB_POINT_BAR_EM = 0.99  # left bar + its padding
 _SB_POINT_GAP = 0.55
-_SB_APPLY_STEPS_EM = (0.91, 0.85, 0.78, 0.73)
+_SB_APPLY_STEPS_EM = (1.35, 1.2, 1.1, 1.0, 0.91, 0.85, 0.78, 0.73)
 # Numeral column, ems of the list font: the CSS ``flex: 0 0 1.4em`` resolves
 # against the numeral's own 1.37em font, so it is 1.4 * 1.37 list-font ems.
 _SB_APPLY_NUM_SCALE = 1.37
@@ -373,10 +373,10 @@ _SB_LABEL_BOX_EM = 0.26
 _SB_COL_EM = 0.94
 _SB_COL_LH = 1.38
 _SB_COLS_GAP_EM = 0.52
-_SB_QUESTION_STEPS_EM = (1.15, 1.04, 0.94, 0.85)
+_SB_QUESTION_STEPS_EM = (1.45, 1.3, 1.15, 1.04, 0.94, 0.85)
 _SB_QUESTION_LH = 1.25
 _SB_QUESTION_RULE_EM = 0.68  # top rule + its padding
-_SB_QUESTION_GAP_EM = 0.6
+_SB_QUESTION_GAP_EM = 1.1
 
 _SB_NAME_LINES: dict[sd.Screen, tuple[str, str]] = {
     "message": ("The", "Message"),
@@ -460,7 +460,7 @@ def _sidebar_params(
     date = sd.format_service_date(sermon.service_date).upper()
     out["title"] = title
     out["side_meta"] = [
-        {"text": layout.truncate(text, side_inner, size * b), "date": is_date}
+        {"text": layout.truncate(text, 2 * side_inner, size * b), "date": is_date}
         for text, size, is_date in (
             (date, _SB_SIDE_DATE_EM, True),
             (sermon.series, _SB_SIDE_META_EM, False),

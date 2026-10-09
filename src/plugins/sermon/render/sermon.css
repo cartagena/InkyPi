@@ -111,7 +111,7 @@ main {
   align-items: flex-start;
   gap: 0.65em;
   margin-bottom: var(--item-gap);
-  line-height: 1.28;
+  line-height: 1.2;
   font-weight: 500;
 }
 
